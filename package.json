@@ -1,0 +1,28 @@
+{
+  "name": "village-des-blackops",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Le Village des Blackops — Loup-Garou multijoueur en ligne (moteur serveur autoritaire + interface de test)",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server/index.ts",
+    "start": "tsx src/server/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "simulate": "tsx src/sim/simulate.ts"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.1",
+    "tsx": "^4.20.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "socket.io-client": "^4.8.1",
+    "typescript": "^5.9.3"
+  }
+}

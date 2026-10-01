@@ -1,0 +1,216 @@
+# Le Village des Blackops — Architecture (phase 1)
+
+## 1. Analyse de départ
+
+Le dépôt était **vide** (aucun commit, aucun fichier) : il n'y avait ni stack
+existante à conserver, ni fonctionnalité à préserver. L'architecture a donc été
+conçue de zéro, en suivant les contraintes du cahier des charges :
+
+| Contrainte | Choix |
+| --- | --- |
+| Partie temps réel d'environ 30 min, sans mise en sommeil | **Processus Node.js persistant** + **Socket.IO** (WebSocket, repli en long-polling) |
+| Serveur source de vérité | Moteur **autoritaire** côté serveur ; le client n'envoie que des intentions |
+| Timers non manipulables | Timers **serveur** (`phase.endsAt`) ; le client affiche un compte à rebours recalé sur l'heure du serveur |
+| Aucune fuite d'info | **Projection par joueur** (`view.ts`) en liste blanche ; l'état complet ne quitte jamais le serveur |
+| Reconnexion / persistance | État 100 % JSON, **sauvegardé après chaque changement**, restauré au démarrage ; jeton de session secret |
+| Extensibilité | Registre de **rôles** + **étapes nocturnes**, **effets de nuit** résolus génériquement, **conditions de victoire** enregistrables |
+
+Ce qui est **à éviter** (et évité) : hébergement serverless (fonctions qui
+s'endorment entre deux requêtes), timers uniquement navigateur, état dans React,
+votes/victoire calculés côté client.
+
+## 2. Arborescence
+
+```
+src/
+  shared/            Types et protocole partagés serveur ↔ client (aucun secret)
+    types.ts         PhaseId, PlayerView, ActionPrompt, VoiceView…
+    protocol.ts      Événements Socket.IO typés
+  engine/            MOTEUR — pur, synchrone, sans réseau (testable seul)
+    engine.ts        GameEngine : façade unique (lobby, commandes, tick, vue)
+    state.ts         GameState (état secret, JSON pur) + helpers
+    settings.ts      Réglages, préréglages de durées, validation des entrées Hôte
+    lobby.ts         Création, joueurs, composition, distribution aléatoire, Hôte
+    phase.ts         enterPhase, libellés, état du ciel (jour/coucher/nuit/lune/aube)
+    flow.ts          PHASE MANAGER : machine d'état, séquence de morts, abandons
+    commands.ts      Validation et application des commandes client + prompts
+    roles/           SYSTÈME DE RÔLES (un fichier par rôle, auto-enregistré)
+    deaths.ts        Morts, réactions en chaîne, ACTION RESOLVER de la nuit
+    votes.ts         VOTE MANAGER (secret, voix double du Capitaine)
+    speech.ts        Ordre des tours de parole
+    voice.ts         VOICE PERMISSIONS (qui parle, qui entend)
+    chat.ts          CHAT PERMISSIONS (village / loups / morts)
+    win.ts           WIN CONDITION MANAGER (extensible)
+    camps.ts         Camp effectif (couple mixte → camp « amoureux »)
+    view.ts          Projection anti-triche de l'état vers UN joueur
+    bots.ts          Bots de test (ne voient que leur propre vue)
+    rng.ts           Aléatoire crypto (prod) / à graine (tests)
+  server/
+    index.ts         Démarrage (port, dossier de données, arrêt propre)
+    app.ts           Express + Socket.IO (heartbeat, limites)
+    gameManager.ts   Salles, TIMER MANAGER, diffusion des vues, bots, relais WebRTC
+    store.ts         Persistance (FileGameStore / MemoryGameStore)
+    rateLimit.ts     Anti-flood par socket
+  sim/simulate.ts    Simulation headless de parties complètes
+public/              INTERFACE TEMPORAIRE (sera remplacée en phase 2)
+  js/gameClient.js   SDK réseau réutilisable (aucune règle de jeu)
+  js/voice.js        Micro WebRTC piloté par les permissions serveur
+  js/app.js          Interface de test
+test/                Tests (règles, anti-fuite, simulations, serveur réel)
+```
+
+## 3. Machine d'état
+
+```
+LOBBY ─start─▶ ROLE_DISTRIBUTION ─▶ NIGHT_START
+  ─▶ THIEF_PHASE (nuit 1) ─▶ CUPID_PHASE (nuit 1) ─▶ WEREWOLF_PHASE
+  ─▶ WHITE_WOLF_PHASE (nuits paires) ─▶ SEER_PHASE ─▶ SALVATION_PHASE ─▶ WITCH_PHASE
+  ─▶ NIGHT_RESOLUTION ─▶ SUNRISE
+  ─▶ [DEATH_LAST_WORD → HUNTER_SHOT? → CAPTAIN_SUCCESSION?]*  (file de morts)
+  ─▶ WIN_CHECK ─▶ [CAPTAIN_ELECTION (jour 1)]
+  ─▶ PLAYER_SPEECH × vivants ─▶ FREE_DISCUSSION ─▶ VOTING ─▶ VOTE_RESULT
+  ─▶ DEATH_SEQUENCE ─▶ [morts]* ─▶ WIN_CHECK ─▶ NIGHT_START …
+                                       └──▶ GAME_OVER
+```
+
+* Chaque phase possède `endsAt` (heure serveur). À expiration, `finishPhase`
+  calcule la phase suivante. Une phase peut se terminer **en avance** (FINIR,
+  action effectuée, tous les votes reçus) — toujours décidé par le serveur.
+* `NIGHT_RESOLUTION`, `DEATH_SEQUENCE`, `WIN_CHECK` sont des états transitoires.
+* Les étapes nocturnes sont **ordonnées par `order`** dans le registre : ajouter
+  un rôle nocturne n'impose pas de modifier `flow.ts`.
+* **Phases simulées** : si le rôle d'une étape est mort ou écarté (cartes du
+  Voleur), la phase est quand même jouée avec une durée aléatoire. Sinon les
+  joueurs déduiraient la mort de la Voyante en voyant sa phase disparaître.
+
+### Séquence de morts
+
+`kill()` marque le joueur mort et pousse des tâches dans `deathQueue` :
+`last_word` (30 s), `hunter_shot` (Chasseur), `captain_succession` (Capitaine).
+L'amoureux survivant meurt aussitôt (chagrin), avec sa propre dernière parole.
+`runPipeline()` dépile la file, puis exécute `WIN_CHECK`, puis reprend le jour
+ou la nuit. Le rôle des morts n'est **jamais** annoncé.
+
+### Résolution de la nuit (ActionResolver)
+
+Les rôles ne tuent pas directement : ils produisent des **effets**
+(`attack`, `protect`, `save`, `kill`). En fin de nuit, `resolveNightEffects`
+applique : une attaque est annulée par une protection/sauvegarde couvrant sa
+source ; le poison est inconditionnel. Ajouter un rôle protecteur ou tueur
+revient à émettre un effet.
+
+## 4. Rôles
+
+Un rôle = `registerRole({...})` + éventuellement `registerNightStep({...})`
+(voir `src/engine/roles/types.ts`). Exemple de nouveau rôle nocturne :
+
+```ts
+registerRole({ id: 'fox', name: 'Renard', emoji: '🦊', team: 'village', unique: true,
+  distributable: true, description: '…', seerResult: () => 'CIVIL' });
+registerNightStep({ id: 'fox', phase: 'FOX_PHASE', order: 55, roleIds: ['fox'],
+  duration: (s) => 20_000, isScheduled: () => true,
+  actors: (ctx) => playersWithRole(ctx.state, 'fox'),
+  prompt: (ctx, actor) => ({ … }), handle: (ctx, actor, cmd) => { … },
+  isComplete: (ctx) => … });
+```
+(+ ajouter `FOX_PHASE` à `PHASES` et son libellé.)
+
+| Rôle | Règles implémentées |
+| --- | --- |
+| Simple Villageois | Aucun pouvoir |
+| Loup-Garou | Canal voix + chat privés ; voient les votes de la meute ; fin anticipée si unanimité ; sinon majorité, égalité tirée au sort |
+| Loup-Blanc | Se réveille avec la meute ; camp indépendant ; nuits paires : peut dévorer un loup ; gagne seul ; résultat Voyante configurable |
+| Voyante | Reçoit uniquement `LOUP` / `CIVIL`, calculé serveur |
+| Sorcière | Informée de la victime ; nuit 1 : pas de potion de mort ; une seule utilisation par potion ; auto-sauvetage configurable |
+| Cupidon | Nuit 1, deux joueurs ; chaque amoureux ne connaît que le **nom** de l'autre ; mort par chagrin ; tirage au sort si Cupidon ne choisit pas |
+| Voleur | Nuit 1 : deux cartes supplémentaires ; échange ou devient villageois ; obligé de prendre un loup si les deux en sont |
+| Chasseur | Dernier tir à sa mort (sauf abandon) |
+| Salvateur | Protège des loups ; pas deux fois de suite la même personne (configurable) |
+| Capitaine | Titre élu le jour 1 (option) ; voix double ; successeur désigné à sa mort |
+
+## 5. Conditions de victoire
+
+`win.ts` évalue une liste ordonnée (`registerWinCondition`) après chaque
+séquence de morts et après un abandon :
+
+1. plus personne en vie → égalité ;
+2. tous les survivants ont le **même camp effectif** → ce camp gagne
+   (`village`, `wolves`, `white_wolf`, `lovers`) ;
+3. option : loups à parité ;
+4. garde-fou : nombre maximal de jours → égalité.
+
+Le camp effectif d'un amoureux devient `lovers` si le couple est **mixte** ; un
+couple de même camp gagne avec son camp.
+
+## 6. Voix et chats
+
+`voice.ts` calcule pour chaque phase `{mode, speakers, listeners}` ; chaque
+joueur ne reçoit que `{canSpeak, speakTo, hearFrom}` :
+
+| Phase | Qui parle | Qui entend |
+| --- | --- | --- |
+| Lobby / fin de partie | tous | tous |
+| Phase des Loups | meute vivante | meute vivante |
+| Dernière parole | le mort concerné | tous |
+| Tour de parole | l'orateur désigné par le serveur | tous |
+| Discussion libre / élection | vivants | tous (les morts écoutent) |
+| Autres (nuit, vote, annonces) | personne | — |
+
+Le chat « village » reprend exactement ces droits (on écrit si on a la parole).
+Le chat des Loups est réservé à la meute vivante, celui des morts aux morts :
+les vivants ne le reçoivent jamais et les morts ne peuvent plus écrire chez les
+vivants. Tout est vérifié côté serveur.
+
+**Transport audio (phase 1)** : maillage WebRTC pair-à-pair, signalisation
+relayée par le serveur. L'émetteur ne transmet sa piste qu'à `speakTo`, le
+récepteur coupe tout ce qui n'est pas dans `hearFrom`. Limite : un client
+modifié pourrait techniquement écouter un pair honnête… qui ne lui envoie rien,
+ou parler hors tour… sans être entendu par les clients honnêtes. Pour une
+garantie serveur stricte, brancher un **SFU** (LiveKit, mediasoup) qui
+consomme la même structure `voice` (jetons émis par le serveur à chaque phase).
+
+## 7. Temps réel, connexions et reconnexion
+
+* Socket.IO avec heartbeat (`pingInterval` 20 s / `pingTimeout` 25 s) : une
+  phase silencieuse ne coupe pas la connexion ; reconnexion automatique du client.
+* Après **chaque** changement : la vue de chaque joueur lui est renvoyée en
+  entier (≈ quelques Ko). Pas de diff à resynchroniser : une reconnexion = une vue.
+* Timers : `setTimeout` sur `phase.endsAt` + horloge de maintenance (1 s). Le
+  client affiche `endsAt - (Date.now() + décalage serveur)`.
+* Persistance : un fichier JSON par partie (écriture atomique). Au redémarrage,
+  les parties sont rechargées, les timers expirés rattrapés, les humains marqués
+  déconnectés jusqu'à leur retour.
+
+| Situation | Stratégie |
+| --- | --- |
+| Rafraîchissement / fermeture accidentelle | Jeton secret en `localStorage` → `session:resume` → vue complète (rôle, phase, action possible si la phase est encore ouverte) |
+| Perte de connexion courte | Joueur marqué 📴, reste en jeu ; ses timers continuent ; il reprend où en est la partie |
+| Déconnexion prolongée (3 min, réglable) | **Abandon** : mort sans dernière parole, annonce « a quitté le village » (sans rôle) ; amoureux, Capitaine, victoire traités |
+| Départ volontaire en partie | Abandon immédiat (même traitement) |
+| Lobby | Départ = retrait ; déconnexion > 2 min = retrait |
+| Hôte qui part ou déconnecté > 30 s | L'Hôte passe au plus ancien joueur connecté. L'Hôte n'a aucun pouvoir sur une partie lancée (réglages verrouillés) |
+| Orateur absent | Son tour de parole est sauté ; dernière parole sautée s'il est absent |
+| Action nocturne d'un absent | La phase dure son temps normal (ne rien révéler), action par défaut à l'expiration |
+| Plus aucun humain connecté | Partie supprimée après 15 min (lobby : 10 min ; partie finie : 30 min) |
+
+## 8. Anti-triche
+
+* L'état (`GameState`) n'est jamais sérialisé vers un client ; `buildView`
+  construit chaque champ explicitement (liste blanche).
+* Jamais envoyés : rôles des autres (sauf fin de partie), bulletins, choix
+  nocturnes, données internes de phase (dont le caractère « simulé »), messages
+  privés d'autrui, jetons (stockés hachés SHA-256).
+* Toute commande est revalidée : phase, rôle, vivant, cible autorisée, unicité.
+  Les entrées (réglages, pseudo, chat) sont bornées et nettoyées ; limiteur de débit.
+* Un test parcourt des centaines de parties simulées et vérifie, à chaque étape
+  et pour chaque joueur, l'absence de fuite (`test/simulation.test.ts`).
+* Les bots jouent uniquement avec leur vue : preuve qu'aucune info secrète n'est
+  nécessaire côté client.
+
+## 9. Déploiement
+
+Le serveur doit tourner comme **service persistant** (VM, conteneur, Render /
+Railway / Fly.io en instance toujours active) avec `PORT` et `DATA_DIR`
+(volume persistant). Pour monter en charge sur plusieurs instances : affinité de
+session (sticky) + adaptateur Redis Socket.IO, et `GameStore` Redis/PostgreSQL —
+l'interface `GameStore` est prévue pour cela.
