@@ -52,7 +52,52 @@ export class VoiceMesh extends EventTarget {
     // Le nouvel arrivant initie la connexion vers chaque pair déjà présent.
     for (const id of peers) this.#ensurePeer(id, true);
     this.applyPermissions();
+    this.#startMeter();
     this.#emit();
+  }
+
+  /**
+   * Détection de la parole (niveau sonore) pour l'indicateur visuel :
+   * émet 'talking' avec l'ensemble des joueurs qui parlent réellement.
+   * Purement visuel — n'a aucun effet sur les permissions.
+   */
+  #startMeter() {
+    try {
+      this.ctx = new AudioContext();
+    } catch {
+      return;
+    }
+    this.analysers = new Map();
+    if (this.stream && this.myId) this.#watch(this.myId, this.stream);
+    const buf = new Uint8Array(256);
+    this.meter = setInterval(() => {
+      const talking = new Set();
+      for (const [id, an] of this.analysers) {
+        an.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (const v of buf) sum += (v - 128) * (v - 128);
+        if (Math.sqrt(sum / buf.length) > 6) talking.add(id);
+      }
+      const key = [...talking].sort().join(',');
+      if (key !== this.talkingKey) {
+        this.talkingKey = key;
+        this.talking = talking;
+        this.dispatchEvent(new CustomEvent('talking', { detail: talking }));
+      }
+    }, 150);
+  }
+
+  #watch(id, stream) {
+    if (!this.ctx || !stream.getAudioTracks().length) return;
+    try {
+      const src = this.ctx.createMediaStreamSource(stream);
+      const an = this.ctx.createAnalyser();
+      an.fftSize = 256;
+      src.connect(an);
+      this.analysers.set(id, an);
+    } catch {
+      /* indicateur indisponible */
+    }
   }
 
   stop() {
@@ -64,6 +109,12 @@ export class VoiceMesh extends EventTarget {
     this.socket.off('voice:signal', this.onSignal);
     this.client.removeEventListener('view', this.onView);
     for (const id of [...this.peers.keys()]) this.#closePeer(id);
+    clearInterval(this.meter);
+    this.ctx?.close().catch(() => {});
+    this.ctx = null;
+    this.analysers = new Map();
+    this.talking = new Set();
+    this.dispatchEvent(new CustomEvent('talking', { detail: this.talking }));
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
     this.#emit();
@@ -109,6 +160,7 @@ export class VoiceMesh extends EventTarget {
     if (initiator) pc.addTransceiver('audio', { direction: 'sendrecv' });
     pc.ontrack = (e) => {
       audio.srcObject = new MediaStream([e.track]);
+      this.#watch(id, audio.srcObject);
       audio.play().catch(() => {});
     };
     pc.onicecandidate = (e) => {

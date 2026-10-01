@@ -3,9 +3,9 @@
 Loup-Garou multijoueur en ligne, jouable dans le navigateur (jusqu'à 18 joueurs,
 parties d'environ 30 minutes).
 
-> **Phase 1 (ce dépôt)** : moteur de jeu complet, serveur temps réel autoritaire,
-> voix, chats, persistance et une **interface temporaire de test**.
-> Le plateau 3D animé arrivera en phase 2, sans réécrire le moteur.
+> Moteur de jeu complet (serveur temps réel autoritaire, voix, chats, persistance)
+> et plateau **2D style bande dessinée** : village illustré, personnages-pions,
+> cycle jour/nuit animé, cartes de rôles, narrateur.
 
 ## Démarrer
 

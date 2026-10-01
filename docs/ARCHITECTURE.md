@@ -214,3 +214,42 @@ Railway / Fly.io en instance toujours active) avec `PORT` et `DATA_DIR`
 (volume persistant). Pour monter en charge sur plusieurs instances : affinité de
 session (sticky) + adaptateur Redis Socket.IO, et `GameStore` Redis/PostgreSQL —
 l'interface `GameStore` est prévue pour cela.
+
+## 10. Direction artistique (phase 2 — plateau 2D « bande dessinée »)
+
+Aucune 3D : tout est en 2D (SVG + CSS). La profondeur vient de la perspective
+dessinée, des ombres, de la superposition et de la mise à l'échelle des pions.
+**Aucune règle du jeu n'a été modifiée** ; seul ajout côté serveur : le choix
+cosmétique du personnage dans le lobby (`lobby:avatar`, `src/shared/avatars.ts`).
+
+| Élément | Fichier |
+| --- | --- |
+| Décor du village (illustration fixe) | `scripts/art/village.mjs` → `public/assets/village.svg` |
+| Calque des lumières de nuit + sources | `public/assets/village-lights.svg`, `public/assets/lights.json` |
+| Personnages jouables (14) | `public/js/art/characters.js` |
+| Cartes de rôles + dos | `public/js/art/cards.js` |
+| Plateau, pions, animations (mort, Chasseur) | `public/js/board/board.js` |
+| Cycle jour / nuit | `public/js/board/daynight.js` |
+| Narrateur, révélation de carte | `public/js/board/overlays.js` |
+| Interface (HUD), lobby, chats | `public/js/app.js`, `public/style.css` |
+
+* **Plateau** : repère fixe 1536×1024, mis à l'échelle (plateau entier sur
+  ordinateur ; recadré sur la place en mobile portrait, interface au-dessus).
+* **Cycle jour/nuit** (seule animation permanente du décor) : ciel en dégradé,
+  soleil qui monte/descend, lune, étoiles, teinte chaude du coucher, obscurité
+  percée autour du feu et des lanternes, fenêtres allumées. Seules des opacités
+  et des translations sont animées (fluide sur mobile).
+* **Pions** : placés en ellipse autour de la place, « moi » en bas ; nom au-dessus,
+  indicateur de micro (autorisé / coupé selon les permissions serveur), halo doré
+  pour qui a la parole, halo vert + onde sonore quand le micro capte une voix,
+  mise en évidence locale (secrète) du vote, chute + tombe à la mort.
+* **Chasseur** : le pion se relève, vise, tire ; projectile, éclair et « PAN ! ».
+* **Cartes** : apparition → retournement (2D) → affichage → réduction vers
+  l'emplacement de la carte dans l'interface.
+* **Narrateur** : encadrés de narration BD (apparition → affichage → disparition),
+  au-dessus du plateau sans masquer la place.
+* **Chat des morts** : panneau qui monte depuis le bas, visible seulement si le
+  serveur y donne accès.
+* Polices auto-hébergées (Bangers, Nunito — licence OFL), décor compressé (gzip ≈ 80 Ko).
+
+Régénérer le décor : `node scripts/art/village.mjs`.

@@ -155,3 +155,25 @@ describe('Déconnexions', () => {
     assert.throws(() => e.updateSettings(e.state.hostId, { roles: { werewolf: 2 } }, 31_000));
   });
 });
+
+describe('Personnages', () => {
+  it('la liste des personnages du client correspond à celle du serveur', async () => {
+    const { AVATAR_IDS } = await import('../src/shared/avatars.ts');
+    const modulePath = '../public/js/art/characters.js';
+    const { CHARACTER_IDS, characterSVG } = await import(modulePath);
+    assert.deepEqual([...CHARACTER_IDS].sort(), [...AVATAR_IDS].sort());
+    for (const id of CHARACTER_IDS) assert.match(characterSVG(id), /^<svg/);
+  });
+
+  it('le choix du personnage est réservé au lobby et validé par le serveur', () => {
+    const e = GameEngine.create('AV', 0, seededRng(1));
+    const host = e.join('H', 'h', 0);
+    e.setAvatar(host.id, 'f-rousse', 0);
+    assert.equal(e.view(host.id, 0).players[0].avatar, 'f-rousse');
+    assert.throws(() => e.setAvatar(host.id, 'dragon', 0), GameError);
+    for (let i = 0; i < 3; i++) e.join(`J${i}`, `t${i}`, 0);
+    e.updateSettings(host.id, { roles: { werewolf: 1 } }, 0);
+    e.start(host.id, 0);
+    assert.throws(() => e.setAvatar(host.id, 'm-brun', 0), GameError);
+  });
+});

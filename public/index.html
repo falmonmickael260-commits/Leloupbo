@@ -2,95 +2,107 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Le Village des Blackops — Banc de test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1b130e" />
+    <title>Le Village des Blackops</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐺</text></svg>" />
+    <link rel="preload" href="/fonts/bangers-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/assets/village.svg" as="image" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div class="brand">🐺 Le Village des Blackops <span class="tag">phase 1 · interface de test</span></div>
-      <div class="status"><span id="code"></span><span id="conn" class="pill">connexion…</span></div>
-    </header>
+    <!-- Le plateau : toujours affiché, il sert aussi de décor à l'accueil et au lobby. -->
+    <div id="board" class="board"></div>
+    <div id="narrator" class="narrator"></div>
 
-    <main>
-      <!-- Accueil -->
-      <section id="screen-home" class="screen card narrow">
-        <h1>Rejoindre le village</h1>
-        <label>Pseudo <input id="name" maxlength="20" placeholder="Votre pseudo" autocomplete="nickname" /></label>
-        <div class="row">
-          <button id="btn-create" class="primary">Créer une partie</button>
+    <!-- Accueil -->
+    <section id="screen-home" class="screen">
+      <div class="panel home-panel">
+        <h1 class="logo">Le Village<br />des Blackops</h1>
+        <p class="tagline">Loup-Garou en ligne · jusqu’à 18 joueurs</p>
+        <label class="field">Ton pseudo <input id="name" maxlength="20" placeholder="Ton pseudo" autocomplete="nickname" /></label>
+        <button id="btn-create" class="btn btn-gold big">Créer une partie</button>
+        <div class="or"><span>ou</span></div>
+        <label class="field">Code de la partie <input id="join-code" maxlength="5" placeholder="ABCDE" class="code-input" /></label>
+        <button id="btn-join" class="btn big">Rejoindre</button>
+        <p class="hint">Test à plusieurs dans un même navigateur : onglets avec <code>?profile=2</code>, <code>?profile=3</code>…</p>
+      </div>
+    </section>
+
+    <!-- Lobby -->
+    <section id="screen-lobby" class="screen">
+      <div class="lobby">
+        <div class="panel lobby-players">
+          <h2>Les villageois <span id="lobby-count" class="muted"></span></h2>
+          <div class="code-chip">Code : <b id="lobby-code"></b></div>
+          <ul id="lobby-players" class="plist"></ul>
+          <div class="row host-only"><button id="btn-add-bot" class="btn small">+ Ajouter un bot</button></div>
         </div>
-        <hr />
-        <label>Code de la partie <input id="join-code" maxlength="5" placeholder="ABCDE" class="code-input" /></label>
-        <div class="row"><button id="btn-join">Rejoindre</button></div>
-        <p class="hint">
-          Astuce test multi-joueurs dans un même navigateur : ouvrez d’autres onglets avec
-          <code>?profile=2</code>, <code>?profile=3</code>… (chaque profil = un joueur distinct).
-          Ou ajoutez des bots depuis le lobby.
-        </p>
-      </section>
-
-      <!-- Lobby -->
-      <section id="screen-lobby" class="screen">
-        <div class="grid-2">
-          <div class="card">
-            <h2>Joueurs <span id="lobby-count" class="muted"></span></h2>
-            <ul id="lobby-players" class="plist"></ul>
-            <div class="row host-only">
-              <button id="btn-add-bot">+ Ajouter un bot</button>
-            </div>
-            <p class="hint">Partagez le code <b id="lobby-code"></b> pour inviter des joueurs.</p>
-          </div>
-          <div class="card">
-            <h2>Composition & règles</h2>
-            <p class="hint host-hint"></p>
-            <div id="settings"></div>
-            <div id="composition-preview" class="hint"></div>
-            <div class="row host-only"><button id="btn-start" class="primary">Lancer la partie</button></div>
-          </div>
+        <div class="panel lobby-avatar">
+          <h2>Choisis ton personnage</h2>
+          <div id="avatar-grid" class="avatar-grid"></div>
         </div>
-        <div id="lobby-voice" class="card"></div>
-        <div class="row"><button id="btn-leave-lobby" class="ghost">Quitter</button></div>
-      </section>
-
-      <!-- Partie -->
-      <section id="screen-game" class="screen">
-        <div id="phase-bar" class="phase-bar">
-          <span id="sky" class="sky"></span>
-          <div>
-            <div id="phase-label" class="phase-label"></div>
-            <div id="phase-sub" class="muted"></div>
-          </div>
-          <div id="timer" class="timer"></div>
-        </div>
-
-        <div class="game-grid">
-          <div class="card">
-            <h2>Village</h2>
-            <div id="players" class="players"></div>
-          </div>
-
-          <div class="col">
-            <div id="role-card" class="card role-card"></div>
-            <div id="action" class="card action"></div>
-            <div id="voice" class="card"></div>
-            <div id="gameover" class="card"></div>
-          </div>
-
-          <div class="card side">
-            <div class="tabs" id="tabs"></div>
-            <div id="tab-body" class="tab-body"></div>
-            <form id="chat-form" class="chat-form">
-              <input id="chat-input" maxlength="300" placeholder="Message…" autocomplete="off" />
-              <button>Envoyer</button>
-            </form>
+        <div class="panel lobby-settings">
+          <h2>Composition & règles</h2>
+          <p class="hint host-hint"></p>
+          <div id="settings"></div>
+          <div id="composition-preview" class="hint"></div>
+          <div class="row">
+            <button id="btn-start" class="btn btn-gold big host-only">Lancer la partie</button>
+            <button id="btn-leave-lobby" class="btn ghost small">Quitter</button>
           </div>
         </div>
-        <div class="row"><button id="btn-leave-game" class="ghost">Quitter la partie (abandon)</button></div>
-      </section>
-    </main>
+      </div>
+    </section>
 
+    <!-- Interface de jeu (par-dessus le plateau) -->
+    <section id="screen-game" class="screen hud">
+      <header class="hud-top">
+        <div id="phase" class="phase-box">
+          <div class="phase-text"><div id="phase-label" class="phase-label"></div><div id="phase-sub" class="phase-sub"></div></div>
+          <div class="timer" id="timer"><svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="19"/><circle class="ring" id="timer-ring" cx="22" cy="22" r="19"/></svg><span id="timer-text"></span></div>
+        </div>
+        <div class="hud-corner">
+          <span id="code" class="chip"></span><span id="conn" class="chip dot">●</span>
+          <button id="btn-menu" class="icon-btn" title="Menu">☰</button>
+        </div>
+      </header>
+
+      <aside class="hud-me">
+        <button id="my-card" class="my-card" title="Voir ma carte"></button>
+        <div class="me-info">
+          <div id="me-name" class="me-name"></div>
+          <div id="me-status" class="me-status"></div>
+          <button id="btn-mic" class="mic-btn"></button>
+        </div>
+      </aside>
+
+      <div id="action" class="action"></div>
+
+      <button id="btn-chat" class="fab chat-fab" title="Journal & discussions">💬<span id="chat-badge" class="badge"></span></button>
+      <button id="btn-dead" class="fab dead-fab" title="Chat des morts">💀<span id="dead-badge" class="badge"></span></button>
+
+      <aside id="chat-panel" class="drawer">
+        <div class="drawer-head"><div id="tabs" class="tabs"></div><button class="icon-btn" data-close="chat-panel">✕</button></div>
+        <div id="tab-body" class="tab-body"></div>
+        <form id="chat-form" class="chat-form"><input id="chat-input" maxlength="300" placeholder="Message…" autocomplete="off" /><button class="btn small">Envoyer</button></form>
+      </aside>
+
+      <aside id="dead-panel" class="sheet">
+        <div class="drawer-head"><h3>💀 CHAT DES MORTS</h3><button class="icon-btn" data-close="dead-panel">✕</button></div>
+        <div id="dead-body" class="tab-body"></div>
+        <form id="dead-form" class="chat-form"><input id="dead-input" maxlength="300" placeholder="Parler aux autres âmes…" autocomplete="off" /><button class="btn small">Envoyer</button></form>
+      </aside>
+
+      <div id="gameover" class="gameover"></div>
+
+      <div id="menu" class="menu">
+        <button id="btn-leave-game" class="btn ghost">Quitter la partie</button>
+      </div>
+    </section>
+
+    <div id="card-layer" class="card-layer"></div>
+    <div id="card-zoom" class="card-zoom"></div>
     <div id="toast" class="toast"></div>
 
     <script src="/socket.io/socket.io.js"></script>

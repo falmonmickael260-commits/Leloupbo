@@ -1,3 +1,4 @@
+import compression from 'compression';
 import express from 'express';
 import { createServer, type Server as HttpServer } from 'node:http';
 import path from 'node:path';
@@ -20,7 +21,8 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
   app.get('/api/roles', (_req, res) => {
     res.json(allRoles().map(roleInfo));
   });
-  app.use(express.static(PUBLIC_DIR));
+  app.use(compression());
+  app.use(express.static(PUBLIC_DIR, { maxAge: '1h' }));
 
   const http = createServer(app);
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(http, {
