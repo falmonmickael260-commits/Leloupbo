@@ -10,7 +10,7 @@ import type { ClientCommand, PlayerView } from '../shared/types.ts';
 import { sendChat } from './chat.ts';
 import { handleCommand } from './commands.ts';
 import { abandonPlayer, advanceTime } from './flow.ts';
-import { addPlayer, createGameState, removePlayer, resetToLobby, startGame, transferHost, updateSettings, requireHost } from './lobby.ts';
+import { setAvatar, addPlayer, createGameState, removePlayer, resetToLobby, startGame, transferHost, updateSettings, requireHost } from './lobby.ts';
 import { cryptoRng, type Rng } from './rng.ts';
 import './roles/index.ts';
 import { getPlayer, type Ctx, type GameState, type PlayerState } from './state.ts';
@@ -56,6 +56,9 @@ export class GameEngine {
       const n = this.state.players.filter((p) => p.isBot).length + 1;
       return addPlayer(ctx, `Bot ${n}`, '', true);
     });
+  }
+  setAvatar(playerId: string, avatar: unknown, now: number): void {
+    this.mutate(now, (ctx) => setAvatar(ctx, playerId, avatar));
   }
   kick(hostId: string, playerId: string, now: number): void {
     this.mutate(now, (ctx) => {

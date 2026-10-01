@@ -27,6 +27,8 @@ export interface PlayerState {
   seat: number;
   tokenHash: string;
   isBot: boolean;
+  /** Personnage choisi (cosmétique). */
+  avatar?: string;
   joinedAt: number;
   connected: boolean;
   disconnectedAt: number | null;

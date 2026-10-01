@@ -13,6 +13,7 @@ import { PHASE_LABELS, skyFor } from './phase.ts';
 import { allRoles, getRole, isWolfPack, roleInfo } from './roles/index.ts';
 import { getPlayer, type Ctx } from './state.ts';
 import { voiceFor } from './voice.ts';
+import { defaultAvatar } from '../shared/avatars.ts';
 
 const CHANNELS: ChatChannel[] = ['village', 'wolves', 'dead'];
 const MAX_ANNOUNCEMENTS = 60;
@@ -82,6 +83,7 @@ export function buildView(ctx: Ctx, playerId: string): PlayerView {
       isBot: p.isBot,
       isCaptain: s.captainId === p.id,
       isMe: p.id === playerId,
+      avatar: p.avatar ?? defaultAvatar(p.seat),
     }));
 
   const chats: PlayerView['chats'] = {};

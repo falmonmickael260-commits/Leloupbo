@@ -114,6 +114,8 @@ export interface PublicPlayer {
   connected: boolean;
   isHost: boolean;
   isBot: boolean;
+  /** Personnage choisi (cosmétique, voir shared/avatars.ts). */
+  avatar: string;
   isCaptain: boolean;
   isMe: boolean;
 }

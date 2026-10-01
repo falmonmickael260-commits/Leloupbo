@@ -1,6 +1,7 @@
 /** Création de partie, gestion du lobby, composition et distribution aléatoire des rôles. */
 import type { RoleId } from '../shared/types.ts';
 import { fail } from './errors.ts';
+import { AVATAR_IDS, defaultAvatar, isAvatarId } from '../shared/avatars.ts';
 import { enterPhase } from './phase.ts';
 import { shuffle } from './rng.ts';
 import { allRoles, getRole, requireRole } from './roles/index.ts';
@@ -75,6 +76,7 @@ export function addPlayer(ctx: Ctx, rawName: unknown, tokenHash: string, isBot =
     abandoned: false,
     loverId: null,
     roleData: {},
+    avatar: isBot ? AVATAR_IDS[ctx.rng.int(AVATAR_IDS.length)] : defaultAvatar(seat),
   };
   s.players.push(p);
   if (!s.hostId) s.hostId = p.id;
@@ -203,4 +205,14 @@ export function resetToLobby(ctx: Ctx, playerId: string): void {
 
 export function roleCatalog() {
   return allRoles();
+}
+
+/** Choix du personnage (cosmétique) — uniquement dans le lobby. */
+export function setAvatar(ctx: Ctx, playerId: string, avatar: unknown): void {
+  const s = ctx.state;
+  if (s.status !== 'lobby') fail('GAME_STARTED', 'Le personnage se choisit avant la partie.');
+  if (!isAvatarId(avatar)) fail('BAD_AVATAR', 'Personnage inconnu.');
+  const p = getPlayer(s, playerId);
+  if (!p) fail('NOT_IN_GAME', 'Joueur inconnu.');
+  p.avatar = avatar;
 }

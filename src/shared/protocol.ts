@@ -20,6 +20,7 @@ export interface ClientToServerEvents {
   'session:resume': (p: { code: string; token: string }, ack: (r: Ack<{ playerId: string }>) => void) => void;
   'lobby:settings': (p: Partial<GameSettings>, ack: (r: Ack) => void) => void;
   'lobby:addBot': (p: Record<string, never>, ack: (r: Ack) => void) => void;
+  'lobby:avatar': (p: { avatar: string }, ack: (r: Ack) => void) => void;
   'lobby:kick': (p: { playerId: string }, ack: (r: Ack) => void) => void;
   'game:start': (p: Record<string, never>, ack: (r: Ack) => void) => void;
   'game:reset': (p: Record<string, never>, ack: (r: Ack) => void) => void;
