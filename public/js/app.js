@@ -366,9 +366,11 @@ function renderTabs(v) {
   else if (ui.tab === 'private') items = v.privateLog.map((m) => `<div class="item"><span class="at">${time(m.at)}</span>${esc(m.text)}</div>`);
   else items = (v.chats[ui.tab] ?? []).map((m) => `<div class="item"><span class="at">${time(m.at)}</span><span class="who">${esc(m.authorName)}</span> : ${esc(m.text)}</div>`);
   const body = $('tab-body');
-  const atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 30;
+  // Défile en bas au premier affichage d'un onglet, puis seulement si on y était déjà.
+  const atBottom = ui.renderedTab !== ui.tab || body.scrollTop + body.clientHeight >= body.scrollHeight - 30;
   body.innerHTML = items.join('') || '<div class="muted">Rien pour l’instant.</div>';
   if (atBottom) body.scrollTop = body.scrollHeight;
+  ui.renderedTab = ui.tab;
 
   const isChat = ['village', 'wolves', 'dead'].includes(ui.tab);
   const canWrite = isChat && v.chatWrite[ui.tab];
