@@ -219,7 +219,7 @@ describe('Jour', () => {
     assert.equal(g.view(5).voice.canSpeak, false);
   });
 
-  it('tours de parole de 60 s, un seul micro, ordre décidé par le serveur', () => {
+  it('tours de parole de 45 s, un seul micro, ordre décidé par le serveur', () => {
     const g = toDay();
     g.until('PLAYER_SPEECH');
     const order = g.view(0).phase.speechOrder!;
@@ -230,7 +230,7 @@ describe('Jour', () => {
       assert.equal(v.voice.canSpeak, true);
       const speakers = g.ids.filter((pid) => g.engine.view(pid, g.now).voice.canSpeak);
       assert.deepEqual(speakers, [id]);
-      assert.equal(g.engine.state.phase.endsAt! - g.engine.state.phase.startedAt, 60_000);
+      assert.equal(g.engine.state.phase.endsAt! - g.engine.state.phase.startedAt, 45_000);
       g.engine.command(id, { action: 'finish' }, g.now);
     }
     assert.equal(g.phase, 'FREE_DISCUSSION');

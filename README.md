@@ -49,7 +49,7 @@ npm run simulate -- 10 200       # 200 parties : statistiques de victoire
   Chasseur, Salvateur, Capitaine (élu). Ajout d'un rôle = un fichier.
 * Machine d'état serveur : nuit (rôles réveillés un par un) → résolution →
   lever du jour → dernières paroles (30 s, bouton FINIR) → élection du Capitaine
-  (jour 1) → tours de parole (60 s chacun, un seul micro) → discussion libre (60 s)
+  (jour 1) → tours de parole (45 s chacun, un seul micro) → discussion libre (60 s)
   → vote secret (20 s) → résultat (rôle jamais révélé) → morts → victoire ?
 * Voix : permissions calculées par le serveur à chaque phase (canal privé des
   Loups, orateur unique, morts muets) ; transport WebRTC dans l'interface de test.

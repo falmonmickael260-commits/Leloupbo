@@ -24,7 +24,7 @@ export const DURATION_PRESETS: Record<DurationPreset, Durations> = {
     hunterShot: 20 * S,
     captainSuccession: 20 * S,
     captainElection: 60 * S,
-    speech: 60 * S,
+    speech: 45 * S,
     freeDiscussion: 60 * S,
     voting: 20 * S,
     voteResult: 6 * S,
