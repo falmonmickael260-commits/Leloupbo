@@ -16,7 +16,9 @@ import { GameError } from '../engine/errors.ts';
 import { cryptoRng, type Rng } from '../engine/rng.ts';
 import type { GameState } from '../engine/state.ts';
 import type { Ack, ClientToServerEvents, ServerToClientEvents, SessionInfo } from '../shared/protocol.ts';
+import { iceServersFromEnv, type IceServer } from './ice.ts';
 import { RateLimiter } from './rateLimit.ts';
+import { LiveKitBridge, sfuConfigFromEnv, type SfuConfig } from './voiceSfu.ts';
 import type { GameStore } from './store.ts';
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -60,6 +62,8 @@ export interface ManagerOptions {
   /** Délai de réaction des bots (ms). */
   botDelay?: [number, number];
   housekeepingMs?: number;
+  /** Serveur audio LiveKit (par défaut : variables d'environnement LIVEKIT_*). */
+  sfu?: SfuConfig | null;
 }
 
 export class GameManager {
@@ -69,7 +73,10 @@ export class GameManager {
   private readonly botDelay: [number, number];
   private housekeeping: NodeJS.Timeout | null = null;
   private stopped = false;
+  droppedSignals = 0;
   private readonly limiter = new RateLimiter();
+  private readonly iceServers: IceServer[] = iceServersFromEnv();
+  private readonly sfu: LiveKitBridge | null;
 
   constructor(
     private readonly io: IO,
@@ -79,6 +86,9 @@ export class GameManager {
     this.now = opts.now ?? Date.now;
     this.rng = opts.rng ?? cryptoRng;
     this.botDelay = opts.botDelay ?? [900, 2500];
+    const sfuCfg = opts.sfu === undefined ? sfuConfigFromEnv() : opts.sfu;
+    this.sfu = sfuCfg ? new LiveKitBridge(sfuCfg) : null;
+    console.log(this.sfu ? `🎙️ Voix : serveur audio LiveKit (${sfuCfg!.url})` : '🎙️ Voix : pair-à-pair (configurez LIVEKIT_* pour un serveur audio)');
     this.housekeeping = setInterval(() => this.tickAll(), opts.housekeepingMs ?? 1000);
     io.on('connection', (socket) => this.bind(socket));
   }
@@ -152,6 +162,7 @@ export class GameManager {
     this.broadcast(room, now);
     this.schedule(room, now);
     this.scheduleBots(room);
+    this.sfu?.sync(room.engine);
     this.store.save(room.engine.state).catch((e) => console.error('[store] échec sauvegarde', room.code, e));
   }
 
@@ -226,6 +237,7 @@ export class GameManager {
 
   private destroy(room: GameRoom): void {
     this.clearTimers(room);
+    this.sfu?.forget(room.code);
     this.rooms.delete(room.code);
     for (const sockets of room.sockets.values()) for (const s of sockets) this.detachSocket(s, false);
     this.store.delete(room.code).catch(() => undefined);
@@ -364,7 +376,27 @@ export class GameManager {
     );
 
     // ---- Voix : le serveur relaie la signalisation WebRTC entre membres d'une même partie.
-    socket.on('voice:join', (_p, ack) =>
+    socket.on('voice:join', (_p, ack) => {
+      // Serveur audio LiveKit configuré : jeton d'accès avec les droits de la phase en cours.
+      if (this.sfu) {
+        const reply = typeof ack === 'function' ? ack : () => undefined;
+        if (!this.limiter.allow(`${socket.id}:session`, 'session')) return reply({ ok: false, error: 'RATE_LIMIT', message: 'Trop de requêtes, ralentissez.' });
+        let ctx: { room: GameRoom; playerId: string };
+        try {
+          ctx = this.context(socket);
+        } catch (e) {
+          return reply({ ok: false, error: (e as GameError).code ?? 'NO_SESSION', message: (e as Error).message });
+        }
+        const name = ctx.room.engine.state.players.find((x) => x.id === ctx.playerId)?.name ?? ctx.playerId;
+        this.sfu
+          .token(ctx.room.engine, ctx.playerId, name)
+          .then(({ url, token }) => reply({ ok: true, mode: 'sfu', url, token, peers: [], iceServers: [] }))
+          .catch((e) => {
+            console.error('[livekit] jeton', e);
+            reply({ ok: false, error: 'VOICE_UNAVAILABLE', message: 'Serveur audio indisponible.' });
+          });
+        return;
+      }
       this.run(socket, ack, () => {
         const { room, playerId } = this.context(socket);
         (socket.data as SocketData).voice = true;
@@ -379,16 +411,19 @@ export class GameManager {
             }
           }
         }
-        return { peers };
-      }, 'session'),
-    );
+        return { mode: 'mesh' as const, peers, iceServers: this.iceServers };
+      }, 'session');
+    });
     socket.on('voice:leave', () => {
       const data = socket.data as SocketData;
       const room = data.code ? this.rooms.get(data.code) : undefined;
       if (room && data.voice) this.voiceLeave(room, socket);
     });
     socket.on('voice:signal', (p) => {
-      if (!this.limiter.allow(`${socket.id}:signal`, 'signal')) return;
+      if (!this.limiter.allow(`${socket.id}:signal`, 'signal')) {
+        this.droppedSignals = (this.droppedSignals ?? 0) + 1;
+        return;
+      }
       try {
         const { room, playerId } = this.context(socket);
         if (!(socket.data as SocketData).voice || typeof p?.to !== 'string') return;

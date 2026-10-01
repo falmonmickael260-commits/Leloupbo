@@ -10,12 +10,12 @@ import { cardSVG } from './art/cards.js';
 import { Board, wait } from './board/board.js';
 import { Narrator, revealCard } from './board/overlays.js';
 import { GameClient } from './gameClient.js';
-import { VoiceMesh } from './voice.js';
+import { Voice } from './voiceManager.js';
 
 const params = new URLSearchParams(location.search);
 const profile = params.get('profile') || 'default';
 const client = new GameClient({ profile });
-const voice = new VoiceMesh(client);
+const voice = new Voice(client);
 const board = new Board(document.getElementById('board'));
 const narrator = new Narrator(document.getElementById('narrator'));
 window.blackops = { client, voice, board };
@@ -234,7 +234,7 @@ function renderMic(v = client.view) {
     btn.innerHTML = '<i>🎙️</i>Activer le micro';
   } else if (v.voice.canSpeak && st.hasMic) {
     btn.className = 'mic-btn live';
-    btn.innerHTML = '<i>🎙️</i>Micro ouvert';
+    btn.innerHTML = `<i>🎙️</i>Micro ouvert${st.peers ? ` · ${st.connected}/${st.peers}` : ''}`;
   } else {
     btn.className = 'mic-btn muted';
     btn.innerHTML = `<i>🔇</i>${st.hasMic ? 'Micro coupé' : 'Écoute seule'}`;

@@ -16,12 +16,16 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
   const app = express();
   app.disable('x-powered-by');
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, games: manager.rooms.size, uptime: process.uptime() });
+    res.json({ ok: true, games: manager.rooms.size, uptime: process.uptime(), droppedSignals: manager.droppedSignals });
   });
   app.get('/api/roles', (_req, res) => {
     res.json(allRoles().map(roleInfo));
   });
   app.use(compression());
+  // Client LiveKit (chargé à la demande par le navigateur, seulement si le serveur audio est configuré).
+  app.get('/vendor/livekit-client.umd.js', (_req, res) => {
+    res.sendFile(path.resolve(here, '../../node_modules/livekit-client/dist/livekit-client.umd.js'), { maxAge: '1d' });
+  });
   app.use(express.static(PUBLIC_DIR, { maxAge: '1h' }));
 
   const http = createServer(app);

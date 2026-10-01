@@ -137,3 +137,34 @@ describe('Serveur temps réel', () => {
     await srv.close();
   });
 });
+
+describe('Voix — serveur audio LiveKit', () => {
+  it('jeton et droits calqués sur les permissions du moteur (orateur seul, canal des Loups)', async () => {
+    const { LiveKitBridge, sfuConfigFromEnv } = await import('../src/server/voiceSfu.ts');
+    const { iceServersFromEnv } = await import('../src/server/ice.ts');
+    const { setup } = await import('./helpers.ts');
+    assert.equal(sfuConfigFromEnv({}), null);
+    assert.deepEqual(sfuConfigFromEnv({ LIVEKIT_URL: 'wss://x', LIVEKIT_API_KEY: 'k', LIVEKIT_API_SECRET: 's' }), { url: 'wss://x', apiKey: 'k', apiSecret: 's' });
+    const ice = iceServersFromEnv({ TURN_URLS: 'turn:relay:3478', TURN_USERNAME: 'u', TURN_CREDENTIAL: 'c' });
+    assert.equal(ice[ice.length - 1].username, 'u');
+
+    const bridge = new LiveKitBridge({ url: 'ws://localhost:7880', apiKey: 'devkey', apiSecret: 'secret-de-test-assez-long-pour-hs256' });
+    const g = setup(['werewolf', 'werewolf', 'villager', 'villager', 'villager']);
+    g.until('WEREWOLF_PHASE');
+    assert.deepEqual(bridge.permissionsFor(g.engine, g.ids[0]), { canPublish: true, canSubscribe: true });
+    assert.deepEqual(bridge.permissionsFor(g.engine, g.ids[2]), { canPublish: false, canSubscribe: false });
+    const { token, url } = await bridge.token(g.engine, g.ids[2], 'P2');
+    assert.equal(url, 'ws://localhost:7880');
+    const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+    assert.equal(claims.sub, g.ids[2]);
+    assert.equal(claims.video.room, 'blackops-TEST');
+    assert.equal(claims.video.canPublish, false);
+    assert.equal(claims.video.canSubscribe, false);
+    g.until('PLAYER_SPEECH');
+    const speaker = g.engine.state.phase.data.speakerId as string;
+    for (const id of g.ids) {
+      const alive = g.engine.state.players.find((p) => p.id === id)!.alive;
+      assert.equal(bridge.permissionsFor(g.engine, id).canPublish, id === speaker && alive);
+    }
+  });
+});

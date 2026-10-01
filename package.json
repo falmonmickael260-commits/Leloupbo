@@ -17,6 +17,8 @@
   "dependencies": {
     "compression": "^1.8.2",
     "express": "^5.2.1",
+    "livekit-client": "^2.22.3",
+    "livekit-server-sdk": "^2.19.1",
     "socket.io": "^4.8.1",
     "tsx": "^4.20.0"
   },

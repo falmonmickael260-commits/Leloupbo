@@ -253,3 +253,19 @@ cosmétique du personnage dans le lobby (`lobby:avatar`, `src/shared/avatars.ts`
 * Polices auto-hébergées (Bangers, Nunito — licence OFL), décor compressé (gzip ≈ 80 Ko).
 
 Régénérer le décor : `node scripts/art/village.mjs`.
+
+## 11. Voix : deux modes
+
+| Mode | Quand | Principe |
+| --- | --- | --- |
+| **Serveur audio LiveKit** (recommandé, indispensable vers 10-15 joueurs) | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` définis | 1 seule connexion audio par joueur. À chaque phase, le serveur de jeu impose à LiveKit qui peut parler (`canPublish`) et qui peut entendre (`canSubscribe`) → canal des Loups inviolable, même avec un client modifié. |
+| Pair-à-pair (secours) | variables absentes | chaque navigateur envoie sa voix aux autres ; voix mono ~24 kb/s, rien envoyé pendant les silences ; relais TURN optionnel (`TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL` ou `ICE_SERVERS`). Correct jusqu'à ~8 joueurs. |
+
+Mesures (15 navigateurs sur une même machine de test à 4 cœurs) : pair-à-pair
+0/15 joueurs reliés ; LiveKit 15/15 reliés en 9 s, droits appliqués côté serveur
+(nuit : seuls les loups parlent et s'entendent ; jour : seul l'orateur émet).
+
+Mise en place LiveKit : compte LiveKit Cloud (offre gratuite pour tester) ou
+serveur auto-hébergé (`livekit-server`, ports 7880 TCP, 7881 TCP, 7882 UDP + TLS).
+Fichiers : `src/server/voiceSfu.ts`, `src/server/ice.ts`, `public/js/voiceSfu.js`,
+`public/js/voice.js`, `public/js/voiceManager.js`.

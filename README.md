@@ -17,6 +17,10 @@ npm start            # http://localhost:3000
 Variables d'environnement : `PORT` (3000 par défaut), `DATA_DIR`
 (`./data/games` par défaut — un fichier JSON par partie, rechargé au redémarrage).
 
+**Voix pour 10-15 joueurs** : définir `LIVEKIT_URL`, `LIVEKIT_API_KEY`,
+`LIVEKIT_API_SECRET` (LiveKit Cloud ou serveur auto-hébergé). Sans elles, la voix
+passe en pair-à-pair (bien jusqu'à ~8 joueurs). Détails : docs/ARCHITECTURE.md §11.
+
 ### Tester une partie seul
 
 1. Ouvrir http://localhost:3000, choisir un pseudo, **Créer une partie**.

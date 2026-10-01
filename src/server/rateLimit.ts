@@ -3,7 +3,8 @@ const LIMITS: Record<string, { capacity: number; refillPerSec: number }> = {
   action: { capacity: 20, refillPerSec: 6 },
   chat: { capacity: 6, refillPerSec: 1 },
   session: { capacity: 8, refillPerSec: 0.5 },
-  signal: { capacity: 200, refillPerSec: 50 },
+  // Signalisation WebRTC : rafales normales quand beaucoup de joueurs rejoignent l'audio en même temps.
+  signal: { capacity: 2000, refillPerSec: 400 },
 };
 
 export class RateLimiter {

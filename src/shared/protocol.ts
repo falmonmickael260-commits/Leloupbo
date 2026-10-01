@@ -27,7 +27,10 @@ export interface ClientToServerEvents {
   'game:command': (p: ClientCommand, ack: (r: Ack) => void) => void;
   'game:leave': (p: Record<string, never>, ack: (r: Ack) => void) => void;
   'chat:send': (p: { channel: ChatChannel; text: string }, ack: (r: Ack) => void) => void;
-  'voice:join': (p: Record<string, never>, ack: (r: Ack<{ peers: string[] }>) => void) => void;
+  'voice:join': (
+    p: Record<string, never>,
+    ack: (r: Ack<{ mode: 'mesh' | 'sfu'; peers: string[]; iceServers: { urls: string | string[]; username?: string; credential?: string }[]; url?: string; token?: string }>) => void,
+  ) => void;
   'voice:leave': (p: Record<string, never>) => void;
   'voice:signal': (p: { to: string; data: unknown }) => void;
 }
