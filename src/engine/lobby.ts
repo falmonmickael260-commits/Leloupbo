@@ -5,7 +5,7 @@ import { AVATAR_IDS, defaultAvatar, isAvatarId } from '../shared/avatars.ts';
 import { enterPhase } from './phase.ts';
 import { shuffle } from './rng.ts';
 import { allRoles, getRole, requireRole } from './roles/index.ts';
-import { applySettingsPatch, defaultSettings, MAX_PLAYERS, MIN_PLAYERS } from './settings.ts';
+import { applySettingsPatch, defaultSettings, MAX_PLAYERS, MIN_PLAYERS, wolvesFor } from './settings.ts';
 import { announce, getPlayer, nextId, STATE_VERSION, tell, type Ctx, type GameState, type PlayerState } from './state.ts';
 
 export function createGameState(code: string, now: number): GameState {
@@ -36,7 +36,14 @@ export function createGameState(code: string, now: number): GameState {
     chats: { village: [], wolves: [], dead: [] },
     winner: null,
     counter: 0,
+    tags: {},
   };
+}
+
+/** Loups automatiques : ajuste le nombre de Loups-Garous au nombre de joueurs du lobby. */
+export function syncAutoWolves(s: GameState): void {
+  if (s.status !== 'lobby' || !s.settings.autoWolves) return;
+  s.settings.roles = { ...s.settings.roles, werewolf: wolvesFor(s.players.length) };
 }
 
 export function sanitizeName(raw: unknown): string {
@@ -80,6 +87,7 @@ export function addPlayer(ctx: Ctx, rawName: unknown, tokenHash: string, isBot =
   };
   s.players.push(p);
   if (!s.hostId) s.hostId = p.id;
+  syncAutoWolves(s);
   announce(ctx, 'system', `👋 ${p.name} a rejoint la partie.`);
   return p;
 }
@@ -90,6 +98,7 @@ export function removePlayer(ctx: Ctx, playerId: string): void {
   const p = getPlayer(s, playerId);
   if (!p) return;
   s.players = s.players.filter((x) => x.id !== playerId);
+  syncAutoWolves(s);
   announce(ctx, 'system', `🚪 ${p.name} a quitté la partie.`);
   if (s.hostId === playerId) transferHost(ctx);
 }
@@ -118,6 +127,7 @@ export function updateSettings(ctx: Ctx, playerId: string, patch: unknown): void
   // Les rôles ne peuvent plus être modifiés une fois la partie lancée.
   if (s.status !== 'lobby') fail('GAME_STARTED', 'Les réglages sont verrouillés pendant la partie.');
   s.settings = applySettingsPatch(s.settings, patch, (id) => getRole(id), s.players.length);
+  syncAutoWolves(s);
 }
 
 /** Composition complète pour `playerCount` joueurs (villageois en complément). */
@@ -147,6 +157,7 @@ export function startGame(ctx: Ctx, playerId: string): void {
   const n = s.players.length;
   if (n < MIN_PLAYERS) fail('NOT_ENOUGH_PLAYERS', `Il faut au moins ${MIN_PLAYERS} joueurs.`);
   if (n > Math.min(MAX_PLAYERS, s.settings.maxPlayers)) fail('GAME_FULL', 'Trop de joueurs.');
+  syncAutoWolves(s);
 
   const composition = buildComposition(s.settings.roles, n);
   const deck: RoleId[] = [];
@@ -175,11 +186,21 @@ export function startGame(ctx: Ctx, playerId: string): void {
   enterPhase(ctx, 'ROLE_DISTRIBUTION', s.settings.durations.roleReveal);
 }
 
-/** Après une partie : retour au lobby avec les mêmes joueurs. */
+/** Après une partie : retour au lobby demandé par l'Hôte (bouton). */
 export function resetToLobby(ctx: Ctx, playerId: string): void {
+  requireHost(ctx.state, playerId);
+  if (ctx.state.status !== 'finished') fail('NOT_FINISHED', 'La partie n’est pas terminée.');
+  returnToLobby(ctx);
+}
+
+/**
+ * Retour au lobby avec les mêmes joueurs, le même code, le même Hôte et les mêmes réglages
+ * (automatique quelques secondes après l'écran de victoire). Les sessions restent valides :
+ * personne n'a à ressaisir de code.
+ */
+export function returnToLobby(ctx: Ctx): void {
   const s = ctx.state;
-  requireHost(s, playerId);
-  if (s.status !== 'finished') fail('NOT_FINISHED', 'La partie n’est pas terminée.');
+  if (s.status !== 'finished') return;
   const fresh = createGameState(s.code, ctx.now);
   const keep = s.players.filter((p) => !p.abandoned);
   Object.assign(s, {
@@ -200,7 +221,22 @@ export function resetToLobby(ctx: Ctx, playerId: string): void {
       roleData: {},
     })),
   });
+  if (!getPlayer(s, s.hostId)) transferHost(ctx);
+  syncAutoWolves(s);
   announce(ctx, 'system', '🔄 Nouvelle partie : retour au lobby.');
+}
+
+/** Étiquette personnelle posée par `authorId` sur `targetId` (texte vide = suppression). Privée. */
+export function setTag(ctx: Ctx, authorId: string, targetId: unknown, raw: unknown): void {
+  const s = ctx.state;
+  if (!getPlayer(s, authorId)) fail('NOT_IN_GAME', 'Joueur inconnu.');
+  if (typeof targetId !== 'string' || !getPlayer(s, targetId)) fail('BAD_TARGET', 'Joueur inconnu.');
+  if (raw !== undefined && raw !== null && typeof raw !== 'string') fail('BAD_TAG', 'Étiquette invalide.');
+  const text = [...String(raw ?? '').replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim()].slice(0, 24).join('');
+  const tags = (s.tags ??= {});
+  const mine = (tags[authorId] ??= {});
+  if (text) mine[targetId] = text;
+  else delete mine[targetId];
 }
 
 export function roleCatalog() {

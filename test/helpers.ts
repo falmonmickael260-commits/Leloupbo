@@ -21,7 +21,7 @@ export function setup(roles: RoleId[], settings: Record<string, unknown> = {}, e
   const counts: Record<string, number> = {};
   for (const r of [...roles, ...extraCards]) if (r !== 'villager') counts[r] = (counts[r] ?? 0) + 1;
   if (!counts.werewolf) counts.werewolf = 1; // la validation exige un loup, la répartition est imposée ensuite
-  engine.updateSettings(host.id, { roles: counts, captainEnabled: false, ...settings }, now);
+  engine.updateSettings(host.id, { roles: counts, captainEnabled: false, autoWolves: false, ...settings }, now);
   engine.start(host.id, now);
   const s = engine.state;
   const comp: Record<string, number> = {};

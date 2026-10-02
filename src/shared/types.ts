@@ -101,6 +101,8 @@ export interface GameSettings {
   /** Dévoiler qui a voté contre qui au moment du résultat. */
   revealVotes: boolean;
   revealRolesOnGameOver: boolean;
+  /** Nombre de Loups-Garous réglé automatiquement selon le nombre de joueurs (5-8 → 2, 9-11 → 3, 12-18 → 4). */
+  autoWolves: boolean;
   /** Joue les phases des rôles morts/absents avec une durée aléatoire (évite de révéler leur mort). */
   simulateInactiveSteps: boolean;
   /** Durée de déconnexion après laquelle un joueur en partie est considéré comme ayant abandonné. */
@@ -270,6 +272,8 @@ export interface PlayerView {
   announcements: Announcement[];
   privateLog: PrivateMessage[];
   winner: WinResult | null;
+  /** MES étiquettes personnelles (id du joueur → texte). Jamais celles des autres joueurs. */
+  myTags: Record<string, string>;
   /** Rôles révélés uniquement en fin de partie. */
   finalRoles: { id: string; role: RoleId; roleName: string; loverId: string | null }[] | null;
 }

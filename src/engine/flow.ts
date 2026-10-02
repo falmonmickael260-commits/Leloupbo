@@ -12,6 +12,7 @@
  */
 import type { WinResult } from '../shared/types.ts';
 import { isNightPhase, kill, resolveNightEffects } from './deaths.ts';
+import { returnToLobby } from './lobby.ts';
 import { enterPhase } from './phase.ts';
 import { shuffle } from './rng.ts';
 import { getNightStep, nightSteps, type NightStep } from './roles/index.ts';
@@ -222,6 +223,9 @@ function resolveVote(ctx: Ctx): void {
 
 // ---------------------------------------------------------------- Fin
 
+/** Durée de l'écran de victoire avant le retour automatique de tous les joueurs au lobby. */
+export const GAME_OVER_RETURN_MS = 5000;
+
 export function endGame(ctx: Ctx, win: WinResult): void {
   const s = ctx.state;
   s.status = 'finished';
@@ -230,7 +234,7 @@ export function endGame(ctx: Ctx, win: WinResult): void {
   s.ballot = null;
   s.speech = null;
   s.night = null;
-  enterPhase(ctx, 'GAME_OVER', null);
+  enterPhase(ctx, 'GAME_OVER', GAME_OVER_RETURN_MS);
   announce(ctx, 'victory', win.title);
 }
 
@@ -287,8 +291,9 @@ export function finishPhase(ctx: Ctx): void {
     case 'WIN_CHECK':
       // Phases transitoires : ne devraient pas persister, on relance la séquence.
       return runPipeline(ctx);
-    case 'LOBBY':
     case 'GAME_OVER':
+      return returnToLobby(ctx);
+    case 'LOBBY':
       return;
   }
 }

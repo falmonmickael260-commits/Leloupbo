@@ -50,7 +50,7 @@ describe('Création & distribution', () => {
     const host = e.join('H', 'h', T0);
     for (let i = 0; i < 17; i++) e.join(`J${i}`, `t${i}`, T0);
     rejects(() => e.join('Trop', 'x', T0), 'GAME_FULL');
-    e.updateSettings(host.id, { roles: { werewolf: 18 } }, T0);
+    e.updateSettings(host.id, { roles: { werewolf: 18 }, autoWolves: false }, T0);
     rejects(() => e.start(host.id, T0), 'BAD_COMPOSITION');
   });
 });
@@ -421,5 +421,72 @@ describe('Conditions de victoire', () => {
     g.act(0, 'wolf_vote', [1]);
     g.until('GAME_OVER');
     assert.equal(g.view(1).finalRoles!.find((r) => r.id === g.ids[0])!.role, 'werewolf');
+  });
+});
+
+describe('Fin de partie, étiquettes et loups automatiques', () => {
+  it('victoire → 5 secondes → tout le monde revient au lobby (même code, mêmes joueurs, même Hôte)', () => {
+    const g = setup(['werewolf', 'villager', 'villager', 'villager', 'villager']);
+    g.until('WEREWOLF_PHASE');
+    g.engine.leave(g.ids[0], g.now); // le seul loup s'en va : victoire du village
+    const s = g.engine.state;
+    assert.equal(s.phase.id, 'GAME_OVER');
+    g.ids.shift();
+    assert.equal(s.status, 'finished');
+    assert.equal(s.phase.endsAt! - s.phase.startedAt, 5000);
+    const hostId = s.hostId;
+    g.advance(4900);
+    assert.equal(s.status, 'finished', 'écran de victoire encore affiché');
+    g.advance(200);
+    assert.equal(s.status, 'lobby');
+    assert.equal(s.phase.id, 'LOBBY');
+    assert.equal(s.code, 'TEST');
+    assert.equal(s.hostId, hostId);
+    assert.deepEqual(s.players.map((p) => p.id), g.ids);
+    assert.ok(s.players.every((p) => p.role === null && p.alive));
+    assert.equal(g.view(2).me.role, null);
+    // Une nouvelle partie peut être lancée directement.
+    g.engine.start(hostId, g.now);
+    assert.equal(g.engine.state.status, 'running');
+  });
+
+  it('étiquette personnelle : visible uniquement par son auteur', () => {
+    const g = setup(['werewolf', 'seer', 'villager', 'villager', 'villager']);
+    g.engine.setTag(g.ids[0], g.ids[3], '❤️ Mon amie', g.now);
+    g.engine.setTag(g.ids[1], g.ids[3], '🐺 Suspect', g.now);
+    assert.deepEqual(g.view(0).myTags, { [g.ids[3]]: '❤️ Mon amie' });
+    assert.deepEqual(g.view(1).myTags, { [g.ids[3]]: '🐺 Suspect' });
+    assert.deepEqual(g.view(2).myTags, {});
+    for (const i of [1, 2, 3, 4]) assert.ok(!JSON.stringify(g.view(i)).includes('Mon amie'), `fuite vers P${i}`);
+    for (const i of [0, 2, 3, 4]) assert.ok(!JSON.stringify(g.view(i)).includes('Suspect'), `fuite vers P${i}`);
+    g.engine.setTag(g.ids[0], g.ids[3], '', g.now); // suppression
+    assert.deepEqual(g.view(0).myTags, {});
+    g.engine.setTag(g.ids[0], g.ids[2], '<b>' + 'x'.repeat(50), g.now);
+    assert.equal(g.view(0).myTags[g.ids[2]], 'b' + 'x'.repeat(23));
+    rejects(() => g.engine.setTag(g.ids[0], 'inconnu', 'a', g.now), 'BAD_TARGET');
+  });
+
+  it('nombre de loups automatique : 8 → 2, 9 → 3, 11 → 3, 12 → 4, 18 → 4', () => {
+    const e = GameEngine.create('W', T0, seededRng(3));
+    const host = e.join('H', 'h', T0);
+    const expected: Record<number, number> = { 5: 2, 7: 2, 8: 2, 9: 3, 10: 3, 11: 3, 12: 4, 15: 4, 18: 4 };
+    for (let n = 2; n <= 18; n++) {
+      e.join(`J${n}`, `t${n}`, T0);
+      if (expected[n]) assert.equal(e.state.settings.roles.werewolf, expected[n], `${n} joueurs`);
+    }
+    // Un départ met aussi la jauge à jour.
+    const last = e.state.players[e.state.players.length - 1];
+    for (let i = 0; i < 7; i++) e.leave(e.state.players[e.state.players.length - 1].id, T0);
+    assert.equal(e.state.players.length, 11);
+    assert.equal(e.state.settings.roles.werewolf, 3);
+    assert.ok(last);
+    // Désactivable par l'Hôte : le nombre choisi à la main est alors conservé.
+    e.updateSettings(host.id, { autoWolves: false, roles: { werewolf: 1, seer: 1 } }, T0);
+    e.join('Nouveau', 'n', T0);
+    assert.equal(e.state.settings.roles.werewolf, 1);
+    // La partie lancée a bien le nombre de loups de la règle.
+    e.updateSettings(host.id, { autoWolves: true }, T0);
+    e.start(host.id, T0);
+    assert.equal(e.state.players.filter((p) => p.role === 'werewolf').length, 4);
   });
 });

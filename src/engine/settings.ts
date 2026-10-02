@@ -73,6 +73,7 @@ export function defaultSettings(): GameSettings {
     endVoteWhenAllVoted: true,
     revealVotes: true,
     revealRolesOnGameOver: true,
+    autoWolves: true,
     simulateInactiveSteps: true,
     abandonTimeoutMs: 3 * 60 * S,
     maxDays: 40,
@@ -91,6 +92,7 @@ const BOOL_KEYS = [
   'endVoteWhenAllVoted',
   'revealVotes',
   'revealRolesOnGameOver',
+  'autoWolves',
   'simulateInactiveSteps',
 ] as const;
 
@@ -152,4 +154,12 @@ export function applySettingsPatch(
     next.tieRule = p.tieRule;
   }
   return next;
+}
+
+/** Nombre de Loups-Garous conseillé : 5 à 8 joueurs → 2, 9 à 11 → 3, 12 à 18 → 4 (1 en dessous de 5). */
+export function wolvesFor(playerCount: number): number {
+  if (playerCount < 5) return 1;
+  if (playerCount <= 8) return 2;
+  if (playerCount <= 11) return 3;
+  return 4;
 }

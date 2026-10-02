@@ -172,6 +172,10 @@ describe('Voix — serveur audio LiveKit', () => {
   });
 
   it('LiveKit injoignable → signalé sur /health (la voix reste sur LiveKit)', { timeout: 15_000 }, async () => {
+    // Messages du serveur coupés pendant ce test (ils se mêlent sinon aux résultats du lanceur de tests).
+    const quiet = { log: console.log, error: console.error };
+    console.log = console.error = () => {};
+    after(() => Object.assign(console, quiet));
     const { createApp: create } = await import('../src/server/app.ts');
     const { http, manager, io } = create(new MemoryGameStore(), { sfu: { url: 'ws://127.0.0.1:9', apiKey: 'k', apiSecret: 'secret-de-test-assez-long-pour-hs256' }, sfuHealthCheck: false });
     await new Promise<void>((r) => http.listen(0, r));
@@ -189,5 +193,6 @@ describe('Voix — serveur audio LiveKit', () => {
     manager.stop();
     io.close();
     await new Promise((r) => http.close(r));
+    Object.assign(console, quiet);
   });
 });

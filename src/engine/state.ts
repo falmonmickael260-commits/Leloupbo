@@ -109,6 +109,8 @@ export interface GameState {
   chats: Record<ChatChannel, ChatMessage[]>;
   winner: WinResult | null;
   counter: number;
+  /** Étiquettes personnelles : auteur → (joueur étiqueté → texte). Privées : chacun ne reçoit que les siennes. */
+  tags?: Record<string, Record<string, string>>;
 }
 
 /** Contexte d'exécution d'une opération du moteur. */

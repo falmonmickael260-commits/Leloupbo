@@ -10,7 +10,7 @@ import type { ClientCommand, PlayerView } from '../shared/types.ts';
 import { sendChat } from './chat.ts';
 import { handleCommand } from './commands.ts';
 import { abandonPlayer, advanceTime } from './flow.ts';
-import { setAvatar, addPlayer, createGameState, removePlayer, resetToLobby, startGame, transferHost, updateSettings, requireHost } from './lobby.ts';
+import { setTag, setAvatar, addPlayer, createGameState, removePlayer, resetToLobby, startGame, transferHost, updateSettings, requireHost } from './lobby.ts';
 import { cryptoRng, type Rng } from './rng.ts';
 import './roles/index.ts';
 import { getPlayer, type Ctx, type GameState, type PlayerState } from './state.ts';
@@ -65,6 +65,10 @@ export class GameEngine {
     const diag = typeof st.diag === 'string' ? st.diag.replace(/[^\p{L}\p{N} .,:/·()%+\-]/gu, '').slice(0, 200) : '';
     p.audio = { mic: st.mic === true, speaker: st.speaker === true, connected: st.connected === true, ...(diag ? { diag } : {}) };
     this.state.updatedAt = now;
+  }
+  /** Étiquette personnelle (privée) sur un joueur. */
+  setTag(playerId: string, targetId: unknown, text: unknown, now: number): void {
+    this.mutate(now, (ctx) => setTag(ctx, playerId, targetId, text));
   }
   setAvatar(playerId: string, avatar: unknown, now: number): void {
     this.mutate(now, (ctx) => setAvatar(ctx, playerId, avatar));

@@ -122,6 +122,7 @@ export function buildView(ctx: Ctx, playerId: string): PlayerView {
     announcements: s.announcements.slice(-MAX_ANNOUNCEMENTS),
     privateLog: [...(s.privateMessages[playerId] ?? [])],
     winner: s.winner,
+    myTags: { ...(s.tags?.[playerId] ?? {}) },
     finalRoles: reveal
       ? s.players.map((p) => ({ id: p.id, role: p.role ?? 'villager', roleName: getRole(p.role)?.name ?? '?', loverId: p.loverId }))
       : null,
