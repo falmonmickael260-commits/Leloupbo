@@ -43,8 +43,6 @@ class GameRoom {
   timer: NodeJS.Timeout | null = null;
   readonly botTimers = new Map<string, NodeJS.Timeout>();
   lastHumanSeenAt: number;
-  /** Mode voix choisi pour la partie (fixé au premier joueur connecté à la voix). */
-  voiceMode: 'sfu' | 'mesh' | null = null;
 
   constructor(
     public readonly engine: GameEngine,
@@ -390,16 +388,8 @@ export class GameManager {
 
     // ---- Voix : le serveur relaie la signalisation WebRTC entre membres d'une même partie.
     socket.on('voice:join', (_p, ack) => {
-      // Serveur audio LiveKit configuré ET joignable : jeton d'accès avec les droits de la phase en cours.
-      // Le mode est fixé pour toute la partie, pour que tout le monde soit dans le même salon audio.
-      let room0: GameRoom | null = null;
-      try {
-        room0 = this.context(socket).room;
-      } catch {
-        /* pas de session : géré plus bas */
-      }
-      if (room0 && !room0.voiceMode) room0.voiceMode = this.sfu && this.sfu.health.ok !== false ? 'sfu' : 'mesh';
-      if (this.sfu && room0?.voiceMode !== 'mesh') {
+      // Serveur audio LiveKit configuré : jeton d'accès avec les droits de la phase en cours.
+      if (this.sfu) {
         const reply = typeof ack === 'function' ? ack : () => undefined;
         if (!this.limiter.allow(`${socket.id}:session`, 'session')) return reply({ ok: false, error: 'RATE_LIMIT', message: 'Trop de requêtes, ralentissez.' });
         let ctx: { room: GameRoom; playerId: string };

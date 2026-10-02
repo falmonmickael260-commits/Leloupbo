@@ -168,7 +168,7 @@ describe('Voix — serveur audio LiveKit', () => {
     }
   });
 
-  it('LiveKit injoignable → la partie passe en voix pair-à-pair au lieu de rester muette', { timeout: 15_000 }, async () => {
+  it('LiveKit injoignable → signalé sur /health (la voix reste sur LiveKit)', { timeout: 15_000 }, async () => {
     const { createApp: create } = await import('../src/server/app.ts');
     const { http, manager, io } = create(new MemoryGameStore(), { sfu: { url: 'ws://127.0.0.1:9', apiKey: 'k', apiSecret: 'secret-de-test-assez-long-pour-hs256' }, sfuHealthCheck: false });
     await new Promise<void>((r) => http.listen(0, r));
@@ -181,7 +181,7 @@ describe('Voix — serveur audio LiveKit', () => {
     await emit(c, 'game:create', { name: 'Alice' });
     const join = await emit(c, 'voice:join');
     assert.equal(join.ok, true);
-    assert.equal(join.mode ?? 'mesh', 'mesh');
+    assert.equal(join.mode, 'sfu');
     c.close();
     manager.stop();
     io.close();

@@ -9,6 +9,7 @@
 import { analyserLevel } from './voice.js';
 import { rtcSummary } from './voiceManager.js';
 
+const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 let loading = null;
 function loadLiveKit() {
   if (window.LivekitClient) return Promise.resolve(window.LivekitClient);
@@ -41,10 +42,19 @@ export class VoiceSFU extends EventTarget {
     // et reste « en capture » le reste du temps (simplement coupé). Sur iPhone, une 2e capture
     // du micro rend la première muette, et Safari n'autorise la lecture du son que pendant une
     // capture : on ne redemande donc jamais le micro en cours de partie.
+    // iPhone (Safari 16.4+) : session audio « appel » → micro + haut-parleur en même temps,
+    // son joué même avec le bouton silencieux activé.
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = 'play-and-record';
+    } catch {
+      /* non supporté */
+    }
     try {
       this.micTrack = await LK.createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 });
       this.hasMic = true;
-      try {
+      // Jauge locale du micro — pas sur iPhone, où brancher le micro sur un 2e moteur audio
+      // peut le rendre muet : on y utilise le niveau mesuré par LiveKit.
+      if (!IS_IOS) try {
         this.meterCtx = new (window.AudioContext || window.webkitAudioContext)();
         this.meter = this.meterCtx.createAnalyser();
         this.meter.fftSize = 256;
@@ -72,6 +82,7 @@ export class VoiceSFU extends EventTarget {
       if (track.kind !== 'audio') return;
       const el = track.attach();
       el.setAttribute('playsinline', '');
+      el.autoplay = true;
       el.style.display = 'none';
       document.body.appendChild(el);
       this.audioEls.set(participant.identity, el);
@@ -98,6 +109,16 @@ export class VoiceSFU extends EventTarget {
       // Coupure définitive (jeton expiré, serveur redémarré…) : on redemande un accès.
       if (this.active) setTimeout(() => this.#rejoin(), 2000);
     });
+    // Retour dans l'appli (iPhone : le micro et le son sont coupés quand Safari passe en arrière-plan).
+    this.onVisible = () => {
+      if (document.visibilityState !== 'visible' || !this.active) return;
+      const mst = this.micTrack?.mediaStreamTrack;
+      if (mst && mst.readyState === 'ended') this.micTrack.restartTrack().catch(() => {});
+      this.room?.startAudio().catch(() => {});
+      for (const el of this.audioEls.values()) el.play?.().catch(() => {});
+      this.applyPermissions();
+    };
+    document.addEventListener('visibilitychange', this.onVisible);
     await room.connect(join.url, join.token, { autoSubscribe: true });
     await room.startAudio().catch(() => {});
     this.active = true;
@@ -128,7 +149,8 @@ export class VoiceSFU extends EventTarget {
 
   /** Niveau de mon micro (0..1). */
   level() {
-    return analyserLevel(this.meter);
+    if (this.meter) return analyserLevel(this.meter);
+    return Math.min(1, (this.room?.localParticipant.audioLevel ?? 0) * 2);
   }
 
   unlockAudio() {
@@ -228,6 +250,7 @@ export class VoiceSFU extends EventTarget {
     if (!this.active) return;
     this.active = false;
     this.client.removeEventListener('view', this.onView);
+    document.removeEventListener('visibilitychange', this.onVisible);
     this.room?.disconnect();
     this.micTrack?.stop();
     this.micTrack = null;

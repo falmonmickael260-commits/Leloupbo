@@ -51,7 +51,7 @@ export class LiveKitBridge {
 
   /**
    * Vérifie que LiveKit répond avec ces clés (adresse, clé et secret corrects).
-   * En cas d'échec, le jeu passe en voix pair-à-pair au lieu de rester muet.
+   * Résultat visible sur /health et dans les journaux du serveur (aide au dépannage).
    */
   async check(timeoutMs = 6000): Promise<boolean> {
     let timer: NodeJS.Timeout | undefined;
@@ -64,7 +64,7 @@ export class LiveKitBridge {
       this.health = { ok: true, checkedAt: new Date().toISOString() };
     } catch (e) {
       const error = String((e as Error)?.message ?? e).slice(0, 160);
-      if (this.health.ok !== false) console.error(`⚠️ Serveur audio LiveKit injoignable (${error}) : voix pair-à-pair utilisée.`);
+      if (this.health.ok !== false) console.error(`⚠️ Serveur audio LiveKit injoignable (${error}) : vérifiez LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET.`);
       this.health = { ok: false, error, checkedAt: new Date().toISOString() };
     } finally {
       clearTimeout(timer);
