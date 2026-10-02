@@ -34,6 +34,16 @@ export function tuneOpus(sdp) {
   return sdp.replace(m[0], `${m[0]}\r\na=fmtp:${pt} ${params}`);
 }
 
+/** Niveau sonore (0..1) d'un analyseur — pour la jauge du test du micro. */
+export function analyserLevel(an) {
+  if (!an) return 0;
+  const buf = new Uint8Array(an.fftSize);
+  an.getByteTimeDomainData(buf);
+  let sum = 0;
+  for (const v of buf) sum += (v - 128) * (v - 128);
+  return Math.min(1, Math.sqrt(sum / buf.length) / 40);
+}
+
 export class VoiceMesh extends EventTarget {
   constructor(client) {
     super();
@@ -197,6 +207,11 @@ export class VoiceMesh extends EventTarget {
     if (this.audioBlocked === blocked) return;
     this.audioBlocked = blocked;
     this.dispatchEvent(new CustomEvent('audio', { detail: { blocked } }));
+  }
+
+  /** Niveau de mon micro (0..1). */
+  level() {
+    return analyserLevel(this.analysers?.get(this.myId));
   }
 
   /** Débloque la lecture du son (geste utilisateur requis sur certains téléphones). */

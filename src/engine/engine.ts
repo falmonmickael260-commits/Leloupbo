@@ -57,6 +57,14 @@ export class GameEngine {
       return addPlayer(ctx, `Bot ${n}`, '', true);
     });
   }
+  /** Test du son déclaré par le joueur (cosmétique, sans effet sur la partie). */
+  setAudioStatus(playerId: string, status: unknown, now: number): void {
+    const p = getPlayer(this.state, playerId);
+    if (!p) fail('NOT_IN_GAME', 'Joueur inconnu.');
+    const st = (status && typeof status === 'object' ? status : {}) as Record<string, unknown>;
+    p.audio = { mic: st.mic === true, speaker: st.speaker === true, connected: st.connected === true };
+    this.state.updatedAt = now;
+  }
   setAvatar(playerId: string, avatar: unknown, now: number): void {
     this.mutate(now, (ctx) => setAvatar(ctx, playerId, avatar));
   }

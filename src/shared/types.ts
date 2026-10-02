@@ -108,6 +108,12 @@ export interface GameSettings {
   maxDays: number;
 }
 
+export interface AudioStatus {
+  mic: boolean;
+  speaker: boolean;
+  connected: boolean;
+}
+
 export interface PublicPlayer {
   id: string;
   name: string;
@@ -118,6 +124,8 @@ export interface PublicPlayer {
   isBot: boolean;
   /** Personnage choisi (cosmétique, voir shared/avatars.ts). */
   avatar: string;
+  /** Test du son (déclaré par le joueur) : micro capté, haut-parleur confirmé, voix connectée. */
+  audio: AudioStatus;
   isCaptain: boolean;
   isMe: boolean;
 }

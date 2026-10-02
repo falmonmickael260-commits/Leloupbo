@@ -17,7 +17,7 @@ function assertNoLeak(engine: GameEngine, playerId: string, v: PlayerView) {
   const raw = JSON.stringify(v);
   for (const k of FORBIDDEN_KEYS) assert.ok(!raw.includes(`"${k}"`), `clé interdite ${k}`);
   assert.ok(!/"inactive"\s*:/.test(raw));
-  for (const p of v.players) assert.deepEqual(Object.keys(p).sort(), ['alive', 'avatar', 'connected', 'id', 'isBot', 'isCaptain', 'isHost', 'isMe', 'name', 'seat']);
+  for (const p of v.players) assert.deepEqual(Object.keys(p).sort(), ['alive', 'audio', 'avatar', 'connected', 'id', 'isBot', 'isCaptain', 'isHost', 'isMe', 'name', 'seat']);
   assert.equal(v.me.role?.id ?? null, me.role);
   if (s.status === 'running') assert.equal(v.finalRoles, null);
   if (me.alive) assert.equal(v.chats.dead, undefined);

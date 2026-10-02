@@ -350,6 +350,7 @@ export class GameManager {
 
     socket.on('lobby:settings', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.updateSettings(id, p, now)));
     socket.on('lobby:addBot', (_p, ack) => this.mutate(socket, ack, (room, id, now) => void room.engine.addBot(id, now)));
+    socket.on('player:audio', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.setAudioStatus(id, p, now)));
     socket.on('lobby:avatar', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.setAvatar(id, p?.avatar, now)));
     socket.on('lobby:kick', (p, ack) =>
       this.mutate(socket, ack, (room, id, now) => {

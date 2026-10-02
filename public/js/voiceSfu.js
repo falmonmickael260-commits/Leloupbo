@@ -6,6 +6,8 @@
  * ce module suit simplement ces droits (micro allumé seulement quand autorisé,
  * audio coupé localement pour qui n'a pas à être entendu, en double sécurité).
  */
+import { analyserLevel } from './voice.js';
+
 let loading = null;
 function loadLiveKit() {
   if (window.LivekitClient) return Promise.resolve(window.LivekitClient);
@@ -39,6 +41,14 @@ export class VoiceSFU extends EventTarget {
     try {
       this.keepAlive = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       this.hasMic = true;
+      try {
+        this.meterCtx = new (window.AudioContext || window.webkitAudioContext)();
+        this.meter = this.meterCtx.createAnalyser();
+        this.meter.fftSize = 256;
+        this.meterCtx.createMediaStreamSource(this.keepAlive).connect(this.meter);
+      } catch {
+        this.meter = null;
+      }
     } catch {
       this.keepAlive = null;
       this.hasMic = false;
@@ -110,7 +120,13 @@ export class VoiceSFU extends EventTarget {
     this.dispatchEvent(new CustomEvent('audio', { detail: { blocked } }));
   }
 
+  /** Niveau de mon micro (0..1). */
+  level() {
+    return analyserLevel(this.meter);
+  }
+
   unlockAudio() {
+    this.meterCtx?.resume?.().catch(() => {});
     if (!this.room) return;
     this.room
       .startAudio()
@@ -161,6 +177,9 @@ export class VoiceSFU extends EventTarget {
     this.room?.disconnect();
     this.keepAlive?.getTracks().forEach((t) => t.stop());
     this.keepAlive = null;
+    this.meterCtx?.close().catch(() => {});
+    this.meterCtx = null;
+    this.meter = null;
     for (const el of this.audioEls.values()) el.remove();
     this.audioEls.clear();
     this.micOn = false;

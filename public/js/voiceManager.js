@@ -43,6 +43,10 @@ export class Voice extends EventTarget {
     return this.impl ? this.impl.state() : { ...IDLE };
   }
 
+  level() {
+    return this.impl?.level?.() ?? 0;
+  }
+
   stats() {
     return this.impl?.stats?.() ?? Promise.resolve({});
   }

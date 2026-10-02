@@ -6,6 +6,7 @@
  * pouvoir être persisté puis rechargé à l'identique (reprise après redémarrage).
  */
 import type {
+  AudioStatus,
   Announcement,
   ChatChannel,
   ChatMessage,
@@ -29,6 +30,8 @@ export interface PlayerState {
   isBot: boolean;
   /** Personnage choisi (cosmétique). */
   avatar?: string;
+  /** Test du son déclaré par le joueur (cosmétique). */
+  audio?: AudioStatus;
   joinedAt: number;
   connected: boolean;
   disconnectedAt: number | null;

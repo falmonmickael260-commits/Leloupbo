@@ -32,6 +32,14 @@
     <section id="screen-lobby" class="screen">
       <div class="lobby">
         <div class="panel lobby-players">
+          <div class="sound-test">
+            <h2>🔊 Test du son</h2>
+            <p class="hint">Dans la salle d’attente, tout le monde s’entend : dites bonjour !</p>
+            <div class="st-row"><span class="st-label">🎙️ Micro</span><div class="meter"><i id="mic-meter"></i></div><b id="mic-state" class="st-state">Parle pour tester…</b></div>
+            <div class="st-row"><span class="st-label">🔊 Son</span><button id="btn-speaker-test" class="btn small">▶ Jouer un son</button><b id="spk-state" class="st-state"></b></div>
+            <div id="spk-confirm" class="st-confirm">Tu as entendu le son ? <button id="spk-yes" class="btn small btn-gold">Oui</button><button id="spk-no" class="btn small">Non</button></div>
+            <p id="sound-help" class="st-help">Monte le volume, enlève le mode silencieux (iPhone : petit bouton sur le côté), vérifie tes écouteurs Bluetooth, puis rejoue le son. Si le micro reste à zéro, autorise le micro pour ce site dans les réglages du navigateur.</p>
+          </div>
           <h2>Les villageois <span id="lobby-count" class="muted"></span></h2>
           <div class="code-chip">Code : <b id="lobby-code"></b></div>
           <ul id="lobby-players" class="plist"></ul>
@@ -46,6 +54,7 @@
           <p class="hint host-hint"></p>
           <div id="settings"></div>
           <div id="composition-preview" class="hint"></div>
+          <p id="sound-warning" class="st-warning"></p>
           <div class="row">
             <button id="btn-start" class="btn btn-gold big host-only">Lancer la partie</button>
             <button id="btn-leave-lobby" class="btn ghost small">Quitter</button>
