@@ -69,7 +69,7 @@ export class VoiceSFU extends EventTarget {
     }
     const room = new LK.Room({
       adaptiveStream: false,
-      // Le serveur retire la piste quand ce n'est plus notre tour : on la garde pour la renvoyer ensuite.
+      // Si la piste est un jour retirée (reconnexion…), on la garde pour la republier.
       stopLocalTrackOnUnpublish: false,
       dynacast: true,
       audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
@@ -103,6 +103,8 @@ export class VoiceSFU extends EventTarget {
     room.on(E.ParticipantConnected, () => this.#emit());
     room.on(E.ParticipantDisconnected, () => this.#emit());
     room.on(E.Reconnected, () => this.applyPermissions());
+    // Piste retirée (reconnexion du serveur audio…) : on la republie aussitôt.
+    room.on(E.LocalTrackUnpublished, () => setTimeout(() => this.applyPermissions(), 200));
     room.on(E.Disconnected, () => {
       this.micOn = false;
       this.#emit();
@@ -119,7 +121,20 @@ export class VoiceSFU extends EventTarget {
       this.applyPermissions();
     };
     document.addEventListener('visibilitychange', this.onVisible);
-    await room.connect(join.url, join.token, { autoSubscribe: true });
+    try {
+      await room.connect(join.url, join.token, { autoSubscribe: true });
+    } catch (e) {
+      // Échec de connexion : on rend le micro et on nettoie avant de laisser réessayer.
+      document.removeEventListener('visibilitychange', this.onVisible);
+      room.removeAllListeners?.();
+      room.disconnect().catch?.(() => {});
+      this.micTrack?.stop();
+      this.micTrack = null;
+      this.meterCtx?.close().catch(() => {});
+      this.meterCtx = null;
+      this.meter = null;
+      throw e;
+    }
     await room.startAudio().catch(() => {});
     this.active = true;
     this.#audioState();
@@ -167,38 +182,48 @@ export class VoiceSFU extends EventTarget {
     const v = this.client.view?.voice;
     const room = this.room;
     if (!v || !room || !this.active) return;
-    const lp = room.localParticipant;
-    const allowed = !!this.micTrack && v.canSpeak && lp.permissions?.canPublish !== false;
+    // Micro ouvert seulement quand le serveur donne la parole ; la piste, elle, reste publiée.
+    const allowed = !!this.micTrack && v.canSpeak;
     this.micOn = allowed;
-    this.#syncMic(allowed);
+    this.#syncMic();
+    // Chez moi, seuls les joueurs que j'ai le droit d'entendre sont audibles (règles du serveur).
     for (const [id, el] of this.audioEls) el.muted = !v.hearFrom.includes(id);
     this.#emit();
   }
 
-  /** Émet ou coupe le micro, sans jamais le recapturer. */
-  async #syncMic(allowed) {
+  /**
+   * Le micro est publié UNE fois puis simplement coupé / rouvert (instantané, sans
+   * renégociation). Ne jamais recapturer le micro (iPhone) ni republier à chaque tour.
+   */
+  async #syncMic() {
     const track = this.micTrack;
-    if (!track || this.syncing) return;
+    const room = this.room;
+    if (!track || !room) return;
+    if (this.syncing) {
+      this.resync = true;
+      return;
+    }
     this.syncing = true;
     try {
-      if (allowed) {
-        const lp = this.room.localParticipant;
+      do {
+        this.resync = false;
+        const allowed = this.micOn;
+        if (!allowed && !track.isMuted) await track.mute();
+        const lp = room.localParticipant;
         const published = [...lp.audioTrackPublications.values()].some((p) => p.track === track);
-        if (track.isMuted) await track.unmute();
-        if (!published) await lp.publishTrack(track, { source: window.LivekitClient.Track.Source.Microphone });
-      } else if (!track.isMuted) {
-        await track.mute();
-      }
+        if (!published && room.state === 'connected' && lp.permissions?.canPublish !== false) {
+          await lp.publishTrack(track, { source: window.LivekitClient.Track.Source.Microphone });
+        }
+        if (this.micOn && track.isMuted) await track.unmute();
+      } while (this.resync && this.active);
     } catch (e) {
       console.warn('[voice] micro', e);
+      // Nouvel essai un peu plus tard (connexion pas encore prête, etc.).
+      setTimeout(() => this.active && this.#syncMic(), 1500);
     } finally {
       this.syncing = false;
     }
-    // Les droits ont pu changer pendant l'opération : on revérifie.
-    const v = this.client.view?.voice;
-    const want = !!v && this.active && v.canSpeak && this.room?.localParticipant.permissions?.canPublish !== false;
-    if (this.active && want !== allowed) this.#syncMic(want);
-    else this.#emit();
+    this.#emit();
   }
 
   state() {

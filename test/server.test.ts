@@ -154,20 +154,29 @@ describe('Voix — serveur audio LiveKit', () => {
     const bridge = new LiveKitBridge({ url: 'ws://localhost:7880', apiKey: 'devkey', apiSecret: 'secret-de-test-assez-long-pour-hs256' });
     const g = setup(['werewolf', 'werewolf', 'villager', 'villager', 'villager']);
     g.until('WEREWOLF_PHASE');
+    // Phase des Loups : seuls les loups reçoivent du son (canal privé imposé par LiveKit).
     assert.deepEqual(bridge.permissionsFor(g.engine, g.ids[0]), { canPublish: true, canSubscribe: true });
-    assert.deepEqual(bridge.permissionsFor(g.engine, g.ids[2]), { canPublish: false, canSubscribe: false });
+    assert.deepEqual(bridge.permissionsFor(g.engine, g.ids[2]), { canPublish: true, canSubscribe: false });
     const { token, url } = await bridge.token(g.engine, g.ids[2], 'P2');
     assert.equal(url, 'ws://localhost:7880');
     const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
     assert.equal(claims.sub, g.ids[2]);
     assert.equal(claims.video.room, 'blackops-TEST');
-    assert.equal(claims.video.canPublish, false);
+    assert.equal(claims.video.canPublish, true);
     assert.equal(claims.video.canSubscribe, false);
+    // Hors phase des Loups : connexion audio stable (aucun droit retiré d'une phase à l'autre)…
+    g.until('SUNRISE');
+    for (const id of g.ids) assert.deepEqual(bridge.permissionsFor(g.engine, id), { canPublish: true, canSubscribe: true });
     g.until('PLAYER_SPEECH');
+    for (const id of g.ids) assert.deepEqual(bridge.permissionsFor(g.engine, id), { canPublish: true, canSubscribe: true });
+    // …et le tour de parole reste imposé par le serveur : seul l'orateur peut parler,
+    // tous les autres ne l'entendent que lui (le reste est coupé chez eux).
+    const { voiceFor } = await import('../src/engine/voice.ts');
     const speaker = g.engine.state.phase.data.speakerId as string;
     for (const id of g.ids) {
-      const alive = g.engine.state.players.find((p) => p.id === id)!.alive;
-      assert.equal(bridge.permissionsFor(g.engine, id).canPublish, id === speaker && alive);
+      const v = voiceFor(g.engine.state, id);
+      assert.equal(v.canSpeak, id === speaker && g.engine.state.players.find((p) => p.id === id)!.alive);
+      if (id !== speaker) assert.deepEqual(v.hearFrom, [speaker]);
     }
   });
 

@@ -167,6 +167,7 @@ export function startGame(ctx: Ctx, playerId: string): void {
   // L'Hôte choisit la composition, jamais qui reçoit quoi.
   const shuffled = shuffle(deck, ctx.rng);
   const players = [...s.players].sort((a, b) => a.seat - b.seat);
+  varyRoles(shuffled, players.map((p) => s.previousRoles?.[p.id]), ctx);
   players.forEach((p, i) => {
     p.role = shuffled[i];
     p.originalRole = shuffled[i];
@@ -186,6 +187,24 @@ export function startGame(ctx: Ctx, playerId: string): void {
   enterPhase(ctx, 'ROLE_DISTRIBUTION', s.settings.durations.roleReveal);
 }
 
+/**
+ * Les rôles changent vraiment d'une partie à l'autre : un joueur qui retombe sur le même rôle
+ * spécial qu'à la partie précédente l'échange (au hasard) avec un autre joueur, quand c'est
+ * possible sans créer de nouvelle répétition. La distribution reste aléatoire et secrète.
+ */
+function varyRoles(cards: RoleId[], previous: (RoleId | undefined)[], ctx: Ctx): void {
+  const n = previous.length;
+  for (let i = 0; i < n; i++) {
+    if (!previous[i] || cards[i] !== previous[i] || cards[i] === 'villager') continue;
+    const candidates = shuffle(
+      Array.from({ length: n }, (_, j) => j).filter((j) => j !== i && cards[j] !== cards[i] && cards[j] !== previous[i] && cards[i] !== previous[j]),
+      ctx.rng,
+    );
+    const j = candidates[0];
+    if (j !== undefined) [cards[i], cards[j]] = [cards[j], cards[i]];
+  }
+}
+
 /** Après une partie : retour au lobby demandé par l'Hôte (bouton). */
 export function resetToLobby(ctx: Ctx, playerId: string): void {
   requireHost(ctx.state, playerId);
@@ -203,8 +222,11 @@ export function returnToLobby(ctx: Ctx): void {
   if (s.status !== 'finished') return;
   const fresh = createGameState(s.code, ctx.now);
   const keep = s.players.filter((p) => !p.abandoned);
+  const previousRoles: Record<string, RoleId> = {};
+  for (const p of keep) if (p.originalRole) previousRoles[p.id] = p.originalRole;
   Object.assign(s, {
     ...fresh,
+    previousRoles,
     createdAt: s.createdAt,
     hostId: s.hostId,
     settings: s.settings,

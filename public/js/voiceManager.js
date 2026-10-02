@@ -28,6 +28,13 @@ export class Voice extends EventTarget {
     })()
       .catch((e) => {
         this.lastError = `${e?.name || 'Erreur'} ${e?.message || ''}`.slice(0, 80);
+        // Essai raté : tout est libéré (micro compris) pour que le prochain essai reparte de zéro.
+        try {
+          this.impl?.stop();
+        } catch {
+          /* rien à libérer */
+        }
+        this.impl = null;
         throw e;
       })
       .finally(() => (this.starting = null));

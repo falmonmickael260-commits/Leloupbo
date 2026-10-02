@@ -111,6 +111,8 @@ export interface GameState {
   counter: number;
   /** Étiquettes personnelles : auteur → (joueur étiqueté → texte). Privées : chacun ne reçoit que les siennes. */
   tags?: Record<string, Record<string, string>>;
+  /** Rôle de chaque joueur à la partie précédente du même lobby (pour varier les rôles). Secret. */
+  previousRoles?: Record<string, RoleId>;
 }
 
 /** Contexte d'exécution d'une opération du moteur. */

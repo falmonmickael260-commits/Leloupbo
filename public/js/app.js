@@ -511,12 +511,21 @@ async function autoVoice(v) {
   }
   if (ui.voiceTried || voice.state().active) return;
   ui.voiceTried = true;
+  clearTimeout(ui.voiceRetryTimer);
   try {
     await voice.start();
     ui.voiceError = false;
+    ui.voiceFails = 0;
   } catch (e) {
     console.warn('[voice]', e);
     ui.voiceError = true;
+    // Nouvel essai automatique : 3 s, 6 s, 12 s… (30 s maximum), tant qu'on est dans la partie.
+    ui.voiceFails = (ui.voiceFails ?? 0) + 1;
+    const delay = Math.min(30000, 3000 * 2 ** (ui.voiceFails - 1));
+    ui.voiceRetryTimer = setTimeout(() => {
+      ui.voiceTried = false;
+      autoVoice(client.view);
+    }, delay);
   }
   renderMic();
 }

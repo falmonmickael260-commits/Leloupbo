@@ -2,12 +2,16 @@
  * Voix via serveur audio LiveKit (SFU) — recommandé au-delà d'environ 8 joueurs.
  *
  * Chaque joueur n'a qu'UNE connexion audio (vers LiveKit) au lieu d'une par
- * joueur. Surtout, les permissions calculées par le moteur (voiceChannel) sont
- * imposées CÔTÉ SERVEUR par LiveKit à chaque phase :
- *   - canPublish   : seuls ceux qui ont la parole peuvent émettre ;
- *   - canSubscribe : seuls les auditeurs autorisés reçoivent l'audio
- *                    (canal privé des Loups inviolable, morts muets…).
- * Un client modifié ne peut donc ni parler hors de son tour, ni espionner.
+ * joueur. Stabilité avant tout : la connexion audio n'est PAS refaite à chaque phase.
+ *   - canPublish   : toujours accordé. Le micro est publié une fois pour toute la partie ;
+ *                    le client l'ouvre / le coupe instantanément selon son tour (canSpeak).
+ *                    (Retirer ce droit supprime la piste côté LiveKit → renégociation chez
+ *                    tous les joueurs à chaque tour de parole : coupures, micros muets.)
+ *   - canSubscribe : retiré par le serveur uniquement quand la confidentialité l'exige
+ *                    (phase des Loups : les autres ne reçoivent AUCUN son) — une fois par nuit.
+ * Hors de son tour, la voix d'un joueur est de toute façon coupée chez chaque auditeur
+ * (liste `hearFrom` calculée par le serveur) : un client modifié qui parlerait hors de son
+ * tour ne serait entendu par personne, et personne ne peut espionner le canal des Loups.
  *
  * Configuration (variables d'environnement, jamais dans le code) :
  *   LIVEKIT_URL         wss://mon-projet.livekit.cloud   (ou ws://localhost:7880 en dev)
@@ -103,10 +107,11 @@ export class LiveKitBridge {
     return `blackops-${code}`;
   }
 
-  /** Permissions d'un joueur pour la phase en cours (miroir exact du moteur). */
+  /** Droits LiveKit d'un joueur pour la phase en cours (voir l'en-tête : stabilité + confidentialité). */
   permissionsFor(engine: GameEngine, playerId: string): Perm {
     const ch = voiceChannel(engine.state);
-    return { canPublish: ch.speakers.includes(playerId), canSubscribe: ch.listeners.includes(playerId) };
+    const privateChannel = ch.mode === 'wolves';
+    return { canPublish: true, canSubscribe: !privateChannel || ch.listeners.includes(playerId) };
   }
 
   /** Jeton d'accès LiveKit (valable 4 h) avec les permissions actuelles du joueur. */

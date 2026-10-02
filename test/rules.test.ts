@@ -501,4 +501,25 @@ describe('Fin de partie, étiquettes et loups automatiques', () => {
     e.start(host.id, T0);
     assert.equal(e.state.players.filter((p) => p.role === 'werewolf').length, 4);
   });
+
+  it('les rôles changent d’une partie à l’autre : personne ne garde le même rôle spécial', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const e = GameEngine.create('R', T0, seededRng(seed));
+      const host = e.join('H', 'h', T0);
+      for (let i = 0; i < 7; i++) e.join(`J${i}`, `t${i}`, T0);
+      e.updateSettings(host.id, { roles: { seer: 1, witch: 1, hunter: 1, cupid: 1 } }, T0);
+      e.start(host.id, T0);
+      const first = new Map(e.state.players.map((p) => [p.id, p.role]));
+      e.leave(host.id, T0 + 1); // fin rapide : abandon de l'Hôte… on force simplement la fin
+      e.state.status = 'finished';
+      e.state.phase = { ...e.state.phase, id: 'GAME_OVER', endsAt: T0 + 5000 };
+      e.tick(T0 + 6000);
+      assert.equal(e.state.status, 'lobby');
+      e.start(e.state.hostId, T0 + 7000);
+      for (const p of e.state.players) {
+        const before = first.get(p.id);
+        if (before && before !== 'villager') assert.notEqual(p.role, before, `seed ${seed} : ${p.name} garde ${before}`);
+      }
+    }
+  });
 });

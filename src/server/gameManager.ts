@@ -397,7 +397,7 @@ export class GameManager {
       // Serveur audio LiveKit configuré : jeton d'accès avec les droits de la phase en cours.
       if (this.sfu) {
         const reply = typeof ack === 'function' ? ack : () => undefined;
-        if (!this.limiter.allow(`${socket.id}:session`, 'session')) return reply({ ok: false, error: 'RATE_LIMIT', message: 'Trop de requêtes, ralentissez.' });
+        if (!this.limiter.allow(`${socket.id}:voice`, 'voice')) return reply({ ok: false, error: 'RATE_LIMIT', message: 'Trop de requêtes, ralentissez.' });
         let ctx: { room: GameRoom; playerId: string };
         try {
           ctx = this.context(socket);
@@ -429,7 +429,7 @@ export class GameManager {
           }
         }
         return { mode: 'mesh' as const, peers, iceServers: this.iceServers };
-      }, 'session');
+      }, 'voice');
     });
     socket.on('voice:leave', () => {
       const data = socket.data as SocketData;
