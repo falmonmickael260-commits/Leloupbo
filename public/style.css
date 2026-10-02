@@ -85,7 +85,7 @@ code { background: rgba(0, 0, 0, 0.08); padding: 1px 5px; border-radius: 4px; }
 .pion .figure svg { width: 100%; height: 100%; overflow: visible; filter: brightness(calc(1 - var(--night, 0) * 0.5)) saturate(calc(1 - var(--night, 0) * 0.35)); }
 .pion.floor .figure svg, .pion.talking .figure svg { filter: none; }
 .pion .halo { position: absolute; left: -58px; top: -26px; width: 116px; height: 46px; border-radius: 50%; transition: box-shadow 0.3s, background 0.3s; }
-.pion .plate { position: absolute; left: 50%; top: -200px; transform: translateX(-50%) scale(calc(max(1, 0.62 / var(--s)))); transform-origin: 50% 100%; display: flex; align-items: center; gap: 4px; white-space: nowrap; background: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 3px 9px 3px 5px; box-shadow: 2px 2px 0 var(--ink); font: 800 16px/1.1 var(--font-ui); }
+.pion .plate { position: absolute; left: 50%; bottom: 170px; transform: translateX(-50%) scale(calc(max(1, 0.62 / var(--s)))); transform-origin: 50% 100%; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 4px; white-space: nowrap; width: max-content; max-width: 230px; background: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 3px 9px 3px 5px; box-shadow: 2px 2px 0 var(--ink); font: 800 16px/1.1 var(--font-ui); }
 .pion.me .plate { background: var(--gold); }
 .pion .badges b { font-size: 14px; font-weight: 400; }
 .pion .mic { width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 50%; border: 2px solid var(--ink); }
@@ -429,3 +429,30 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 .my-voice .lvl i { display: block; height: 100%; width: 0; background: #3fbf3f; transition: width 0.1s; }
 .plist .aud + .aud { margin-left: 3px; }
 .plist .diag { display: block; font-size: 10px; line-height: 1.25; font-weight: 600; color: #6b5d4d; word-break: break-word; }
+.gameover .back-lobby { text-align: center; font-weight: 900; font-size: 18px; margin: 12px 0 4px; }
+.gameover .back-lobby b { display: inline-block; min-width: 2.6ch; padding: 0 6px; background: var(--gold); border: 3px solid var(--ink); border-radius: 8px; }
+/* Étiquette personnelle : petite icône à côté du pseudo, texte juste en dessous une fois remplie (visible par soi seul) */
+.pion .tagbox { flex-basis: 100%; order: 10; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 1px 0 0; padding: 0 6px; border: 2px solid var(--ink); border-radius: 6px; background: #fff3c2; color: var(--ink); font: 800 12px/1.4 var(--font-ui); cursor: pointer; }
+.pion .tagbox.empty { flex-basis: auto; order: 0; margin: 0 0 0 1px; padding: 0 2px; border: 1.5px dashed rgba(27, 19, 14, 0.55); background: transparent; font-size: 10px; line-height: 1.3; opacity: 0.75; }
+.pion .tagbox:hover { opacity: 1; }
+.tag-editor { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(27, 19, 14, 0.45); padding: 16px; }
+.tag-editor .panel { width: min(380px, 100%); }
+.tag-editor h3 { margin: 0 0 4px; font: 400 26px/1.1 var(--font-title); letter-spacing: 1px; }
+.tag-editor .private { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: #6b5d4d; }
+.tag-editor .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.tag-editor .chips button { border: 2px solid var(--ink); border-radius: 999px; background: #fff; padding: 4px 10px; font: 800 14px var(--font-ui); cursor: pointer; box-shadow: 1.5px 1.5px 0 var(--ink); }
+.tag-editor .chips button.on { background: var(--gold); }
+.tag-editor input { width: 100%; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 10px; padding: 8px 10px; font: 800 16px var(--font-ui); margin-bottom: 10px; }
+.tag-editor .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+/* Jauge du nombre de loups (lobby) */
+.wolf-gauge { border: 3px solid var(--ink); border-radius: 12px; background: #fff; box-shadow: 2px 2px 0 var(--ink); padding: 8px 10px; margin-bottom: 10px; }
+.wolf-gauge .g-row { display: flex; align-items: center; gap: 10px; min-height: 28px; }
+.wolf-gauge .g-label { flex: none; width: 128px; font-weight: 900; white-space: nowrap; }
+.wolf-gauge .g-label b { display: inline-block; min-width: 22px; text-align: center; background: var(--gold); border: 2px solid var(--ink); border-radius: 6px; margin-left: 2px; }
+.wolf-gauge .g-dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.wolf-gauge .g-dots i { width: 11px; height: 11px; border-radius: 50%; background: #5fb84a; border: 2px solid var(--ink); }
+.wolf-gauge .g-wolves { font-size: 22px; letter-spacing: 2px; }
+.wolf-gauge .g-scale { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; font-size: 12px; font-weight: 800; }
+.wolf-gauge .g-scale span { padding: 2px 7px; border: 2px solid rgba(27, 19, 14, 0.25); border-radius: 999px; color: #6b5d4d; }
+.wolf-gauge .g-scale span.on { border-color: var(--ink); background: #ffe9a6; color: var(--ink); }
+.wolf-gauge .g-auto { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; }

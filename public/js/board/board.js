@@ -39,6 +39,10 @@ export class Board extends EventTarget {
     this.fx = root.querySelector('.fx');
     this.stars();
     this.daynight = new DayNight(this.stage);
+    // Le jour bascule vers la nuit : la meute hurle au loin pendant le coucher du soleil.
+    this.daynight.onSegment = (from, to) => {
+      if (from === 'day' && to === 'sunset') this.dispatchEvent(new CustomEvent('sfx', { detail: 'dusk' }));
+    };
     this.loadLights();
     this.ro = new ResizeObserver(() => this.fit());
     this.ro.observe(root);
@@ -165,7 +169,12 @@ export class Board extends EventTarget {
         el = document.createElement('div');
         el.className = 'pion';
         el.dataset.id = p.id;
-        el.innerHTML = `<div class="halo"></div><div class="figure"></div><div class="tomb"></div><div class="plate"><span class="mic"></span><span class="pname"></span><span class="badges"></span></div><div class="wave"><i></i><i></i><i></i><i></i></div><div class="mark"></div><div class="paw"></div>`;
+        el.innerHTML = `<div class="halo"></div><div class="figure"></div><div class="tomb"></div><div class="plate"><span class="mic"></span><span class="pname"></span><span class="badges"></span><button class="tagbox" type="button"></button></div><div class="wave"><i></i><i></i><i></i><i></i></div><div class="mark"></div><div class="paw"></div>`;
+        // Étiquette personnelle : son propre bouton, qui ne déclenche jamais l'action sur le joueur.
+        el.querySelector('.tagbox').addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.dispatchEvent(new CustomEvent('tag', { detail: p.id }));
+        });
         el.addEventListener('click', () => {
           if (el.classList.contains('targetable')) this.dispatchEvent(new CustomEvent('pick', { detail: p.id }));
         });
@@ -184,6 +193,16 @@ export class Board extends EventTarget {
         el.querySelector('.figure').innerHTML = characterSVG(p.avatar, { pose, title: p.name });
       }
       el.querySelector('.pname').textContent = p.name;
+      // Étiquette personnelle (visible par moi seul) — pendant la partie.
+      const tag = v.myTags?.[p.id] ?? '';
+      const tagBox = el.querySelector('.tagbox');
+      tagBox.style.display = v.status === 'lobby' ? 'none' : '';
+      if (tagBox.dataset.text !== tag) {
+        tagBox.dataset.text = tag;
+        tagBox.textContent = tag || '🏷️';
+        tagBox.classList.toggle('empty', !tag);
+        tagBox.title = tag ? `Ton étiquette : ${tag} (visible par toi seul)` : 'Ajouter une étiquette (visible par toi seul)';
+      }
       const badges = [];
       if (p.isCaptain) badges.push('<b title="Capitaine">👑</b>');
       if (v.me.lover?.id === p.id) badges.push('<b title="Votre amoureux">❤️</b>');
@@ -245,6 +264,8 @@ export class Board extends EventTarget {
     const b = this.center(targetId);
     if (!a || !b) return;
     await wait(650);
+    // Le coup part : bruitage au moment exact du flash, avant le projectile.
+    this.dispatchEvent(new CustomEvent('sfx', { detail: 'shot' }));
     const flash = document.createElement('div');
     flash.className = 'muzzle';
     flash.style.transform = `translate(${a.x + 40}px, ${a.y - 10}px)`;

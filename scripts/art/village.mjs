@@ -421,30 +421,56 @@ for (const [x, y, r, d] of [
 ]) base.push(tree(x, y, r, d));
 for (const [x, y, h] of [[1010, 302, 60], [1150, 277, 66], [190, 472, 68]]) base.push(pine(x, y, h));
 
-// --- Feu de camp + bancs
+// --- Grande pancarte « LE VILLAGE DES BLACKOPS » au milieu de la place.
+// Calée dans la zone que les pions et leurs noms ne recouvrent jamais (mesurée de 5 à 18
+// joueurs, sur ordinateur et téléphone) : lisible d'emblée, sans zoomer.
 {
   const cx = 768;
-  const cy = 556;
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
-    bench(cx + Math.cos(a) * 105, cy + Math.sin(a) * 66, (Math.atan2(Math.sin(a) * 66, Math.cos(a) * 105) * 180) / Math.PI + 90, 44);
+  const bw = 336; // largeur du panneau
+  const bh = 104; // hauteur du panneau
+  const x0 = cx - bw / 2;
+  const py = 403; // haut du panneau
+  const barY = py - 12; // traverse
+  const groundY = 590;
+  const px = [x0 + 52, x0 + bw - 52]; // poteaux
+  let s = shadowBlob(cx, groundY + 4, 210, 18);
+  // Poteaux plantés dans les pavés, avec pierres de calage.
+  for (const x of px) {
+    s += `<path d="M${x} ${barY} L${x + 2} ${groundY}" stroke="${INK}" stroke-width="22" stroke-linecap="round"/><path d="M${x} ${barY} L${x + 2} ${groundY}" stroke="${P.wood}" stroke-width="13" stroke-linecap="round"/><path d="M${x + 4} ${barY + 10} L${x + 6} ${groundY - 6}" stroke="${P.woodSh}" stroke-width="4"/>`;
+    for (const dx of [-17, 0, 17]) s += `<ellipse cx="${f(x + dx + 2)}" cy="${f(groundY + (dx ? -2 : 4))}" rx="11" ry="7" fill="${P.rock}" ${ink(2.2)}/>`;
   }
-  base.push(`<ellipse cx="${cx}" cy="${cy + 4}" rx="54" ry="31" fill="${INK}" opacity=".35"/>`);
-  let ring = '';
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2;
-    ring += `<ellipse cx="${f(cx + Math.cos(a) * 44)}" cy="${f(cy + Math.sin(a) * 25)}" rx="10" ry="7" fill="${P.rock}" ${ink(2.2)}/>`;
+  // Traverse du haut, qui dépasse des deux côtés.
+  s += `<path d="M${x0 - 16} ${barY + 2} L${x0 + bw + 16} ${barY - 4}" stroke="${INK}" stroke-width="22" stroke-linecap="round"/><path d="M${x0 - 16} ${barY} L${x0 + bw + 16} ${barY - 6}" stroke="${P.wood}" stroke-width="12" stroke-linecap="round"/><path d="M${x0 - 16} ${barY + 5} L${x0 + bw + 16} ${barY - 1}" stroke="${P.woodSh}" stroke-width="4"/>`;
+  // Panneau en planches, ombre BD décalée.
+  s += `<rect x="${x0 + 8}" y="${py + 7}" width="${bw}" height="${bh}" rx="11" fill="${INK}"/>`;
+  s += `<rect x="${x0}" y="${py}" width="${bw}" height="${bh}" rx="11" fill="#8a5428" ${ink(5)}/>`;
+  for (let k = 1; k < 3; k++) s += `<path d="M${x0 + 4} ${py + k * (bh / 3)} H${x0 + bw - 4}" stroke="${INK}" stroke-width="2.2" opacity=".6"/>`;
+  s += `<path d="M${x0} ${py + bh * 0.74} H${x0 + bw} V${py + bh - 11} Q${x0 + bw} ${py + bh} ${x0 + bw - 11} ${py + bh} H${x0 + 11} Q${x0} ${py + bh} ${x0} ${py + bh - 11} Z" fill="#6b3d1a" opacity=".6"/>`;
+  for (let k = 0; k < 14; k++) {
+    const y = rr(py + 6, py + bh - 6);
+    s += `<path d="M${f(rr(x0 + 10, x0 + bw * 0.5))} ${f(y)} q${f(rr(30, 70))} ${f(rr(-3, 3))} ${f(rr(70, 150))} ${f(rr(-2, 2))}" stroke="${INK}" stroke-width="1.1" fill="none" opacity=".35"/>`;
   }
-  base.push(ring);
-  base.push(`<ellipse cx="${cx}" cy="${cy}" rx="32" ry="17" fill="#3a2414" ${ink(2)}/><g ${ink(8)}><path d="M${cx - 26} ${cy + 6} L${cx + 22} ${cy - 10}"/><path d="M${cx - 24} ${cy - 8} L${cx + 24} ${cy + 6}"/></g><g stroke="#8a5a30" stroke-width="4" stroke-linecap="round"><path d="M${cx - 26} ${cy + 6} L${cx + 22} ${cy - 10}"/><path d="M${cx - 24} ${cy - 8} L${cx + 24} ${cy + 6}"/></g>`);
-  // flammes : toujours présentes (petites le jour), grandes la nuit dans le calque lumière
-  const flame = (k, fill) =>
-    `<path d="M${cx - 22 * k} ${cy} C${cx - 28 * k} ${cy - 30 * k} ${cx - 8 * k} ${cy - 40 * k} ${cx - 6 * k} ${cy - 66 * k} C${cx + 4 * k} ${cy - 44 * k} ${cx + 18 * k} ${cy - 46 * k} ${cx + 12 * k} ${cy - 80 * k} C${cx + 32 * k} ${cy - 50 * k} ${cx + 30 * k} ${cy - 22 * k} ${cx + 22 * k} ${cy} Z" fill="${fill}" ${ink(3)}/>`;
-  base.push(flame(0.6, '#f08a24'));
-  base.push(`<path d="M${cx - 8} ${cy} C${cx - 10} ${cy - 14} ${cx} ${cy - 20} ${cx + 1} ${cy - 30} C${cx + 8} ${cy - 18} ${cx + 12} ${cy - 10} ${cx + 8} ${cy} Z" fill="#ffd552"/>`);
-  lights.push(flame(1, '#f2601c'));
-  lights.push(`<path d="M${cx - 14} ${cy} C${cx - 18} ${cy - 22} ${cx - 2} ${cy - 30} ${cx} ${cy - 50} C${cx + 8} ${cy - 30} ${cx + 18} ${cy - 24} ${cx + 14} ${cy} Z" fill="#ffc531"/><path d="M${cx - 6} ${cy} C${cx - 8} ${cy - 12} ${cx} ${cy - 18} ${cx + 1} ${cy - 28} C${cx + 6} ${cy - 16} ${cx + 9} ${cy - 10} ${cx + 6} ${cy} Z" fill="#fff6c8"/>`);
-  spots.push({ x: cx, y: cy - 24, r: 270, kind: 'fire' });
+  for (const [x, y] of [[x0 + 12, py + 12], [x0 + bw - 12, py + 12], [x0 + 12, py + bh - 12], [x0 + bw - 12, py + bh - 12]]) s += `<circle cx="${x}" cy="${y}" r="4.5" fill="#d9c08a" ${ink(1.8)}/>`;
+  // Texte peint : gros, contrasté, encré. Les lettres (police Bangers) sont des tracés vectoriels
+  // (scripts/art/sign-text.json, généré par sign-glyphs.mjs) : rendu identique sur tous les appareils,
+  // même si le décor est chargé comme une image (qui n'a pas accès aux polices du site).
+  const glyphs = JSON.parse(readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'sign-text.json'), 'utf8'));
+  const line = (g, y) =>
+    `<g transform="translate(${cx} ${y})"><path d="${g.d}" fill="${INK}" stroke="${INK}" stroke-width="10" stroke-linejoin="round"/><path d="${g.d}" fill="#ffe08a" stroke="#fff3c4" stroke-width="0.8"/></g>`;
+  s += line(glyphs.line1, py + 44);
+  s += line(glyphs.line2, py + 94);
+  // Lierre sur les poteaux.
+  for (let k = 0; k < 18; k++) {
+    const y = rr(py + bh + 16, groundY - 10);
+    const x = px[k % 2] + rr(-11, 11);
+    s += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="7" ry="4" transform="rotate(${f(rr(-50, 50))} ${f(x)} ${f(y)})" fill="${rnd() > 0.5 ? P.leaf : P.leafSh}" ${ink(1.5)}/>`;
+  }
+  base.push(s);
+  // Lanternes aux deux bouts de la traverse : elles éclairent la pancarte la nuit.
+  hangingLantern(x0 - 6, barY + 26);
+  hangingLantern(x0 + bw + 6, barY + 20);
+  // La pancarte reste lisible la nuit.
+  spots.push({ x: cx, y: py + bh / 2, r: 230, kind: 'sign' });
 }
 
 // --- Mobilier en périphérie (la place reste libre pour les pions)
@@ -493,41 +519,6 @@ for (const [x, y, r] of [[340, 962, 22], [420, 992, 26], [520, 977, 20], [610, 1
 for (const [x, y, r] of [[300, 902, 22], [600, 932, 20], [700, 942, 18], [950, 892, 22], [1080, 952, 20], [400, 852, 16], [900, 982, 24], [160, 592, 18], [1300, 702, 22], [1420, 962, 26]]) base.push(bush(x, y, r));
 fence(745, 887, 960, 882, 9);
 fence(1040, 952, 1150, 992, 4);
-
-// --- Pancarte
-{
-  let s = '';
-  const post = (d) => `<path d="${d}" stroke="${INK}" stroke-width="22" fill="none" stroke-linecap="round"/><path d="${d}" stroke="${P.wood}" stroke-width="13" fill="none" stroke-linecap="round"/><path d="${d}" stroke="${P.woodSh}" stroke-width="5" fill="none" transform="translate(4 0)"/>`;
-  s += post('M48 30 Q46 160 58 300');
-  s += post('M398 28 Q402 140 392 245');
-  s += `<path d="M22 42 L428 30" stroke="${INK}" stroke-width="24" stroke-linecap="round"/><path d="M22 40 L428 28" stroke="${P.wood}" stroke-width="13" stroke-linecap="round"/><path d="M22 46 L428 34" stroke="${P.woodSh}" stroke-width="5"/>`;
-  s += `<path d="M96 44 v22 M352 36 v22" stroke="${INK}" stroke-width="3.5" stroke-dasharray="5 3"/>`;
-  s += `<rect x="82" y="72" width="306" height="122" rx="10" fill="${INK}"/>`;
-  s += `<rect x="76" y="64" width="306" height="122" rx="10" fill="#8a5428" ${ink(4.5)}/>`;
-  for (let i = 1; i < 4; i++) s += `<path d="M80 ${64 + i * 30.5} H378" stroke="${INK}" stroke-width="2.2" opacity=".75"/>`;
-  s += `<path d="M76 150 H382 V176 Q382 186 372 186 H86 Q76 186 76 176 Z" fill="#6b3d1a" opacity=".7"/>`;
-  for (let i = 0; i < 14; i++) {
-    const y = rr(72, 180);
-    s += `<path d="M${f(rr(86, 200))} ${f(y)} q${f(rr(30, 70))} ${f(rr(-3, 3))} ${f(rr(70, 150))} ${f(rr(-2, 2))}" stroke="${INK}" stroke-width="1.1" fill="none" opacity=".4"/>`;
-  }
-  for (const [x, y] of [[90, 78], [368, 78], [90, 172], [368, 172]]) s += `<circle cx="${x}" cy="${y}" r="4" fill="#d9c08a" ${ink(1.8)}/>`;
-  const txt = (y, size, text) =>
-    `<text x="229" y="${y}" font-family="'Bangers','Impact','Arial Black',sans-serif" font-weight="900" font-size="${size}" text-anchor="middle" fill="${INK}" stroke="${INK}" stroke-width="7" stroke-linejoin="round" letter-spacing="2">${text}</text>` +
-    `<text x="229" y="${y}" font-family="'Bangers','Impact','Arial Black',sans-serif" font-weight="900" font-size="${size}" text-anchor="middle" fill="#ffe08a" letter-spacing="2">${text}</text>`;
-  s += txt(116, 31, 'LE VILLAGE');
-  s += txt(166, 31, 'DES BLACKOPS');
-  for (let i = 0; i < 26; i++) {
-    const left = i % 2 === 0;
-    const y = rr(40, 270);
-    const x = left ? 50 + rr(-10, 10) : 398 + rr(-10, 10);
-    s += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="7" ry="4" transform="rotate(${f(rr(-50, 50))} ${f(x)} ${f(y)})" fill="${rnd() > 0.5 ? P.leaf : P.leafSh}" ${ink(1.5)}/>`;
-  }
-  base.push(s);
-  hangingLantern(62, 207);
-  hangingLantern(404, 180);
-  // La pancarte reste lisible la nuit (éclairée par ses lanternes).
-  spots.push({ x: 229, y: 128, r: 190, kind: 'sign' });
-}
 
 // ================================================================== EXPORT
 mkdirSync(OUT, { recursive: true });

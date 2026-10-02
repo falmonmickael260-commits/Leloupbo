@@ -11,6 +11,7 @@ import { Board, wait } from './board/board.js';
 import { Narrator, revealCard } from './board/overlays.js';
 import { GameClient } from './gameClient.js';
 import { Voice } from './voiceManager.js';
+import * as sfx from './sfx.js';
 
 const params = new URLSearchParams(location.search);
 const profile = params.get('profile') || 'default';
@@ -67,6 +68,7 @@ const myName = () => {
  * et demande l'accès au micro tout de suite, pour que la voix soit prête.
  */
 function primeAudio() {
+  sfx.unlock();
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (Ctx) {
@@ -147,13 +149,16 @@ function renderLobby(v) {
     .map((r) => {
       const n = s.roles[r.id] ?? 0;
       const max = r.unique ? 1 : 18;
-      return `<div class="settings-row"><span title="${esc(r.description)}">${r.emoji} ${esc(r.name)}</span>
-        <span class="counter"><button class="btn small" data-role="${r.id}" data-d="-1" ${dis || (n <= 0 ? 'disabled' : '')}>−</button><span>${n}</span>
-        <button class="btn small" data-role="${r.id}" data-d="1" ${dis || (n >= max ? 'disabled' : '')}>+</button></span></div>`;
+      // Loups automatiques : le nombre suit la jauge, les boutons sont verrouillés.
+      const lock = r.id === 'werewolf' && s.autoWolves ? 'disabled' : '';
+      return `<div class="settings-row"><span title="${esc(r.description)}">${r.emoji} ${esc(r.name)}${lock ? ' <small class="muted">(auto)</small>' : ''}</span>
+        <span class="counter"><button class="btn small" data-role="${r.id}" data-d="-1" ${dis || lock || (n <= 0 ? 'disabled' : '')}>−</button><span>${n}</span>
+        <button class="btn small" data-role="${r.id}" data-d="1" ${dis || lock || (n >= max ? 'disabled' : '')}>+</button></span></div>`;
     })
     .join('');
   const check = (key, label) => `<div class="settings-row"><span>${label}</span><input type="checkbox" data-bool="${key}" ${s[key] ? 'checked' : ''} ${dis}/></div>`;
   $('settings').innerHTML = `
+    ${wolfGauge(v.players.length, s, dis)}
     ${roleRows}
     <hr/>
     <div class="settings-row"><span>Joueurs max</span><select data-select="maxPlayers" ${dis}>${Array.from({ length: 15 }, (_, i) => i + 4)
@@ -190,6 +195,28 @@ function renderLobby(v) {
   const villagers = n + (thief ? 2 : 0) - specials;
   $('composition-preview').innerHTML = `${n} joueur(s)${thief ? ' + 2 cartes pour le Voleur' : ''} → ${villagers >= 0 ? `${villagers} Simple(s) Villageois en complément` : '<b style="color:var(--red)">trop de rôles</b>'}. Minimum 4 joueurs.`;
   $('btn-start').disabled = n < 4 || villagers < 0;
+}
+
+/** Règle du nombre de loups : 5 à 8 joueurs → 2, 9 à 11 → 3, 12 à 18 → 4 (1 en dessous de 5). */
+const wolvesFor = (n) => (n < 5 ? 1 : n <= 8 ? 2 : n <= 11 ? 3 : 4);
+
+/** Jauge du lobby : nombre de joueurs et nombre de Loups-Garous prévus. */
+function wolfGauge(n, s, dis) {
+  const wolves = s.autoWolves ? wolvesFor(n) : (s.roles.werewolf ?? 0);
+  const brackets = [
+    [5, 8, 2],
+    [9, 11, 3],
+    [12, 18, 4],
+  ];
+  const scale = brackets
+    .map(([a, b, w]) => `<span class="${n >= a && n <= b ? 'on' : ''}">${a}–${b} → ${'🐺'.repeat(w)}</span>`)
+    .join('');
+  return `<div class="wolf-gauge">
+    <div class="g-row"><span class="g-label">👥 Joueurs <b>${n}</b></span><span class="g-dots">${'<i></i>'.repeat(n)}</span></div>
+    <div class="g-row"><span class="g-label">🐺 Loups <b>${wolves}</b></span><span class="g-wolves">${'🐺'.repeat(wolves)}</span></div>
+    <div class="g-scale">${scale}</div>
+    <label class="g-auto"><input type="checkbox" data-bool="autoWolves" ${s.autoWolves ? 'checked' : ''} ${dis}/> Nombre de loups automatique</label>
+  </div>`;
 }
 
 // ================================================================== MON MICRO (diagnostic)
@@ -331,8 +358,59 @@ function renderTimer() {
   box.classList.toggle('low', s <= 5);
 }
 setInterval(renderTimer, 250);
+// Fin de partie : compte à rebours avant le retour automatique de tout le monde au lobby.
+function renderGameOverCount() {
+  const el = document.getElementById('go-count');
+  if (!el || client.view?.status !== 'finished') return;
+  const ms = client.timeLeft();
+  el.textContent = ms === null ? '…' : `${Math.max(0, Math.ceil(ms / 1000))} s`;
+}
+setInterval(renderGameOverCount, 250);
 
 // ================================================================== PLATEAU
+// Bruitages synchronisés avec les animations du plateau.
+board.addEventListener('sfx', (e) => {
+  const st = client.view?.status;
+  if (e.detail === 'dusk' && st === 'running') sfx.howlPack();
+  else if (e.detail === 'shot' && st && st !== 'lobby') sfx.gunshot();
+});
+// Étiquette personnelle : seul l'auteur la voit (le serveur ne l'envoie qu'à lui).
+const TAG_PRESETS = ['❤️ Mon ami(e)', '🐺 Suspect', '🔥 À surveiller', '✅ Confiance', '🔮 Voyante ?', '🤔 Bizarre', '🛡️ Protégé', '🤐 Trop calme'];
+board.addEventListener('tag', (e) => openTagEditor(e.detail));
+function openTagEditor(playerId) {
+  const v = client.view;
+  const target = v?.players.find((p) => p.id === playerId);
+  if (!target) return;
+  document.querySelector('.tag-editor')?.remove();
+  const current = v.myTags?.[playerId] ?? '';
+  const box = document.createElement('div');
+  box.className = 'tag-editor';
+  box.innerHTML = `<form class="panel">
+    <h3>🏷️ ${esc(target.name)}${target.isMe ? ' (toi)' : ''}</h3>
+    <p class="private">🔒 Étiquette personnelle : visible par toi seul.</p>
+    <div class="chips">${TAG_PRESETS.map((t) => `<button type="button" class="${t === current ? 'on' : ''}">${esc(t)}</button>`).join('')}</div>
+    <input name="tag" maxlength="24" placeholder="Ou écris ta propre étiquette…" value="${esc(current)}" autocomplete="off" />
+    <div class="row">
+      ${current ? '<button type="button" class="btn small ghost" data-del>🗑️ Supprimer</button>' : ''}
+      <button type="button" class="btn small ghost" data-cancel>Annuler</button>
+      <button class="btn small btn-gold">Enregistrer</button>
+    </div></form>`;
+  document.body.appendChild(box);
+  const form = box.querySelector('form');
+  const input = form.querySelector('input');
+  const save = (text) => {
+    box.remove();
+    safe(client.setTag(playerId, text));
+  };
+  form.querySelectorAll('.chips button').forEach((b) => (b.onclick = () => save(b.textContent)));
+  form.onsubmit = (ev) => {
+    ev.preventDefault();
+    save(input.value.trim());
+  };
+  form.querySelector('[data-del]')?.addEventListener('click', () => save(''));
+  form.querySelector('[data-cancel]').onclick = () => box.remove();
+  box.addEventListener('click', (ev) => ev.target === box && box.remove());
+}
 board.addEventListener('pick', (e) => {
   const v = client.view;
   const p = v?.prompt;
@@ -418,7 +496,8 @@ function renderMic(v = client.view) {
  * s'ouvre tout seul quand c'est notre tour (règles du serveur), sans bouton.
  */
 async function autoVoice(v) {
-  const inGame = v && (v.status === 'lobby' || v.status === 'running');
+  // La voix reste ouverte sur l'écran de victoire : tout le monde repasse au lobby sans coupure.
+  const inGame = v && (v.status === 'lobby' || v.status === 'running' || v.status === 'finished');
   if (!inGame) {
     if (voice.state().active) voice.stop();
     ui.voiceTried = false;
@@ -440,7 +519,10 @@ $('btn-mic').onclick = () => retryVoice();
 voice.addEventListener('change', () => renderMic());
 // Certains téléphones bloquent le son tant qu'on n'a pas touché l'écran.
 voice.addEventListener('audio', (e) => $('audio-unlock').classList.toggle('show', !!e.detail.blocked));
-const unlock = () => voice.unlockAudio();
+const unlock = () => {
+  voice.unlockAudio();
+  sfx.unlock();
+};
 document.addEventListener('pointerdown', unlock, { passive: true });
 document.addEventListener('keydown', unlock);
 $('audio-unlock').onclick = () => {
@@ -650,7 +732,7 @@ function renderGameOver(v) {
     el.dataset.key = '';
     return;
   }
-  const key = `${v.winner.title}|${v.me.isHost}`;
+  const key = `${v.winner.title}|${v.phase.seq}`;
   if (el.dataset.key === key) return;
   el.dataset.key = key;
   const w = new Set(v.winner.winnerIds);
@@ -661,10 +743,13 @@ function renderGameOver(v) {
     })
     .join('');
   el.innerHTML = `<h2>${esc(v.winner.title)}</h2><div class="final-grid">${items}</div>
-    <div class="row" style="justify-content:center">${v.me.isHost ? '<button class="btn btn-gold big" id="btn-reset" style="width:auto">Rejouer</button>' : ''}<button class="btn" id="btn-quit-end">Quitter</button></div>`;
-  const r = $('btn-reset');
-  if (r) r.onclick = () => safe(client.reset());
-  $('btn-quit-end').onclick = () => safe(client.leave());
+    <p class="back-lobby">🔄 Retour au lobby dans <b id="go-count"></b>… <span class="muted">(même groupe, même code)</span></p>
+    <div class="row" style="justify-content:center"><button class="btn" id="btn-quit-end">Quitter</button></div>`;
+  $('btn-quit-end').onclick = () => {
+    voice.stop();
+    safe(client.leave());
+  };
+  renderGameOverCount();
 }
 
 // ================================================================== NARRATEUR & ÉVÉNEMENTS
@@ -679,7 +764,11 @@ const PHASE_LINES = {
 
 function onTransitions(v, prev) {
   const ph = v.phase;
-  if (prev && prev.phase.seq !== ph.seq) {
+  // Écran de victoire (5 s) : le narrateur se tait pour laisser voir le vainqueur.
+  if (v.status === 'finished') {
+    if (prev?.status !== 'finished') narrator.hush();
+    ui.lastAnn = v.announcements.length ? v.announcements[v.announcements.length - 1].id : '';
+  } else if (prev && prev.phase.seq !== ph.seq) {
     const line = PHASE_LINES[ph.id];
     const urgent = { urgent: true };
     if (line) narrator.say(line[0], line[1], urgent);
@@ -824,6 +913,13 @@ client.addEventListener('view', (e) => {
   onPrivate(v);
   if (v && v.status !== 'lobby') onTransitions(v, ui.prev);
   if (!v || v.status === 'lobby') {
+    // Retour au lobby : la prochaine partie rejouera la révélation de la carte.
+    if (v)
+      try {
+        sessionStorage.removeItem(`blackops:revealed:${profile}:${v.code}:${v.me.id}`);
+      } catch {
+        /* stockage indisponible */
+      }
     ui.lastAnn = null;
     ui.lastPriv = undefined;
     ui.deferDeath.clear();

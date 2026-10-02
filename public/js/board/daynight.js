@@ -79,6 +79,8 @@ export class DayNight {
     }
     const from = { ...this.values };
     const to = KEYS[target];
+    // Signale le début de chaque segment animé (ex. coucher du soleil → bruitage de la meute).
+    this.onSegment?.(this.state, target);
     // Lever / coucher : un peu plus longs, pour bien voir le soleil bouger.
     const dur = target === 'night' || target === 'day' ? this.segmentMs * 1.15 : this.segmentMs;
     const t0 = performance.now();

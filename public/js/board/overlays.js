@@ -27,6 +27,17 @@ export class Narrator {
     this.queue = [];
   }
 
+  /** Coupe tout de suite la narration en cours (ex. écran de victoire : le titre doit être visible). */
+  hush() {
+    this.queue = [];
+    this.current?.abort();
+    for (const box of this.el.querySelectorAll('.narration')) {
+      box.classList.remove('in');
+      box.classList.add('out');
+      setTimeout(() => box.remove(), 600);
+    }
+  }
+
   async #next() {
     const item = this.queue.shift();
     if (!item) {

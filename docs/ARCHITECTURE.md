@@ -269,3 +269,24 @@ Mise en place LiveKit : compte LiveKit Cloud (offre gratuite pour tester) ou
 serveur auto-hébergé (`livekit-server`, ports 7880 TCP, 7881 TCP, 7882 UDP + TLS).
 Fichiers : `src/server/voiceSfu.ts`, `src/server/ice.ts`, `public/js/voiceSfu.js`,
 `public/js/voice.js`, `public/js/voiceManager.js`.
+
+## 12. Fin de partie, bruitages, étiquettes, loups automatiques
+
+- **Retour automatique au lobby** : `endGame` entre en `GAME_OVER` avec un timer de
+  `GAME_OVER_RETURN_MS` (5 s). À expiration, `returnToLobby` remet la partie en lobby avec
+  le même code, les mêmes joueurs (sessions et jetons inchangés), le même Hôte et les mêmes
+  réglages. La voix reste connectée pendant l'écran de victoire.
+- **Bruitages** (`public/js/sfx.js`) : synthétisés en Web Audio, aucun fichier.
+  Meute de loups déclenchée par le cycle jour/nuit au début du segment jour → coucher du
+  soleil (`DayNight.onSegment` → événement `sfx` du plateau). Tir du Chasseur déclenché par
+  `Board.hunterShot` à l'instant exact du flash, avant le projectile.
+- **Étiquettes personnelles** : `state.tags[auteur][cible]`, modifiées par `player:tag`.
+  La vue d'un joueur ne contient que `myTags` (les siennes) : celles des autres ne quittent
+  jamais le serveur. Effacées au retour au lobby.
+- **Nombre de loups automatique** (`settings.autoWolves`, activé par défaut) :
+  5-8 joueurs → 2, 9-11 → 3, 12-18 → 4 (`wolvesFor`). Recalculé à chaque arrivée/départ
+  et au lancement ; l'Hôte peut le désactiver pour régler les loups à la main.
+- **Pancarte centrale** : dessinée dans le décor (`scripts/art/village.mjs`) au milieu de la
+  place, dans la zone que les pions ne recouvrent jamais. Les lettres sont des tracés
+  vectoriels (`scripts/art/sign-text.json`, générés par `scripts/art/sign-glyphs.mjs`) pour
+  un rendu identique sur tous les appareils.

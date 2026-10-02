@@ -143,6 +143,11 @@ export class GameClient extends EventTarget {
   start() {
     return this.request('game:start');
   }
+  /** Étiquette personnelle sur un joueur (privée ; texte vide = suppression). */
+  setTag(playerId, text) {
+    return this.request('player:tag', { playerId, text });
+  }
+
   reset() {
     return this.request('game:reset');
   }
