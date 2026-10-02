@@ -108,7 +108,7 @@ function renderLobby(v) {
   $('lobby-players').innerHTML = v.players
     .map(
       (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}</span>
-      ${p.isBot ? '' : `<span class="aud ${p.audio.mic ? 'ok' : ''}" title="Micro">🎙️</span><span class="aud ${p.audio.speaker ? 'ok' : ''}" title="Haut-parleur">🔊</span>`}
+      ${p.isBot ? '' : `<span class="aud ${p.audio.connected && p.audio.mic ? 'ok' : ''}" title="${p.audio.connected ? (p.audio.mic ? 'Micro actif' : 'Micro refusé') : 'Voix pas connectée'}">🎙️</span>`}
       ${isHost && !p.isMe ? `<button class="btn small" data-kick="${esc(p.id)}">Exclure</button>` : ''}</li>`,
     )
     .join('');
@@ -177,84 +177,27 @@ function renderLobby(v) {
   const villagers = n + (thief ? 2 : 0) - specials;
   $('composition-preview').innerHTML = `${n} joueur(s)${thief ? ' + 2 cartes pour le Voleur' : ''} → ${villagers >= 0 ? `${villagers} Simple(s) Villageois en complément` : '<b style="color:var(--red)">trop de rôles</b>'}. Minimum 4 joueurs.`;
   $('btn-start').disabled = n < 4 || villagers < 0;
-  // Avertissement (non bloquant) : joueurs dont le son n'est pas vérifié.
-  const notReady = v.players.filter((p) => !p.isBot && (!p.audio.mic || !p.audio.speaker)).map((p) => p.name);
-  $('sound-warning').textContent = notReady.length ? `🔊 Son pas encore vérifié pour : ${notReady.join(', ')}` : '';
 }
 
-// ================================================================== TEST DU SON
+// ================================================================== ÉTAT DU MICRO (automatique)
+// Chacun voit dans le lobby si le micro des autres est actif : vert dès que la voix
+// est connectée et le micro autorisé. Aucun test à faire.
 const audioStatus = { mic: false, speaker: false, connected: false };
 let audioKey = '';
-let loudTicks = 0;
 function reportAudio() {
-  const key = `${audioStatus.mic}|${audioStatus.speaker}|${audioStatus.connected}`;
+  const key = `${audioStatus.mic}|${audioStatus.connected}`;
   if (key === audioKey || !client.view) return;
   audioKey = key;
   client.request('player:audio', { ...audioStatus }).catch(() => (audioKey = ''));
 }
-// Jauge du micro + détection automatique « micro OK » quand on parle.
 setInterval(() => {
   const v = client.view;
   if (!v || v.status === 'finished') return;
   const st = voice.state();
   audioStatus.connected = !!st.active;
-  const lvl = st.active ? voice.level() : 0;
-  if (v.status === 'lobby') {
-    $('mic-meter').style.width = `${Math.round(lvl * 100)}%`;
-    const ms = $('mic-state');
-    if (!st.active) ms.textContent = ui.voiceError ? 'Son indisponible' : 'Connexion…';
-    else if (!st.hasMic) ((ms.textContent = 'Micro refusé ✘'), (ms.className = 'st-state ko'));
-    else if (audioStatus.mic) ((ms.textContent = 'Micro OK ✔'), (ms.className = 'st-state ok'));
-    else ms.textContent = 'Parle pour tester…';
-  }
-  // Quelques sons nets (voix, « allô ») suffisent ; le bruit de fond reste sous le seuil.
-  if (lvl > 0.1) loudTicks++;
-  else loudTicks = Math.max(0, loudTicks - 0.05);
-  if (!audioStatus.mic && loudTicks >= 3) audioStatus.mic = true;
+  audioStatus.mic = !!(st.active && st.hasMic);
   reportAudio();
 }, 150);
-
-/** Petit carillon joué localement pour vérifier le haut-parleur. */
-function playChime() {
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return;
-  const ctx = (window.__blackopsAudio ??= new Ctx());
-  ctx.resume?.();
-  [660, 880, 990].forEach((f, i) => {
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.frequency.value = f;
-    o.type = 'triangle';
-    const t = ctx.currentTime + i * 0.22;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-    o.connect(g).connect(ctx.destination);
-    o.start(t);
-    o.stop(t + 0.4);
-  });
-}
-$('btn-speaker-test').onclick = () => {
-  voice.unlockAudio();
-  playChime();
-  $('spk-confirm').classList.add('show');
-};
-$('spk-yes').onclick = () => {
-  audioStatus.speaker = true;
-  $('spk-confirm').classList.remove('show');
-  $('sound-help').classList.remove('show');
-  $('spk-state').textContent = 'Son OK ✔';
-  $('spk-state').className = 'st-state ok';
-  reportAudio();
-};
-$('spk-no').onclick = () => {
-  audioStatus.speaker = false;
-  $('spk-confirm').classList.remove('show');
-  $('sound-help').classList.add('show');
-  $('spk-state').textContent = 'Pas de son ✘';
-  $('spk-state').className = 'st-state ko';
-  reportAudio();
-};
 
 // ================================================================== PHASE & TIMER
 function renderPhase(v) {

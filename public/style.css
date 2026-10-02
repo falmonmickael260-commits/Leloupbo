@@ -414,3 +414,5 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 .plist li.talking .head { box-shadow: 0 0 0 3px #5fb84a, 0 0 12px 4px rgba(95, 184, 74, 0.8); }
 .st-warning { font-weight: 800; color: #9a5a00; margin: 8px 0 0; }
 .st-warning:empty { display: none; }
+
+.voice-hint { background: #d9f5cf; border: 3px solid var(--ink); border-radius: 12px; padding: 8px 12px; font-weight: 900; margin: 0 0 12px; box-shadow: 2px 2px 0 var(--ink); }
