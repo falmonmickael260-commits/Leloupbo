@@ -85,7 +85,7 @@ export function buildView(ctx: Ctx, playerId: string): PlayerView {
       isCaptain: s.captainId === p.id,
       isMe: p.id === playerId,
       avatar: p.avatar ?? defaultAvatar(p.seat),
-      audio: { mic: !!p.audio?.mic, speaker: !!p.audio?.speaker, connected: !!p.audio?.connected },
+      audio: { mic: !!p.audio?.mic, speaker: !!p.audio?.speaker, connected: !!p.audio?.connected, ...(s.status === 'lobby' && p.audio?.diag ? { diag: p.audio.diag } : {}) },
     }));
 
   const chats: PlayerView['chats'] = {};

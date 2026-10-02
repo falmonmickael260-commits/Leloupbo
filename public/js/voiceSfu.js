@@ -7,6 +7,7 @@
  * audio coupé localement pour qui n'a pas à être entendu, en double sécurité).
  */
 import { analyserLevel } from './voice.js';
+import { rtcSummary } from './voiceManager.js';
 
 let loading = null;
 function loadLiveKit() {
@@ -197,6 +198,19 @@ export class VoiceSFU extends EventTarget {
       connected,
       mode: 'sfu',
     };
+  }
+
+  async diag() {
+    const room = this.room;
+    if (!room) return 'pas de salle';
+    const pcm = room.engine?.pcManager;
+    const pub = pcm?.publisher?.getConnectionState?.() ?? '?';
+    const sub = pcm?.subscriber?.getConnectionState?.() ?? '';
+    const pcs = [pcm?.publisher?.pc, pcm?.subscriber?.pc].filter(Boolean);
+    const els = [...this.audioEls.values()];
+    const playing = els.filter((e) => !e.paused).length;
+    const ctx = this.meterCtx?.state ?? '-';
+    return `${room.state} · liaison:${pub}${sub ? `/${sub}` : ''} · ${await rtcSummary(pcs)} · sons ${playing}/${els.length} · lecture:${room.canPlaybackAudio ? 'ok' : 'bloquée'} · ctx:${ctx}`;
   }
 
   async stats() {

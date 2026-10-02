@@ -112,6 +112,8 @@ export interface AudioStatus {
   mic: boolean;
   speaker: boolean;
   connected: boolean;
+  /** Diagnostic technique court (navigateur, connexion audio, octets envoyés/reçus). */
+  diag?: string;
 }
 
 export interface PublicPlayer {

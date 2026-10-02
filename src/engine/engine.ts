@@ -62,7 +62,8 @@ export class GameEngine {
     const p = getPlayer(this.state, playerId);
     if (!p) fail('NOT_IN_GAME', 'Joueur inconnu.');
     const st = (status && typeof status === 'object' ? status : {}) as Record<string, unknown>;
-    p.audio = { mic: st.mic === true, speaker: st.speaker === true, connected: st.connected === true };
+    const diag = typeof st.diag === 'string' ? st.diag.replace(/[^\p{L}\p{N} .,:/·()%+\-]/gu, '').slice(0, 200) : '';
+    p.audio = { mic: st.mic === true, speaker: st.speaker === true, connected: st.connected === true, ...(diag ? { diag } : {}) };
     this.state.updatedAt = now;
   }
   setAvatar(playerId: string, avatar: unknown, now: number): void {

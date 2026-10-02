@@ -425,3 +425,4 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 .my-voice .lvl { display: inline-block; vertical-align: middle; width: 80px; height: 10px; border: 2px solid var(--ink); border-radius: 6px; background: #fff; overflow: hidden; }
 .my-voice .lvl i { display: block; height: 100%; width: 0; background: #3fbf3f; transition: width 0.1s; }
 .plist .aud + .aud { margin-left: 3px; }
+.plist .diag { display: block; font-size: 10px; line-height: 1.25; font-weight: 600; color: #6b5d4d; word-break: break-word; }

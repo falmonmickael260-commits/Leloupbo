@@ -107,7 +107,7 @@ function renderLobby(v) {
   $('lobby-count').textContent = `(${v.players.length}/${v.settings.maxPlayers})`;
   $('lobby-players').innerHTML = v.players
     .map(
-      (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}</span>
+      (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${p.audio.diag ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
       ${p.isBot ? '' : `<span class="aud ${p.audio.connected && p.audio.mic ? 'ok' : ''}" title="${p.audio.connected ? (p.audio.mic ? 'Micro actif' : 'Micro bloqué') : 'Voix pas connectée'}">🎙️</span><span class="aud ${p.audio.connected && p.audio.speaker ? 'ok' : ''}" title="${p.audio.speaker ? 'Son actif' : 'Son bloqué'}">🔊</span>`}
       ${isHost && !p.isMe ? `<button class="btn small" data-kick="${esc(p.id)}">Exclure</button>` : ''}</li>`,
     )
@@ -264,10 +264,15 @@ document.addEventListener(
 // ================================================================== ÉTAT DU MICRO (automatique)
 // Chacun voit dans le lobby si le micro des autres est actif : vert dès que la voix
 // est connectée et le micro autorisé. Aucun test à faire.
-const audioStatus = { mic: false, speaker: false, connected: false };
+const audioStatus = { mic: false, speaker: false, connected: false, diag: '' };
+// Diagnostic technique (navigateur, connexion audio, octets envoyés/reçus), affiché dans le lobby.
+setInterval(async () => {
+  if (client.view?.status !== 'lobby') return;
+  audioStatus.diag = await voice.diag().catch(() => '');
+}, 3000);
 let audioKey = '';
 function reportAudio() {
-  const key = `${audioStatus.mic}|${audioStatus.speaker}|${audioStatus.connected}`;
+  const key = `${audioStatus.mic}|${audioStatus.speaker}|${audioStatus.connected}|${audioStatus.diag}`;
   if (key === audioKey || !client.view) return;
   audioKey = key;
   client.request('player:audio', { ...audioStatus }).catch(() => (audioKey = ''));

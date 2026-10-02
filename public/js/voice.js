@@ -240,6 +240,13 @@ export class VoiceMesh extends EventTarget {
     };
   }
 
+  async diag() {
+    const { rtcSummary } = await import('./voiceManager.js');
+    const pcs = [...this.peers.values()].map((p) => p.pc);
+    const ok = pcs.filter((pc) => pc.connectionState === 'connected').length;
+    return `liens ${ok}/${pcs.length} · ${await rtcSummary(pcs)} · lecture:${this.audioBlocked ? 'bloquée' : 'ok'}`;
+  }
+
   /** Débit envoyé / reçu (kb/s) par pair, pour diagnostic. */
   async stats() {
     const out = {};
