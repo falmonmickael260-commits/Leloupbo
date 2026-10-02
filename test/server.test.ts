@@ -167,4 +167,24 @@ describe('Voix — serveur audio LiveKit', () => {
       assert.equal(bridge.permissionsFor(g.engine, id).canPublish, id === speaker && alive);
     }
   });
+
+  it('LiveKit injoignable → la partie passe en voix pair-à-pair au lieu de rester muette', { timeout: 15_000 }, async () => {
+    const { createApp: create } = await import('../src/server/app.ts');
+    const { http, manager, io } = create(new MemoryGameStore(), { sfu: { url: 'ws://127.0.0.1:9', apiKey: 'k', apiSecret: 'secret-de-test-assez-long-pour-hs256' }, sfuHealthCheck: false });
+    await new Promise<void>((r) => http.listen(0, r));
+    const url = `http://localhost:${(http.address() as AddressInfo).port}`;
+    assert.equal(await manager.sfu!.check(2000), false);
+    const health = await (await fetch(`${url}/health`)).json();
+    assert.equal(health.voice.livekit.ok, false);
+    const c = await client(url);
+    sockets.push(c);
+    await emit(c, 'game:create', { name: 'Alice' });
+    const join = await emit(c, 'voice:join');
+    assert.equal(join.ok, true);
+    assert.equal(join.mode ?? 'mesh', 'mesh');
+    c.close();
+    manager.stop();
+    io.close();
+    await new Promise((r) => http.close(r));
+  });
 });

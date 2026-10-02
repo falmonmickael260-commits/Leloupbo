@@ -41,10 +41,35 @@ export class LiveKitBridge {
   /** Dernières permissions appliquées, par partie puis par joueur. */
   private readonly applied = new Map<string, Map<string, string>>();
   private readonly pending = new Map<string, NodeJS.Timeout>();
+  /** Dernier contrôle du serveur audio : null = pas encore vérifié. */
+  health: { ok: boolean | null; error?: string; checkedAt?: string } = { ok: null };
 
   constructor(private readonly cfg: SfuConfig) {
     const host = cfg.url.replace(/^ws(s?):\/\//, 'http$1://');
     this.rooms = new RoomServiceClient(host, cfg.apiKey, cfg.apiSecret);
+  }
+
+  /**
+   * Vérifie que LiveKit répond avec ces clés (adresse, clé et secret corrects).
+   * En cas d'échec, le jeu passe en voix pair-à-pair au lieu de rester muet.
+   */
+  async check(timeoutMs = 6000): Promise<boolean> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        this.rooms.listRooms(),
+        new Promise((_, reject) => (timer = setTimeout(() => reject(new Error('pas de réponse')), timeoutMs))),
+      ]);
+      if (this.health.ok !== true) console.log('🎙️ Serveur audio LiveKit joignable.');
+      this.health = { ok: true, checkedAt: new Date().toISOString() };
+    } catch (e) {
+      const error = String((e as Error)?.message ?? e).slice(0, 160);
+      if (this.health.ok !== false) console.error(`⚠️ Serveur audio LiveKit injoignable (${error}) : voix pair-à-pair utilisée.`);
+      this.health = { ok: false, error, checkedAt: new Date().toISOString() };
+    } finally {
+      clearTimeout(timer);
+    }
+    return this.health.ok === true;
   }
 
   private roomName(code: string): string {

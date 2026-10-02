@@ -16,7 +16,8 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
   const app = express();
   app.disable('x-powered-by');
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, games: manager.rooms.size, uptime: process.uptime(), droppedSignals: manager.droppedSignals });
+    const voice = manager.sfu ? { mode: 'livekit', livekit: manager.sfu.health } : { mode: 'pair-à-pair' };
+    res.json({ ok: true, games: manager.rooms.size, uptime: process.uptime(), droppedSignals: manager.droppedSignals, voice });
   });
   app.get('/api/roles', (_req, res) => {
     res.json(allRoles().map(roleInfo));

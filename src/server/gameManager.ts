@@ -43,6 +43,8 @@ class GameRoom {
   timer: NodeJS.Timeout | null = null;
   readonly botTimers = new Map<string, NodeJS.Timeout>();
   lastHumanSeenAt: number;
+  /** Mode voix choisi pour la partie (fixé au premier joueur connecté à la voix). */
+  voiceMode: 'sfu' | 'mesh' | null = null;
 
   constructor(
     public readonly engine: GameEngine,
@@ -64,6 +66,8 @@ export interface ManagerOptions {
   housekeepingMs?: number;
   /** Serveur audio LiveKit (par défaut : variables d'environnement LIVEKIT_*). */
   sfu?: SfuConfig | null;
+  /** Contrôle périodique de LiveKit (désactivable dans les tests). */
+  sfuHealthCheck?: boolean;
 }
 
 export class GameManager {
@@ -76,7 +80,8 @@ export class GameManager {
   droppedSignals = 0;
   private readonly limiter = new RateLimiter();
   private readonly iceServers: IceServer[] = iceServersFromEnv();
-  private readonly sfu: LiveKitBridge | null;
+  readonly sfu: LiveKitBridge | null;
+  private sfuTimer?: NodeJS.Timeout;
 
   constructor(
     private readonly io: IO,
@@ -89,6 +94,12 @@ export class GameManager {
     const sfuCfg = opts.sfu === undefined ? sfuConfigFromEnv() : opts.sfu;
     this.sfu = sfuCfg ? new LiveKitBridge(sfuCfg) : null;
     console.log(this.sfu ? `🎙️ Voix : serveur audio LiveKit (${sfuCfg!.url})` : '🎙️ Voix : pair-à-pair (configurez LIVEKIT_* pour un serveur audio)');
+    if (this.sfu && opts.sfuHealthCheck !== false) {
+      const sfu = this.sfu;
+      void sfu.check();
+      this.sfuTimer = setInterval(() => void sfu.check(), 60_000);
+      this.sfuTimer.unref?.();
+    }
     this.housekeeping = setInterval(() => this.tickAll(), opts.housekeepingMs ?? 1000);
     io.on('connection', (socket) => this.bind(socket));
   }
@@ -117,6 +128,7 @@ export class GameManager {
   stop(): void {
     this.stopped = true;
     if (this.housekeeping) clearInterval(this.housekeeping);
+    if (this.sfuTimer) clearInterval(this.sfuTimer);
     for (const room of this.rooms.values()) this.clearTimers(room);
   }
 
@@ -378,8 +390,16 @@ export class GameManager {
 
     // ---- Voix : le serveur relaie la signalisation WebRTC entre membres d'une même partie.
     socket.on('voice:join', (_p, ack) => {
-      // Serveur audio LiveKit configuré : jeton d'accès avec les droits de la phase en cours.
-      if (this.sfu) {
+      // Serveur audio LiveKit configuré ET joignable : jeton d'accès avec les droits de la phase en cours.
+      // Le mode est fixé pour toute la partie, pour que tout le monde soit dans le même salon audio.
+      let room0: GameRoom | null = null;
+      try {
+        room0 = this.context(socket).room;
+      } catch {
+        /* pas de session : géré plus bas */
+      }
+      if (room0 && !room0.voiceMode) room0.voiceMode = this.sfu && this.sfu.health.ok !== false ? 'sfu' : 'mesh';
+      if (this.sfu && room0?.voiceMode !== 'mesh') {
         const reply = typeof ack === 'function' ? ack : () => undefined;
         if (!this.limiter.allow(`${socket.id}:session`, 'session')) return reply({ ok: false, error: 'RATE_LIMIT', message: 'Trop de requêtes, ralentissez.' });
         let ctx: { room: GameRoom; playerId: string };
