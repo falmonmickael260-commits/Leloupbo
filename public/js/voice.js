@@ -231,7 +231,10 @@ export class VoiceMesh extends EventTarget {
       active: this.active,
       hasMic: !!this.stream,
       micError: this.micError ?? null,
+      micLive: !!this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted),
       transmitting: !!(this.active && this.stream && voice?.canSpeak),
+      sending: !!(this.active && this.stream && voice?.canSpeak && connected > 0),
+      speakerOk: !this.audioBlocked,
       peers: this.peers.size,
       connected,
     };

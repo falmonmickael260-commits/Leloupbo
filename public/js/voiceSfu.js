@@ -36,26 +36,30 @@ export class VoiceSFU extends EventTarget {
 
   async start(join) {
     const LK = await loadLiveKit();
-    // Micro gardé « en capture » pendant toute la partie (sans être émis hors de son tour) :
-    // sur iPhone, Safari n'autorise la lecture automatique du son que pendant une capture.
+    // UN SEUL micro capturé pour toute la partie : il sert à émettre (quand c'est notre tour)
+    // et reste « en capture » le reste du temps (simplement coupé). Sur iPhone, une 2e capture
+    // du micro rend la première muette, et Safari n'autorise la lecture du son que pendant une
+    // capture : on ne redemande donc jamais le micro en cours de partie.
     try {
-      this.keepAlive = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      this.micTrack = await LK.createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 });
       this.hasMic = true;
       try {
         this.meterCtx = new (window.AudioContext || window.webkitAudioContext)();
         this.meter = this.meterCtx.createAnalyser();
         this.meter.fftSize = 256;
-        this.meterCtx.createMediaStreamSource(this.keepAlive).connect(this.meter);
+        this.meterCtx.createMediaStreamSource(new MediaStream([this.micTrack.mediaStreamTrack])).connect(this.meter);
       } catch {
         this.meter = null;
       }
     } catch (e) {
-      this.keepAlive = null;
+      this.micTrack = null;
       this.hasMic = false;
       this.micError = e?.name || 'Error';
     }
     const room = new LK.Room({
       adaptiveStream: false,
+      // Le serveur retire la piste quand ce n'est plus notre tour : on la garde pour la renvoyer ensuite.
+      stopLocalTrackOnUnpublish: false,
       dynacast: true,
       audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       // Préréglage « parole » : mono, débit réduit, rien d'envoyé pendant les silences.
@@ -141,23 +145,58 @@ export class VoiceSFU extends EventTarget {
     const room = this.room;
     if (!v || !room || !this.active) return;
     const lp = room.localParticipant;
-    const allowed = this.hasMic && v.canSpeak && lp.permissions?.canPublish !== false;
-    if (allowed !== this.micOn) {
-      this.micOn = allowed;
-      lp.setMicrophoneEnabled(allowed).catch((e) => {
-        console.warn('[voice] micro', e);
-        this.micOn = false;
-      });
-    }
+    const allowed = !!this.micTrack && v.canSpeak && lp.permissions?.canPublish !== false;
+    this.micOn = allowed;
+    this.#syncMic(allowed);
     for (const [id, el] of this.audioEls) el.muted = !v.hearFrom.includes(id);
     this.#emit();
+  }
+
+  /** Émet ou coupe le micro, sans jamais le recapturer. */
+  async #syncMic(allowed) {
+    const track = this.micTrack;
+    if (!track || this.syncing) return;
+    this.syncing = true;
+    try {
+      if (allowed) {
+        const lp = this.room.localParticipant;
+        const published = [...lp.audioTrackPublications.values()].some((p) => p.track === track);
+        if (track.isMuted) await track.unmute();
+        if (!published) await lp.publishTrack(track, { source: window.LivekitClient.Track.Source.Microphone });
+      } else if (!track.isMuted) {
+        await track.mute();
+      }
+    } catch (e) {
+      console.warn('[voice] micro', e);
+    } finally {
+      this.syncing = false;
+    }
+    // Les droits ont pu changer pendant l'opération : on revérifie.
+    const v = this.client.view?.voice;
+    const want = !!v && this.active && v.canSpeak && this.room?.localParticipant.permissions?.canPublish !== false;
+    if (this.active && want !== allowed) this.#syncMic(want);
+    else this.#emit();
   }
 
   state() {
     const room = this.room;
     const n = room ? room.remoteParticipants.size : 0;
     const connected = room && room.state === 'connected' ? n : 0;
-    return { active: this.active, hasMic: this.hasMic, micError: this.micError ?? null, transmitting: this.micOn, peers: n, connected, mode: 'sfu' };
+    const mst = this.micTrack?.mediaStreamTrack;
+    const micLive = !!mst && mst.readyState === 'live' && !mst.muted;
+    const published = !!room && [...room.localParticipant.audioTrackPublications.values()].some((p) => p.track === this.micTrack);
+    return {
+      active: this.active,
+      hasMic: this.hasMic,
+      micError: this.micError ?? null,
+      micLive,
+      transmitting: this.micOn,
+      sending: this.micOn && published && micLive && !this.micTrack.isMuted && room?.state === 'connected',
+      speakerOk: !room || room.canPlaybackAudio !== false,
+      peers: n,
+      connected,
+      mode: 'sfu',
+    };
   }
 
   async stats() {
@@ -176,8 +215,8 @@ export class VoiceSFU extends EventTarget {
     this.active = false;
     this.client.removeEventListener('view', this.onView);
     this.room?.disconnect();
-    this.keepAlive?.getTracks().forEach((t) => t.stop());
-    this.keepAlive = null;
+    this.micTrack?.stop();
+    this.micTrack = null;
     this.meterCtx?.close().catch(() => {});
     this.meterCtx = null;
     this.meter = null;
