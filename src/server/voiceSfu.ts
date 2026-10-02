@@ -25,10 +25,37 @@ export interface SfuConfig {
   apiSecret: string;
 }
 
+/** Première variable non vide parmi plusieurs noms acceptés (espaces et guillemets retirés). */
+function pick(env: NodeJS.ProcessEnv, names: string[]): string {
+  for (const n of names) {
+    const v = env[n]?.trim().replace(/^["']|["']$/g, '').trim();
+    if (v) return v;
+  }
+  return '';
+}
+
+const URL_NAMES = ['LIVEKIT_URL', 'LIVEKIT_WS_URL', 'LIVEKIT_SERVER_URL', 'LIVEKIT_HOST', 'LIVEKIT_API_URL'];
+const KEY_NAMES = ['LIVEKIT_API_KEY', 'LIVEKIT_KEY', 'LIVEKIT_APIKEY'];
+const SECRET_NAMES = ['LIVEKIT_API_SECRET', 'LIVEKIT_SECRET', 'LIVEKIT_API_SECRET_KEY', 'LIVEKIT_SECRET_KEY'];
+
 export function sfuConfigFromEnv(env: NodeJS.ProcessEnv = process.env): SfuConfig | null {
-  const { LIVEKIT_URL: url, LIVEKIT_API_KEY: apiKey, LIVEKIT_API_SECRET: apiSecret } = env;
+  let url = pick(env, URL_NAMES);
+  const apiKey = pick(env, KEY_NAMES);
+  const apiSecret = pick(env, SECRET_NAMES);
   if (!url || !apiKey || !apiSecret) return null;
-  return { url, apiKey, apiSecret };
+  // Adresse copiée en https:// ou sans protocole : le client a besoin de wss://.
+  if (/^https?:\/\//i.test(url)) url = url.replace(/^http/i, 'ws');
+  else if (!/^wss?:\/\//i.test(url)) url = `wss://${url}`;
+  return { url: url.replace(/\/+$/, ''), apiKey, apiSecret };
+}
+
+/** Variables LiveKit manquantes (noms seulement, jamais les valeurs) — pour le journal du serveur. */
+export function missingSfuVars(env: NodeJS.ProcessEnv = process.env): string[] {
+  const missing: string[] = [];
+  if (!pick(env, URL_NAMES)) missing.push('LIVEKIT_URL');
+  if (!pick(env, KEY_NAMES)) missing.push('LIVEKIT_API_KEY');
+  if (!pick(env, SECRET_NAMES)) missing.push('LIVEKIT_API_SECRET');
+  return missing;
 }
 
 interface Perm {

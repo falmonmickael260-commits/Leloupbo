@@ -145,6 +145,9 @@ describe('Voix — serveur audio LiveKit', () => {
     const { setup } = await import('./helpers.ts');
     assert.equal(sfuConfigFromEnv({}), null);
     assert.deepEqual(sfuConfigFromEnv({ LIVEKIT_URL: 'wss://x', LIVEKIT_API_KEY: 'k', LIVEKIT_API_SECRET: 's' }), { url: 'wss://x', apiKey: 'k', apiSecret: 's' });
+    // Copier-coller approximatif : espaces, guillemets, https://, autre nom de variable.
+    assert.deepEqual(sfuConfigFromEnv({ LIVEKIT_URL: ' "https://p.livekit.cloud/" ', LIVEKIT_API_KEY: 'k ', LIVEKIT_SECRET: 's' }), { url: 'wss://p.livekit.cloud', apiKey: 'k', apiSecret: 's' });
+    assert.equal(sfuConfigFromEnv({ LIVEKIT_URL: 'p.livekit.cloud', LIVEKIT_API_KEY: 'k', LIVEKIT_API_SECRET: 's' })!.url, 'wss://p.livekit.cloud');
     const ice = iceServersFromEnv({ TURN_URLS: 'turn:relay:3478', TURN_USERNAME: 'u', TURN_CREDENTIAL: 'c' });
     assert.equal(ice[ice.length - 1].username, 'u');
 

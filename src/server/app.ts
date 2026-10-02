@@ -8,6 +8,7 @@ import { allRoles, roleInfo } from '../engine/roles/index.ts';
 import type { ClientToServerEvents, ServerToClientEvents } from '../shared/protocol.ts';
 import { GameManager, type ManagerOptions } from './gameManager.ts';
 import type { GameStore } from './store.ts';
+import { missingSfuVars } from './voiceSfu.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.resolve(here, '../../public');
@@ -16,7 +17,7 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
   const app = express();
   app.disable('x-powered-by');
   app.get('/health', (_req, res) => {
-    const voice = manager.sfu ? { mode: 'livekit', livekit: manager.sfu.health } : { mode: 'pair-à-pair' };
+    const voice = manager.sfu ? { mode: 'livekit', livekit: manager.sfu.health } : { mode: 'pair-à-pair', manquant: missingSfuVars() };
     res.json({ ok: true, games: manager.rooms.size, uptime: process.uptime(), droppedSignals: manager.droppedSignals, voice });
   });
   app.get('/api/roles', (_req, res) => {

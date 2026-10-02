@@ -18,7 +18,7 @@ import type { GameState } from '../engine/state.ts';
 import type { Ack, ClientToServerEvents, ServerToClientEvents, SessionInfo } from '../shared/protocol.ts';
 import { iceServersFromEnv, type IceServer } from './ice.ts';
 import { RateLimiter } from './rateLimit.ts';
-import { LiveKitBridge, sfuConfigFromEnv, type SfuConfig } from './voiceSfu.ts';
+import { LiveKitBridge, missingSfuVars, sfuConfigFromEnv, type SfuConfig } from './voiceSfu.ts';
 import type { GameStore } from './store.ts';
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -91,7 +91,12 @@ export class GameManager {
     this.botDelay = opts.botDelay ?? [900, 2500];
     const sfuCfg = opts.sfu === undefined ? sfuConfigFromEnv() : opts.sfu;
     this.sfu = sfuCfg ? new LiveKitBridge(sfuCfg) : null;
-    console.log(this.sfu ? `🎙️ Voix : serveur audio LiveKit (${sfuCfg!.url})` : '🎙️ Voix : pair-à-pair (configurez LIVEKIT_* pour un serveur audio)');
+    if (this.sfu) console.log(`🎙️ Voix : serveur audio LiveKit (${sfuCfg!.url})`);
+    else {
+      const missing = opts.sfu === undefined ? missingSfuVars() : [];
+      const seen = Object.keys(process.env).filter((k) => /livekit/i.test(k));
+      console.log(`🎙️ Voix : pair-à-pair — LiveKit NON configuré.${missing.length ? ` Variables manquantes : ${missing.join(', ')}.` : ''}${seen.length ? ` Variables LiveKit trouvées : ${seen.join(', ')}.` : ' Aucune variable LiveKit trouvée.'}`);
+    }
     if (this.sfu && opts.sfuHealthCheck !== false) {
       const sfu = this.sfu;
       void sfu.check();
