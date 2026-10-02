@@ -1,0 +1,30 @@
+# Mise en ligne sur Render (render.com) : New → Blueprint → choisir ce dépôt.
+# Le jeu doit rester allumé en permanence (parties de ~30 min, timers serveur) :
+# l'offre gratuite de Render met le serveur en veille, d'où l'offre « starter ».
+services:
+  - type: web
+    name: village-des-blackops
+    runtime: node
+    plan: starter
+    branch: claude/eloquent-clarke-3dot1j
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /var/data/games
+      # Renseignés dans le tableau de bord Render (jamais dans ce fichier) :
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+    # Disque persistant : les parties en cours survivent à un redémarrage.
+    disk:
+      name: parties
+      mountPath: /var/data
+      sizeGB: 1
