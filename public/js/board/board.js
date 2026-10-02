@@ -151,6 +151,9 @@ export class Board extends EventTarget {
       this.computeLayout(v.players, v.me.id);
     }
     const prompt = v.prompt;
+    // Choix de la meute (visible uniquement des loups, pendant leur phase).
+    const wolfPicks = new Map();
+    if (prompt?.action === 'wolf_vote') for (const w of prompt.info?.packVotes ?? []) if (w.targetId) wolfPicks.set(w.targetId, (wolfPicks.get(w.targetId) ?? 0) + 1);
     const canTarget = prompt && (!prompt.submitted || prompt.canChange) && prompt.maxTargets > 0;
     const seen = new Set();
     const pack = new Set((v.me.pack ?? []).map((w) => w.id));
@@ -162,7 +165,7 @@ export class Board extends EventTarget {
         el = document.createElement('div');
         el.className = 'pion';
         el.dataset.id = p.id;
-        el.innerHTML = `<div class="halo"></div><div class="figure"></div><div class="tomb"></div><div class="plate"><span class="mic"></span><span class="pname"></span><span class="badges"></span></div><div class="wave"><i></i><i></i><i></i><i></i></div><div class="mark"></div>`;
+        el.innerHTML = `<div class="halo"></div><div class="figure"></div><div class="tomb"></div><div class="plate"><span class="mic"></span><span class="pname"></span><span class="badges"></span></div><div class="wave"><i></i><i></i><i></i><i></i></div><div class="mark"></div><div class="paw"></div>`;
         el.addEventListener('click', () => {
           if (el.classList.contains('targetable')) this.dispatchEvent(new CustomEvent('pick', { detail: p.id }));
         });
@@ -185,6 +188,9 @@ export class Board extends EventTarget {
       if (p.isCaptain) badges.push('<b title="Capitaine">👑</b>');
       if (v.me.lover?.id === p.id) badges.push('<b title="Votre amoureux">❤️</b>');
       if (pack.has(p.id) && !p.isMe) badges.push('<b title="Membre de la meute">🐺</b>');
+      // Résultats de la Voyante : visibles uniquement par elle (issus de ses messages privés).
+      const seerResult = ui.seerKnow?.get(p.id);
+      if (seerResult) badges.push(`<b class="seer-badge ${seerResult === 'LOUP' ? 'wolf' : 'civil'}" title="Vu par la Voyante">🔮${seerResult === 'LOUP' ? '🐺' : '✅'}</b>`);
       if (p.isBot) badges.push('<b title="Bot">🤖</b>');
       if (!p.connected && !p.isBot) badges.push('<b title="Déconnecté">📴</b>');
       el.querySelector('.badges').innerHTML = badges.join('');
@@ -202,6 +208,9 @@ export class Board extends EventTarget {
       el.classList.toggle('selected', !!ui.selected?.includes(p.id));
       el.classList.toggle('voted', !!prompt?.current?.includes(p.id));
       el.classList.toggle('subject', v.phase.subjectId === p.id);
+      const picks = wolfPicks.get(p.id) ?? 0;
+      el.querySelector('.paw').textContent = picks ? `🐺${picks > 1 ? ` ×${picks}` : ''}` : '';
+      el.classList.toggle('wolf-pick', picks > 0);
       el.classList.toggle('offline', !p.connected && !p.isBot);
       // Mort : animation de chute une seule fois, puis état « mort » persistant.
       // Une mort « différée » reste debout le temps d'une animation (tir du Chasseur).
@@ -252,6 +261,21 @@ export class Board extends EventTarget {
     bullet.remove();
     flash.remove();
     this.boom(b.x, b.y, 'PAN !');
+  }
+
+  /** Résultat de la Voyante affiché au-dessus du personnage (LOUP / CIVIL). */
+  revealSeer(id, result) {
+    const c = this.center(id);
+    if (!c) return;
+    const el = document.createElement('div');
+    const wolf = result === 'LOUP';
+    el.className = `seer-reveal ${wolf ? 'wolf' : 'civil'}`;
+    el.style.left = `${c.x}px`;
+    el.style.top = `${c.y - 120}px`;
+    el.innerHTML = `<div class="seer-card"><span class="seer-icon">${wolf ? '🐺' : '🧑‍🌾'}</span><b>${wolf ? 'LOUP' : 'CIVIL'}</b></div>`;
+    this.fx.appendChild(el);
+    setTimeout(() => el.classList.add('out'), 4200);
+    setTimeout(() => el.remove(), 4800);
   }
 
   boom(x, y, text) {

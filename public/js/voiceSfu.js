@@ -69,6 +69,8 @@ export class VoiceSFU extends EventTarget {
     });
     // Les droits changent côté serveur à chaque phase : on suit.
     room.on(E.ParticipantPermissionsChanged, () => this.applyPermissions());
+    // Son bloqué par le navigateur (lecture automatique interdite) → invitation à toucher l'écran.
+    room.on(E.AudioPlaybackStatusChanged, () => this.#audioState());
     room.on(E.ParticipantConnected, () => this.#emit());
     room.on(E.ParticipantDisconnected, () => this.#emit());
     room.on(E.Reconnected, () => this.applyPermissions());
@@ -81,6 +83,7 @@ export class VoiceSFU extends EventTarget {
     await room.connect(join.url, join.token, { autoSubscribe: true });
     await room.startAudio().catch(() => {});
     this.active = true;
+    this.#audioState();
     this.client.addEventListener('view', this.onView);
     this.applyPermissions();
     this.#emit();
@@ -98,6 +101,20 @@ export class VoiceSFU extends EventTarget {
       setTimeout(() => this.#rejoin(), 5000);
     }
     this.#emit();
+  }
+
+  #audioState() {
+    const blocked = !!this.room && this.room.canPlaybackAudio === false;
+    this.dispatchEvent(new CustomEvent('audio', { detail: { blocked } }));
+  }
+
+  unlockAudio() {
+    if (!this.room) return;
+    this.room
+      .startAudio()
+      .then(() => this.#audioState())
+      .catch(() => {});
+    for (const el of this.audioEls.values()) el.play?.().catch(() => {});
   }
 
   applyPermissions() {

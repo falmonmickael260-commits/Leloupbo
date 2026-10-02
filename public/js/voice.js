@@ -193,6 +193,20 @@ export class VoiceMesh extends EventTarget {
     }
   }
 
+  #audio(blocked) {
+    if (this.audioBlocked === blocked) return;
+    this.audioBlocked = blocked;
+    this.dispatchEvent(new CustomEvent('audio', { detail: { blocked } }));
+  }
+
+  /** Débloque la lecture du son (geste utilisateur requis sur certains téléphones). */
+  unlockAudio() {
+    this.ctx?.resume?.().catch(() => {});
+    for (const p of this.peers.values()) {
+      if (p.audio.srcObject) p.audio.play().then(() => this.#audio(false)).catch(() => this.#audio(true));
+    }
+  }
+
   state() {
     const voice = this.client.view?.voice;
     let connected = 0;
@@ -241,7 +255,7 @@ export class VoiceMesh extends EventTarget {
     pc.ontrack = (e) => {
       audio.srcObject = new MediaStream([e.track]);
       this.#watch(id, audio.srcObject);
-      audio.play().catch(() => {});
+      audio.play().then(() => this.#audio(false)).catch(() => this.#audio(true));
     };
     pc.onicecandidate = (e) => {
       if (e.candidate) this.socket.emit('voice:signal', { to: id, data: { candidate: e.candidate } });

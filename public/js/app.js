@@ -187,15 +187,29 @@ board.addEventListener('pick', (e) => {
   const p = v?.prompt;
   if (!p) return;
   const id = e.detail;
-  if (p.action === 'vote' || p.action === 'wolf_vote') {
+  // Sorcière : toucher un joueur = l'empoisonner (avec ou sans potion de vie).
+  if (p.action === 'witch') {
+    const ids = (p.options ?? []).map((o) => o.id);
+    const option = ui.witchSave && ids.includes('save_kill') ? 'save_kill' : 'kill';
+    if (!ids.includes(option)) return;
+    safe(client.command('witch', [id], option));
+    return;
+  }
+  // Une seule cible (vote, loups, Voyante, Salvateur, Chasseur…) : on touche, c'est validé.
+  if (p.maxTargets === 1) {
+    ui.selected = [id];
+    if (p.action === 'seer') ui.seerTarget = id;
+    board.update(v, ui);
     safe(client.command(p.action, [id]));
     return;
   }
+  // Plusieurs cibles (Cupidon) : validation automatique dès que le compte est bon.
   if (ui.selected.includes(id)) ui.selected = ui.selected.filter((x) => x !== id);
   else {
     ui.selected.push(id);
     if (ui.selected.length > p.maxTargets) ui.selected.shift();
   }
+  if (ui.selected.length === p.maxTargets && p.minTargets === p.maxTargets) safe(client.command(p.action, [...ui.selected]));
   render();
 });
 voice.addEventListener('talking', (e) => {
@@ -229,19 +243,64 @@ function renderMic(v = client.view) {
   if (!v) return;
   const btn = $('btn-mic');
   const st = voice.state();
-  if (!st.active) {
+  if (ui.voiceError) {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>🎙️</i>Activer le micro';
-  } else if (v.voice.canSpeak && st.hasMic) {
+    btn.innerHTML = '<i>⚠️</i>Son indisponible · réessayer';
+  } else if (!st.active) {
+    btn.className = 'mic-btn muted';
+    btn.innerHTML = '<i>⏳</i>Connexion de la voix…';
+  } else if (!st.hasMic) {
+    btn.className = 'mic-btn muted';
+    btn.innerHTML = '<i>⚠️</i>Micro refusé · autorise-le';
+  } else if (v.voice.canSpeak) {
     btn.className = 'mic-btn live';
-    btn.innerHTML = `<i>🎙️</i>Micro ouvert${st.peers ? ` · ${st.connected}/${st.peers}` : ''}`;
+    btn.innerHTML = '<i>🎙️</i>Ton micro est ouvert';
   } else {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = `<i>🔇</i>${st.hasMic ? 'Micro coupé' : 'Écoute seule'}`;
+    btn.innerHTML = '<i>🔇</i>Micro coupé · pas ton tour';
   }
 }
-$('btn-mic').onclick = () => (voice.state().active ? voice.stop() : safe(voice.start()));
+
+/**
+ * Voix automatique : elle se connecte dès qu'on est dans une partie, le micro
+ * s'ouvre tout seul quand c'est notre tour (règles du serveur), sans bouton.
+ */
+async function autoVoice(v) {
+  const inGame = v && (v.status === 'lobby' || v.status === 'running');
+  if (!inGame) {
+    if (voice.state().active) voice.stop();
+    ui.voiceTried = false;
+    return;
+  }
+  if (ui.voiceTried || voice.state().active) return;
+  ui.voiceTried = true;
+  try {
+    await voice.start();
+    ui.voiceError = false;
+  } catch (e) {
+    console.warn('[voice]', e);
+    ui.voiceError = true;
+  }
+  renderMic();
+}
+// Bouton : relance la voix (utile si le micro a été refusé puis autorisé).
+$('btn-mic').onclick = () => {
+  voice.stop();
+  ui.voiceTried = false;
+  ui.voiceError = false;
+  voice.unlockAudio();
+  autoVoice(client.view);
+};
 voice.addEventListener('change', () => renderMic());
+// Certains téléphones bloquent le son tant qu'on n'a pas touché l'écran.
+voice.addEventListener('audio', (e) => $('audio-unlock').classList.toggle('show', !!e.detail.blocked));
+const unlock = () => voice.unlockAudio();
+document.addEventListener('pointerdown', unlock, { passive: true });
+document.addEventListener('keydown', unlock);
+$('audio-unlock').onclick = () => {
+  voice.unlockAudio();
+  $('audio-unlock').classList.remove('show');
+};
 $('my-card').onclick = () => {
   const r = client.view?.me.role;
   if (!r) return;
@@ -252,14 +311,25 @@ $('my-card').onclick = () => {
 $('card-zoom').onclick = () => $('card-zoom').classList.remove('show');
 
 // ================================================================== ACTIONS
+const TAP_HINTS = {
+  vote: '⚖️ Touche le joueur que tu soupçonnes',
+  wolf_vote: '🐺 Touche votre victime',
+  seer: '🔮 Touche un joueur pour voir s’il est LOUP ou CIVIL',
+  protect: '🛡️ Touche le joueur à protéger cette nuit',
+  white_wolf: '🤍 Touche un loup à dévorer, ou passe',
+  hunter_shot: '🏹 Touche le joueur que tu emportes avec toi',
+  captain_successor: '👑 Touche ton successeur',
+  cupid: '💘 Touche les deux joueurs à unir',
+};
+
 function renderAction(v) {
   const el = $('action');
   const p = v.prompt;
   if (v.status === 'finished') return (el.innerHTML = '');
   if (v.phase.canFinish) {
     const lw = v.phase.id === 'DEATH_LAST_WORD';
-    el.innerHTML = `<h3>${lw ? '💀 Ta dernière parole' : '🎙️ C’est ton tour de parole'}</h3>
-      <p>${lw ? 'Explique, accuse, défends-toi. Les autres sont muets.' : 'Tu es le seul à avoir le micro.'}</p>
+    el.innerHTML = `<h3>${lw ? '💀 Ta dernière parole' : '🎙️ À toi de parler !'}</h3>
+      <p>${lw ? 'Explique, accuse, défends-toi : tout le monde t’écoute.' : 'Ton micro est ouvert, les autres t’écoutent.'}</p>
       <div class="row" style="justify-content:center"><button class="btn btn-finish" id="btn-finish">FINIR</button></div>`;
     $('btn-finish').onclick = () => safe(client.finish());
     return;
@@ -280,29 +350,49 @@ function renderAction(v) {
   if (key !== ui.promptKey) {
     ui.promptKey = key;
     ui.selected = [];
-    ui.option = null;
+    ui.witchSave = false;
   }
-  let html = `<h3>${esc(p.title)}</h3><p>${esc(p.description)}</p>`;
-  if (p.info?.victimName !== undefined) html += `<p>☠️ Victime des loups : <b>${esc(p.info.victimName ?? 'personne')}</b></p>`;
-  if (p.action === 'vote') {
-    html += p.submitted ? '<p class="confirm">✅ Ton vote a été enregistré.</p><p class="muted">Tu peux changer d’avis en cliquant sur un autre personnage.</p>' : '<p>👉 Clique directement sur un personnage du village.</p>';
-  } else if (p.action === 'wolf_vote') {
-    html += '<p>👉 Clique sur la victime dans le village.</p>';
-    html += `<div class="wolf-votes">${(p.info?.packVotes ?? []).map((w) => `<span>🐺 ${esc(w.wolfName)} → ${esc(w.targetName ?? '…')}</span>`).join('')}</div>`;
+  let html = '';
+  if (p.action === 'witch') {
+    const ids = (p.options ?? []).map((o) => o.id);
+    const victim = p.info?.victimName;
+    html += `<h3>🧪 ${victim ? `Les loups ont attaqué <b>${esc(victim)}</b>` : 'Personne n’a été attaqué'}</h3>`;
+    if (ui.witchSave) {
+      html += `<p>💚 ${esc(victim)} sera sauvé(e). ☠️ Touche un joueur pour l’empoisonner aussi, ou termine.</p>
+        <div class="row"><button class="btn btn-gold" data-witch="save">Terminer</button></div>`;
+    } else {
+      const btns = [];
+      if (ids.includes('save')) btns.push(`<button class="btn btn-gold" data-witch="${ids.includes('save_kill') ? 'save-then' : 'save'}">💚 Sauver ${esc(victim)}</button>`);
+      btns.push('<button class="btn" data-witch="none">Ne rien faire</button>');
+      if (ids.includes('kill')) html += '<p>☠️ Pour empoisonner quelqu’un, touche son personnage.</p>';
+      html += `<div class="row">${btns.join('')}</div>`;
+    }
+  } else if (p.action === 'thief') {
+    html += `<h3>🦝 ${esc(p.description)}</h3><div class="options">${(p.options ?? []).map((o) => `<button class="btn" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join('')}</div>`;
   } else {
-    if (p.options?.length) html += `<div class="options">${p.options.map((o) => `<button class="btn ${ui.option === o.id ? 'on' : ''}" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join('')}</div>`;
-    if (p.maxTargets > 0) html += `<p>Sélection : ${ui.selected.map((id) => `<b>${esc(nameOf(v, id))}</b>`).join(' + ') || '<span class="muted">clique sur des personnages</span>'}</p>`;
-    html += `<div class="row"><button class="btn btn-gold" id="btn-confirm">Confirmer</button>${p.minTargets === 0 && !p.options ? '<button class="btn" id="btn-pass">Passer</button>' : ''}</div>`;
+    const hint = TAP_HINTS[p.action] ?? esc(p.title);
+    if (p.action === 'vote' && p.submitted) html += `<h3>✅ Vote enregistré</h3><p>Touche un autre joueur pour changer d’avis.</p>`;
+    else html += `<h3>${hint}</h3>`;
+    if (p.action === 'cupid' && ui.selected.length) html += `<p>💘 ${ui.selected.map((id) => `<b>${esc(nameOf(v, id))}</b>`).join(' + ')}…</p>`;
+    if (p.action === 'wolf_vote') {
+      const votes = (p.info?.packVotes ?? []).filter((w) => w.targetName);
+      if (votes.length) html += `<p class="wolf-votes">${votes.map((w) => `🐺 ${esc(w.wolfName)} → <b>${esc(w.targetName)}</b>`).join(' · ')}</p>`;
+    }
+    if (p.minTargets === 0) html += `<div class="row"><button class="btn" id="btn-pass">${p.action === 'hunter_shot' ? 'Ne pas tirer' : 'Passer'}</button></div>`;
   }
   el.innerHTML = html;
-  el.querySelectorAll('[data-opt]').forEach((b) => (b.onclick = () => ((ui.option = b.dataset.opt), render())));
-  const confirmBtn = $('btn-confirm');
-  if (confirmBtn) {
-    const killing = ui.option === 'kill' || ui.option === 'save_kill';
-    const needTargets = p.options ? (killing ? 1 : 0) : p.minTargets;
-    confirmBtn.disabled = (p.options?.length && !ui.option) || ui.selected.length < needTargets;
-    confirmBtn.onclick = () => safe(client.command(p.action, p.options && !killing ? [] : ui.selected, ui.option ?? undefined));
-  }
+  el.querySelectorAll('[data-opt]').forEach((b) => (b.onclick = () => safe(client.command(p.action, [], b.dataset.opt))));
+  el.querySelectorAll('[data-witch]').forEach(
+    (b) =>
+      (b.onclick = () => {
+        const w = b.dataset.witch;
+        if (w === 'save-then') {
+          ui.witchSave = true;
+          return render();
+        }
+        safe(client.command('witch', [], w));
+      }),
+  );
   const pass = $('btn-pass');
   if (pass) pass.onclick = () => safe(client.command(p.action, []));
 }
@@ -531,11 +621,39 @@ function render() {
   $('btn-leave-game').textContent = v.status === 'finished' ? 'Quitter' : 'Quitter la partie (abandon)';
 }
 
+// Messages privés : la Voyante voit son résultat directement sur le personnage.
+const SEER_RE = /^🔮 (.+) : (LOUP|CIVIL)$/;
+function onPrivate(v) {
+  const log = v?.privateLog ?? [];
+  const know = new Map();
+  for (const m of log) {
+    const r = m.kind === 'seer' && SEER_RE.exec(m.text);
+    const p = r && v.players.find((x) => x.name === r[1]);
+    if (p) know.set(p.id, r[2]);
+  }
+  ui.seerKnow = know;
+  const last = log.length ? log[log.length - 1].id : '';
+  if (ui.lastPriv === undefined) {
+    ui.lastPriv = last; // (re)connexion : on ne rejoue pas l'historique
+    return;
+  }
+  const idx = log.findIndex((m) => m.id === ui.lastPriv);
+  for (const m of idx >= 0 ? log.slice(idx + 1) : []) {
+    const r = m.kind === 'seer' && SEER_RE.exec(m.text);
+    const p = r && v.players.find((x) => x.name === r[1]);
+    if (p) setTimeout(() => board.revealSeer(p.id, r[2]), 50);
+  }
+  ui.lastPriv = last;
+}
+
 client.addEventListener('view', (e) => {
   const v = e.detail;
+  autoVoice(v);
+  onPrivate(v);
   if (v && v.status !== 'lobby') onTransitions(v, ui.prev);
   if (!v || v.status === 'lobby') {
     ui.lastAnn = null;
+    ui.lastPriv = undefined;
     ui.deferDeath.clear();
     ui.aiming = null;
   }

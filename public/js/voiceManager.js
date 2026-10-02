@@ -21,11 +21,16 @@ export class Voice extends EventTarget {
     this.starting ??= (async () => {
       const join = await this.client.request('voice:join');
       const impl = join.mode === 'sfu' ? new VoiceSFU(this.client) : new VoiceMesh(this.client);
-      for (const type of ['change', 'talking']) impl.addEventListener(type, (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail })));
+      for (const type of ['change', 'talking', 'audio']) impl.addEventListener(type, (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail })));
       this.impl = impl;
       await impl.start(join);
     })().finally(() => (this.starting = null));
     return this.starting;
+  }
+
+  /** À appeler sur un geste de l'utilisateur : débloque la lecture du son (téléphones). */
+  unlockAudio() {
+    this.impl?.unlockAudio?.();
   }
 
   stop() {
