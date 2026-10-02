@@ -179,6 +179,62 @@ function renderLobby(v) {
   $('btn-start').disabled = n < 4 || villagers < 0;
 }
 
+// ================================================================== MON MICRO (diagnostic)
+// Navigateurs intégrés aux applications (WhatsApp, Messenger, Instagram…) : souvent sans micro.
+const IN_APP = /FBAN|FBAV|FB_IAB|Instagram|Snapchat|Line\/|WhatsApp|Messenger|TikTok|musical_ly|; wv\)/i.test(navigator.userAgent);
+const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+function renderMyVoice() {
+  const el = $('my-voice');
+  if (!el || client.view?.status !== 'lobby') return;
+  const st = voice.state();
+  let html;
+  if (IN_APP) html = '⚠️ Tu as ouvert le jeu dans une application : le micro n’y marche pas. Ouvre le lien dans <b>Safari</b> ou <b>Chrome</b> (menu ⋯ → « Ouvrir dans le navigateur »).';
+  else if (!navigator.mediaDevices?.getUserMedia) html = '⚠️ Ce navigateur ne permet pas le micro. Ouvre le jeu dans <b>Safari</b> (iPhone) ou <b>Chrome</b> (Android).';
+  else if (ui.voiceError) html = '⚠️ Voix non connectée. <button class="btn small btn-gold" data-retry>Réessayer</button>';
+  else if (!st.active) html = '⏳ Connexion de ton micro… <button class="btn small" data-retry>Toucher pour activer</button>';
+  else if (!st.hasMic)
+    html = `⚠️ Ton micro est bloqué. <button class="btn small btn-gold" data-retry>Autoriser le micro</button><br><span class="hint">${
+      IS_IOS ? 'Si rien ne s’affiche : Réglages de l’iPhone → Safari → Micro → « Demander » ou « Autoriser », puis recharge la page.' : 'Si rien ne s’affiche : touche le cadenas 🔒 à gauche de l’adresse → Micro → Autoriser, puis recharge la page.'
+    }</span>`;
+  else html = '✅ Ton micro est actif : tout le monde t’entend.';
+  if (el.dataset.html === html) return;
+  el.dataset.html = html;
+  el.innerHTML = html;
+  el.className = `my-voice ${st.active && st.hasMic && !IN_APP ? 'ok' : 'ko'}`;
+  el.querySelector('[data-retry]')?.addEventListener('click', retryVoice);
+}
+
+/** Relance la voix depuis un toucher (geste exigé par iPhone pour demander le micro). */
+async function retryVoice() {
+  primeAudio();
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    s.getTracks().forEach((t) => t.stop());
+  } catch (e) {
+    console.warn('[voice] micro refusé', e);
+  }
+  voice.stop();
+  ui.voiceTried = false;
+  ui.voiceError = false;
+  voice.unlockAudio();
+  await autoVoice(client.view);
+  renderMyVoice();
+}
+voice.addEventListener('change', () => renderMyVoice());
+setInterval(renderMyVoice, 1000);
+// iPhone : micro refusé faute de geste → le premier toucher sur l'écran le redemande, une fois.
+document.addEventListener(
+  'pointerdown',
+  (e) => {
+    const st = voice.state();
+    if (ui.autoRetried || !st.active || st.hasMic || IN_APP || e.target.closest?.('[data-retry],#btn-mic')) return;
+    ui.autoRetried = true;
+    retryVoice();
+  },
+  { passive: true },
+);
+
 // ================================================================== ÉTAT DU MICRO (automatique)
 // Chacun voit dans le lobby si le micro des autres est actif : vert dès que la voix
 // est connectée et le micro autorisé. Aucun test à faire.
@@ -334,13 +390,7 @@ async function autoVoice(v) {
   renderMic();
 }
 // Bouton : relance la voix (utile si le micro a été refusé puis autorisé).
-$('btn-mic').onclick = () => {
-  voice.stop();
-  ui.voiceTried = false;
-  ui.voiceError = false;
-  voice.unlockAudio();
-  autoVoice(client.view);
-};
+$('btn-mic').onclick = () => retryVoice();
 voice.addEventListener('change', () => renderMic());
 // Certains téléphones bloquent le son tant qu'on n'a pas touché l'écran.
 voice.addEventListener('audio', (e) => $('audio-unlock').classList.toggle('show', !!e.detail.blocked));

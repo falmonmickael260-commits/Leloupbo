@@ -78,6 +78,7 @@ export class VoiceMesh extends EventTarget {
     } catch (e) {
       console.warn('[voice] micro indisponible, écoute seule', e);
       this.stream = null;
+      this.micError = e?.name || 'Error';
     }
     this.active = true;
     this.socket.on('voice:peer-joined', this.onJoined);
@@ -229,6 +230,7 @@ export class VoiceMesh extends EventTarget {
     return {
       active: this.active,
       hasMic: !!this.stream,
+      micError: this.micError ?? null,
       transmitting: !!(this.active && this.stream && voice?.canSpeak),
       peers: this.peers.size,
       connected,

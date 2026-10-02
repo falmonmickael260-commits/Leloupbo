@@ -49,9 +49,10 @@ export class VoiceSFU extends EventTarget {
       } catch {
         this.meter = null;
       }
-    } catch {
+    } catch (e) {
       this.keepAlive = null;
       this.hasMic = false;
+      this.micError = e?.name || 'Error';
     }
     const room = new LK.Room({
       adaptiveStream: false,
@@ -156,7 +157,7 @@ export class VoiceSFU extends EventTarget {
     const room = this.room;
     const n = room ? room.remoteParticipants.size : 0;
     const connected = room && room.state === 'connected' ? n : 0;
-    return { active: this.active, hasMic: this.hasMic, transmitting: this.micOn, peers: n, connected, mode: 'sfu' };
+    return { active: this.active, hasMic: this.hasMic, micError: this.micError ?? null, transmitting: this.micOn, peers: n, connected, mode: 'sfu' };
   }
 
   async stats() {
