@@ -886,6 +886,45 @@ function render() {
   $('btn-leave-game').textContent = v.status === 'finished' ? 'Quitter' : 'Quitter la partie (abandon)';
 }
 
+/** Amoureux : animation « coup de foudre » visible uniquement par les deux amoureux. */
+function showLovers(v) {
+  const me = v.players.find((p) => p.isMe);
+  const lover = v.players.find((p) => p.id === v.me.lover?.id);
+  if (!me || !lover) return;
+  document.querySelector('.lovers-big')?.remove();
+  const el = document.createElement('div');
+  el.className = 'lovers-big';
+  const hearts = Array.from({ length: 14 }, (_, i) => `<i style="left:${(i * 7.3 + 3) % 100}%;animation-delay:${(i * 0.23) % 2.2}s;font-size:${22 + ((i * 11) % 26)}px">❤️</i>`).join('');
+  el.innerHTML = `<div class="hearts">${hearts}</div>
+    <div class="lovers-card">
+      <span class="lv-title">Coup de foudre !</span>
+      <div class="lv-pair"><span class="lv-fig">${characterSVG(me.avatar)}</span><span class="lv-heart">❤️</span><span class="lv-fig flip">${characterSVG(lover.avatar)}</span></div>
+      <span class="lv-text">Tu es amoureux(se) de <b>${esc(lover.name)}</b></span>
+      <span class="lv-rule">Si l’un de vous meurt, l’autre meurt de chagrin. 💔</span>
+    </div>`;
+  el.onclick = () => el.remove();
+  document.body.appendChild(el);
+  setTimeout(() => el.classList.add('out'), 5200);
+  setTimeout(() => el.remove(), 5700);
+}
+function maybeShowLovers(v) {
+  if (!v.me.lover || v.status !== 'running') return;
+  const key = `blackops:lover:${profile}:${v.code}:${v.me.id}`;
+  let seen = '';
+  try {
+    seen = sessionStorage.getItem(key) ?? '';
+  } catch {
+    /* stockage indisponible */
+  }
+  if (seen === v.me.lover.id) return;
+  try {
+    sessionStorage.setItem(key, v.me.lover.id);
+  } catch {
+    /* ignore */
+  }
+  showLovers(v);
+}
+
 /** Voyante : la carte LOUP / CIVIL s'affiche en grand au centre pendant 2 secondes. */
 function showSeerCard(name, result) {
   const wolf = result === 'LOUP';
@@ -932,6 +971,7 @@ client.addEventListener('view', (e) => {
     if (v)
       try {
         sessionStorage.removeItem(`blackops:revealed:${profile}:${v.code}:${v.me.id}`);
+        sessionStorage.removeItem(`blackops:lover:${profile}:${v.code}:${v.me.id}`);
       } catch {
         /* stockage indisponible */
       }
@@ -942,7 +982,10 @@ client.addEventListener('view', (e) => {
   }
   ui.prev = v;
   render();
-  if (v) maybeReveal(v);
+  if (v) {
+    maybeReveal(v);
+    maybeShowLovers(v);
+  }
 });
 client.addEventListener('status', (e) => {
   const el = $('conn');
