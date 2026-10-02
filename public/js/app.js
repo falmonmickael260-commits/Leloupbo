@@ -180,7 +180,7 @@ function renderLobby(v) {
     ${check('cupidWinsWithLovers', 'Cupidon gagne avec un couple mixte')}
     ${check('endVoteWhenAllVoted', 'Clore le vote quand tous ont voté')}
     ${check('revealVotes', '🗳️ Montrer qui a voté contre qui au résultat')}
-    ${check('simulateInactiveSteps', 'Simuler les phases des rôles morts')}`;
+    ${check('simulateInactiveSteps', 'Jouer quand même le tour des rôles morts (cache leur mort)')}`;
   const el = $('settings');
   el.querySelectorAll('[data-role]').forEach(
     (b) => (b.onclick = () => safe(client.updateSettings({ roles: { ...s.roles, [b.dataset.role]: Math.max(0, (s.roles[b.dataset.role] ?? 0) + Number(b.dataset.d)) } }))),

@@ -74,7 +74,7 @@ export function defaultSettings(): GameSettings {
     revealVotes: true,
     revealRolesOnGameOver: true,
     autoWolves: true,
-    simulateInactiveSteps: true,
+    simulateInactiveSteps: false,
     abandonTimeoutMs: 3 * 60 * S,
     maxDays: 40,
   };

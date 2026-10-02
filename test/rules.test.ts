@@ -180,8 +180,20 @@ describe('Nuit', () => {
     assert.equal(g.view(0).prompt!.action, 'wolf_vote');
   });
 
-  it('simule les phases d’un rôle mort pour ne pas révéler sa mort', () => {
-    const g = setup(['werewolf', 'seer', 'villager', 'villager', 'villager']);
+  it('par défaut, saute le tour d’un rôle mort (pas de compte à rebours inutile)', () => {
+    const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager'], { simulateInactiveSteps: undefined });
+    assert.equal(g.engine.state.settings.simulateInactiveSteps, false);
+    g.engine.state.players[1].alive = false;
+    const seen: string[] = [];
+    while (g.phase !== 'SUNRISE') {
+      seen.push(g.phase);
+      g.skip();
+    }
+    assert.ok(!seen.includes('WITCH_PHASE'), seen.join(' → '));
+  });
+
+  it('option : simule les phases d’un rôle mort pour ne pas révéler sa mort', () => {
+    const g = setup(['werewolf', 'seer', 'villager', 'villager', 'villager'], { simulateInactiveSteps: true });
     g.engine.state.players[1].alive = false;
     g.until('SEER_PHASE');
     assert.equal(g.engine.state.phase.data.inactive, true);
