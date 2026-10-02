@@ -8,4 +8,6 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY . .
 EXPOSE 3000
-CMD ["npm", "start"]
+# Lancé sans npm : le serveur reçoit directement le signal d’arrêt de l’hébergeur
+# (arrêt propre lors d’un redéploiement, sans fausses lignes « npm error »).
+CMD ["node", "--import", "tsx", "src/server/index.ts"]
