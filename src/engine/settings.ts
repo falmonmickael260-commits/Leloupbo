@@ -27,7 +27,7 @@ export const DURATION_PRESETS: Record<DurationPreset, Durations> = {
     speech: 45 * S,
     freeDiscussion: 60 * S,
     voting: 20 * S,
-    voteResult: 6 * S,
+    voteResult: 10 * S,
   },
   // Préréglage de test : même logique, timers raccourcis.
   fast: {
@@ -50,7 +50,7 @@ export const DURATION_PRESETS: Record<DurationPreset, Durations> = {
     speech: 10 * S,
     freeDiscussion: 15 * S,
     voting: 10 * S,
-    voteResult: 3 * S,
+    voteResult: 6 * S,
   },
 };
 
@@ -71,6 +71,7 @@ export function defaultSettings(): GameSettings {
     cupidWinsWithLovers: false,
     tieRule: 'none',
     endVoteWhenAllVoted: true,
+    revealVotes: true,
     revealRolesOnGameOver: true,
     simulateInactiveSteps: true,
     abandonTimeoutMs: 3 * 60 * S,
@@ -88,6 +89,7 @@ const BOOL_KEYS = [
   'salvateurBlocksWhiteWolf',
   'cupidWinsWithLovers',
   'endVoteWhenAllVoted',
+  'revealVotes',
   'revealRolesOnGameOver',
   'simulateInactiveSteps',
 ] as const;

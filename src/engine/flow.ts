@@ -17,7 +17,7 @@ import { shuffle } from './rng.ts';
 import { getNightStep, nightSteps, type NightStep } from './roles/index.ts';
 import { buildSpeechOrder } from './speech.ts';
 import { alivePlayers, announce, formatNames, getPlayer, playerName, type Ctx } from './state.ts';
-import { countCaptainVote, countDayVote } from './votes.ts';
+import { countCaptainVote, countDayVote, validBallots } from './votes.ts';
 import { checkWin } from './win.ts';
 
 const MAX_TRANSITIONS = 100;
@@ -197,9 +197,17 @@ function startVoting(ctx: Ctx): void {
 function resolveVote(ctx: Ctx): void {
   const s = ctx.state;
   const { eliminated, tie } = countDayVote(ctx);
+  // Révélation des votes (option) : secrets pendant le vote, dévoilés au résultat.
+  const votes = s.settings.revealVotes
+    ? Object.entries(validBallots(s)).map(([voterId, targetId]) => ({ voterId, targetId, weight: voterId === s.captainId ? 2 : 1 }))
+    : null;
   s.ballot = null;
   s.pipelineNext = 'NIGHT';
-  enterPhase(ctx, 'VOTE_RESULT', s.settings.durations.voteResult, { eliminatedId: eliminated });
+  enterPhase(ctx, 'VOTE_RESULT', s.settings.durations.voteResult, { eliminatedId: eliminated, votes });
+  if (votes?.length) {
+    const lines = votes.map((x) => `${playerName(s, x.voterId)}${x.weight > 1 ? ' (👑×2)' : ''} → ${playerName(s, x.targetId)}`);
+    announce(ctx, 'vote', `🗳️ Votes : ${lines.join(' · ')}`);
+  }
   if (eliminated) {
     if (tie.length > 1) announce(ctx, 'vote', '⚖️ Égalité ! Le sort départage le village…');
     // Seul le nom est annoncé : le rôle n'est jamais révélé.

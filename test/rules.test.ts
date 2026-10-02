@@ -259,6 +259,33 @@ describe('Jour', () => {
     assert.ok(!g.announcements().some((a) => a.includes('Villageois')));
   });
 
+  it('les votes sont dévoilés au résultat (qui a voté contre qui), jamais pendant le vote', () => {
+    const g = toDay();
+    g.until('VOTING');
+    g.act(0, 'vote', [2]);
+    g.act(1, 'vote', [2]);
+    assert.equal(g.view(3).phase.votes, null);
+    g.act(2, 'vote', [3]);
+    g.act(3, 'vote', [2]);
+    g.act(4, 'vote', [1]);
+    assert.equal(g.phase, 'VOTE_RESULT');
+    const votes = g.view(4).phase.votes!;
+    assert.equal(votes.length, 5);
+    assert.deepEqual(votes.find((x) => x.voterId === g.ids[2]), { voterId: g.ids[2], targetId: g.ids[3], weight: 1 });
+    assert.ok(g.announcements().some((a) => a.startsWith('🗳️ Votes :') && a.includes('P0 → P2')));
+    g.skip();
+    assert.equal(g.view(4).phase.votes, null);
+  });
+
+  it('option désactivée : les votes restent secrets même au résultat', () => {
+    const g = setup(['werewolf', 'hunter', 'villager', 'villager', 'villager', 'villager'], { revealVotes: false });
+    g.until('VOTING');
+    for (const i of [0, 1, 2, 3, 4, 5]) g.act(i, 'vote', [i === 2 ? 3 : 2]);
+    assert.equal(g.phase, 'VOTE_RESULT');
+    assert.equal(g.view(1).phase.votes, null);
+    assert.ok(!g.announcements().some((a) => a.startsWith('🗳️')));
+  });
+
   it('égalité : personne n’est éliminé (règle par défaut)', () => {
     const g = toDay();
     g.until('VOTING');

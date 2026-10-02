@@ -32,7 +32,7 @@ export function allVoted(state: GameState): boolean {
 }
 
 /** Bulletins valides : votant et cible toujours vivants. */
-function validBallots(state: GameState): Record<string, string> {
+export function validBallots(state: GameState): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [voter, target] of Object.entries(state.ballot?.ballots ?? {})) {
     if (getPlayer(state, voter)?.alive && getPlayer(state, target)?.alive) out[voter] = target;

@@ -98,6 +98,8 @@ export interface GameSettings {
   cupidWinsWithLovers: boolean;
   tieRule: TieRule;
   endVoteWhenAllVoted: boolean;
+  /** Dévoiler qui a voté contre qui au moment du résultat. */
+  revealVotes: boolean;
   revealRolesOnGameOver: boolean;
   /** Joue les phases des rôles morts/absents avec une durée aléatoire (évite de révéler leur mort). */
   simulateInactiveSteps: boolean;
@@ -214,6 +216,8 @@ export interface PhaseView {
   /** Joueur concerné par la phase en cours (chasseur, capitaine mort…) — public par nature. */
   subjectId: string | null;
   canFinish: boolean;
+  /** Résultat du vote du jour : qui a voté contre qui (si l'option est active). */
+  votes: { voterId: string; targetId: string; weight: number }[] | null;
 }
 
 export interface MeView {

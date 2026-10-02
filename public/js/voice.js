@@ -247,6 +247,7 @@ export class VoiceMesh extends EventTarget {
     const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     const audio = new Audio();
     audio.autoplay = true;
+    audio.setAttribute('playsinline', '');
     audio.muted = true;
     const peer = { pc, audio, initiator, polite: String(this.myId) > String(id), makingOffer: false, ignoreOffer: false, failures: 0, timer: 0 };
     this.peers.set(id, peer);

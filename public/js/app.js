@@ -62,8 +62,35 @@ const myName = () => {
   if (!n) throw new Error('Choisis un pseudo.');
   return n;
 };
-$('btn-create').onclick = () => safe(Promise.resolve().then(() => client.create(myName())));
-$('btn-join').onclick = () => safe(Promise.resolve().then(() => client.join($('join-code').value.trim().toUpperCase(), myName())));
+/**
+ * Débloque le son du navigateur pendant le clic (geste exigé par iPhone / Android)
+ * et demande l'accès au micro tout de suite, pour que la voix soit prête.
+ */
+function primeAudio() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) {
+      const ctx = (window.__blackopsAudio ??= new Ctx());
+      ctx.resume?.();
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+    }
+  } catch {
+    /* sans effet si non supporté */
+  }
+  navigator.mediaDevices?.getUserMedia?.({ audio: true }).then((s) => s.getTracks().forEach((t) => t.stop())).catch(() => {});
+}
+$('btn-create').onclick = () => {
+  primeAudio();
+  safe(Promise.resolve().then(() => client.create(myName())));
+};
+$('btn-join').onclick = () => {
+  primeAudio();
+  safe(Promise.resolve().then(() => client.join($('join-code').value.trim().toUpperCase(), myName())));
+};
 
 // ================================================================== LOBBY
 $('btn-add-bot').onclick = () => safe(client.addBot());
@@ -133,6 +160,7 @@ function renderLobby(v) {
     ${check('salvateurCanSelfProtect', 'Salvateur peut se protéger')}
     ${check('cupidWinsWithLovers', 'Cupidon gagne avec un couple mixte')}
     ${check('endVoteWhenAllVoted', 'Clore le vote quand tous ont voté')}
+    ${check('revealVotes', '🗳️ Montrer qui a voté contre qui au résultat')}
     ${check('simulateInactiveSteps', 'Simuler les phases des rôles morts')}`;
   const el = $('settings');
   el.querySelectorAll('[data-role]').forEach(
@@ -334,6 +362,20 @@ function renderAction(v) {
     $('btn-finish').onclick = () => safe(client.finish());
     return;
   }
+  if (!p && v.phase.votes?.length) {
+    const byTarget = new Map();
+    for (const vt of v.phase.votes) {
+      const list = byTarget.get(vt.targetId) ?? [];
+      list.push(vt);
+      byTarget.set(vt.targetId, list);
+    }
+    const rows = [...byTarget.entries()]
+      .sort((a, b) => b[1].reduce((n, x) => n + x.weight, 0) - a[1].reduce((n, x) => n + x.weight, 0))
+      .map(([t, list]) => `<div class="target"><b>${esc(nameOf(v, t))}</b> (${list.reduce((n, x) => n + x.weight, 0)}) ← ${list.map((x) => `${esc(nameOf(v, x.voterId))}${x.weight > 1 ? ' 👑' : ''}`).join(', ')}</div>`)
+      .join('');
+    el.innerHTML = `<h3>🗳️ Qui a voté contre qui</h3><div class="vote-list">${rows}</div>`;
+    return;
+  }
   if (!p) {
     let msg = '';
     if (v.status === 'running') {
@@ -533,7 +575,7 @@ function onTransitions(v, prev) {
   else {
     const idx = anns.findIndex((a) => a.id === ui.lastAnn);
     const fresh = idx >= 0 ? anns.slice(idx + 1) : anns.slice(-3);
-    for (const a of fresh) if (['death', 'vote', 'victory'].includes(a.kind) || /Capitaine/.test(a.text)) narrator.say(a.text.replace(/^[^\p{L}]+/u, ''), a.kind === 'victory' ? 'victory' : a.kind === 'death' ? 'death' : 'vote');
+    for (const a of fresh) if ((['death', 'vote', 'victory'].includes(a.kind) || /Capitaine/.test(a.text)) && !a.text.startsWith('🗳️')) narrator.say(a.text.replace(/^[^\p{L}]+/u, ''), a.kind === 'victory' ? 'victory' : a.kind === 'death' ? 'death' : 'vote');
     if (anns.length) ui.lastAnn = anns[anns.length - 1].id;
   }
 
@@ -617,8 +659,20 @@ function render() {
   renderChats(v);
   renderGameOver(v);
   board.update(v, ui);
+  board.showVotes(v.phase.votes);
   renderTimer();
   $('btn-leave-game').textContent = v.status === 'finished' ? 'Quitter' : 'Quitter la partie (abandon)';
+}
+
+/** Voyante : la carte LOUP / CIVIL s'affiche en grand au centre pendant 2 secondes. */
+function showSeerCard(name, result) {
+  const wolf = result === 'LOUP';
+  const el = document.createElement('div');
+  el.className = `seer-big ${wolf ? 'wolf' : 'civil'}`;
+  el.innerHTML = `<div class="big-card"><span class="big-name">🔮 ${esc(name)}</span><span class="big-icon">${wolf ? '🐺' : '🧑‍🌾'}</span><span class="big-word">${wolf ? 'LOUP' : 'CIVIL'}</span></div>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.classList.add('out'), 2000);
+  setTimeout(() => el.remove(), 2400);
 }
 
 // Messages privés : la Voyante voit son résultat directement sur le personnage.
@@ -641,7 +695,7 @@ function onPrivate(v) {
   for (const m of idx >= 0 ? log.slice(idx + 1) : []) {
     const r = m.kind === 'seer' && SEER_RE.exec(m.text);
     const p = r && v.players.find((x) => x.name === r[1]);
-    if (p) setTimeout(() => board.revealSeer(p.id, r[2]), 50);
+    if (p) showSeerCard(p.name, r[2]);
   }
   ui.lastPriv = last;
 }

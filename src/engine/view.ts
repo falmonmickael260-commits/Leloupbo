@@ -40,6 +40,7 @@ function phaseView(ctx: Ctx, playerId: string): PhaseView {
     speechOrder: s.speech ? [...s.speech.order] : null,
     subjectId,
     canFinish: speakerId === playerId,
+    votes: ph.id === 'VOTE_RESULT' && Array.isArray(ph.data.votes) ? (ph.data.votes as PhaseView['votes']) : null,
   };
 }
 

@@ -34,12 +34,13 @@ export class VoiceSFU extends EventTarget {
 
   async start(join) {
     const LK = await loadLiveKit();
-    // Le micro est-il disponible ? (sinon : écoute seule)
+    // Micro gardé « en capture » pendant toute la partie (sans être émis hors de son tour) :
+    // sur iPhone, Safari n'autorise la lecture automatique du son que pendant une capture.
     try {
-      const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
-      probe.getTracks().forEach((t) => t.stop());
+      this.keepAlive = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       this.hasMic = true;
     } catch {
+      this.keepAlive = null;
       this.hasMic = false;
     }
     const room = new LK.Room({
@@ -54,6 +55,7 @@ export class VoiceSFU extends EventTarget {
     room.on(E.TrackSubscribed, (track, _pub, participant) => {
       if (track.kind !== 'audio') return;
       const el = track.attach();
+      el.setAttribute('playsinline', '');
       el.style.display = 'none';
       document.body.appendChild(el);
       this.audioEls.set(participant.identity, el);
@@ -157,6 +159,8 @@ export class VoiceSFU extends EventTarget {
     this.active = false;
     this.client.removeEventListener('view', this.onView);
     this.room?.disconnect();
+    this.keepAlive?.getTracks().forEach((t) => t.stop());
+    this.keepAlive = null;
     for (const el of this.audioEls.values()) el.remove();
     this.audioEls.clear();
     this.micOn = false;

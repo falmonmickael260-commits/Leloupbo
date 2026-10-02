@@ -263,6 +263,47 @@ export class Board extends EventTarget {
     this.boom(b.x, b.y, 'PAN !');
   }
 
+  /** Révélation des votes : une flèche de chaque votant vers sa cible + nombre de voix. */
+  showVotes(votes) {
+    const key = JSON.stringify(votes ?? []);
+    if (key === this.votesKey) return;
+    this.votesKey = key;
+    this.fx.querySelector('.vote-arrows')?.remove();
+    this.fx.querySelectorAll('.vote-count').forEach((e) => e.remove());
+    if (!votes?.length) return;
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'vote-arrows');
+    svg.setAttribute('viewBox', `0 0 ${BOARD_W} ${BOARD_H}`);
+    svg.innerHTML = `<defs><marker id="vote-head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#e0533d" stroke="#1b130e" stroke-width="1.5"/></marker></defs>`;
+    const counts = new Map();
+    votes.forEach((vt, i) => {
+      const a = this.center(vt.voterId);
+      const b = this.center(vt.targetId);
+      if (!a || !b) return;
+      counts.set(vt.targetId, (counts.get(vt.targetId) ?? 0) + vt.weight);
+      // Légère courbe pour que les flèches croisées restent lisibles.
+      const mx = (a.x + b.x) / 2 + (b.y - a.y) * 0.18;
+      const my = (a.y + b.y) / 2 - (b.x - a.x) * 0.18 - 30;
+      const d = `M${a.x.toFixed(0)} ${(a.y - 20).toFixed(0)} Q${mx.toFixed(0)} ${my.toFixed(0)} ${b.x.toFixed(0)} ${(b.y - 30).toFixed(0)}`;
+      svg.insertAdjacentHTML(
+        'beforeend',
+        `<path d="${d}" class="vote-line-ink" style="animation-delay:${i * 120}ms"/><path d="${d}" class="vote-line" marker-end="url(#vote-head)" style="animation-delay:${i * 120}ms"/>`,
+      );
+    });
+    this.fx.appendChild(svg);
+    for (const [id, n] of counts) {
+      const c = this.center(id);
+      if (!c) continue;
+      const el = document.createElement('div');
+      el.className = 'vote-count';
+      el.style.left = `${c.x}px`;
+      el.style.top = `${c.y - 175}px`;
+      el.textContent = `🗳️ ${n}`;
+      this.fx.appendChild(el);
+    }
+  }
+
   /** Résultat de la Voyante affiché au-dessus du personnage (LOUP / CIVIL). */
   revealSeer(id, result) {
     const c = this.center(id);
