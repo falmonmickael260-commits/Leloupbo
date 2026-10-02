@@ -97,6 +97,19 @@ $('btn-add-bot').onclick = () => safe(client.addBot());
 $('btn-start').onclick = () => safe(client.start());
 $('btn-leave-lobby').onclick = () => safe(client.leave());
 
+// Icônes micro / haut-parleur du lobby : vertes si actives, barrées en rouge si coupées.
+const ICON_MIC = '<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M8.5 21h7" fill="none"/>';
+const ICON_SPK = '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" fill="none"/>';
+function audioIcon(paths, on, label) {
+  const slash = on ? '' : '<line class="slash" x1="3" y1="3" x2="21" y2="21"/>';
+  return `<span class="aud ${on ? 'ok' : 'off'}" title="${label}" aria-label="${label}"><svg viewBox="0 0 24 24">${paths}${slash}</svg></span>`;
+}
+function audioIcons(a) {
+  const mic = a.connected && a.mic;
+  const spk = a.connected && a.speaker;
+  return audioIcon(ICON_MIC, mic, mic ? 'Micro actif' : 'Micro coupé') + audioIcon(ICON_SPK, spk, spk ? 'Son actif' : 'Son coupé');
+}
+
 function renderLobby(v) {
   const isHost = v.me.isHost;
   document.querySelectorAll('.host-only').forEach((el) => (el.style.display = isHost ? '' : 'none'));
@@ -108,7 +121,7 @@ function renderLobby(v) {
   $('lobby-players').innerHTML = v.players
     .map(
       (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${p.audio.diag ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
-      ${p.isBot ? '' : `<span class="aud ${p.audio.connected && p.audio.mic ? 'ok' : ''}" title="${p.audio.connected ? (p.audio.mic ? 'Micro actif' : 'Micro bloqué') : 'Voix pas connectée'}">🎙️</span><span class="aud ${p.audio.connected && p.audio.speaker ? 'ok' : ''}" title="${p.audio.speaker ? 'Son actif' : 'Son bloqué'}">🔊</span>`}
+      ${p.isBot ? '' : audioIcons(p.audio)}
       ${isHost && !p.isMe ? `<button class="btn small" data-kick="${esc(p.id)}">Exclure</button>` : ''}</li>`,
     )
     .join('');

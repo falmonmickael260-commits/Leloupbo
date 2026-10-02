@@ -409,8 +409,11 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 .st-confirm.show { display: flex; }
 .st-help { display: none; font-size: 13px; font-weight: 700; color: #7a3020; margin: 6px 0 0; }
 .st-help.show { display: block; }
-.plist .aud { font-size: 14px; padding: 1px 4px; border-radius: 6px; background: #e3ddd0; filter: grayscale(1); opacity: 0.55; }
-.plist .aud.ok { background: #c9f0bd; filter: none; opacity: 1; }
+.plist .aud { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 2px solid var(--ink); border-radius: 8px; flex: none; }
+.plist .aud svg { width: 20px; height: 20px; fill: currentColor; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.plist .aud.ok { background: #c9f0bd; color: #1f7a1f; }
+.plist .aud.off { background: #f6d6d0; color: #8a7c6c; }
+.plist .aud .slash { stroke: #d62020; stroke-width: 3; }
 .plist li.talking .head { box-shadow: 0 0 0 3px #5fb84a, 0 0 12px 4px rgba(95, 184, 74, 0.8); }
 .st-warning { font-weight: 800; color: #9a5a00; margin: 8px 0 0; }
 .st-warning:empty { display: none; }
