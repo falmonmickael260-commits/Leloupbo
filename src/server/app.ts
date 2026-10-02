@@ -26,7 +26,16 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
   app.get('/vendor/livekit-client.umd.js', (_req, res) => {
     res.sendFile(path.resolve(here, '../../node_modules/livekit-client/dist/livekit-client.umd.js'), { maxAge: '1d' });
   });
-  app.use(express.static(PUBLIC_DIR, { maxAge: '1h' }));
+  // Page et scripts : toujours revérifiés (une mise à jour du jeu est visible tout de suite).
+  // Polices et décor : gardés en cache (ils changent rarement).
+  app.use(
+    express.static(PUBLIC_DIR, {
+      setHeaders(res, file) {
+        if (/[\\/](fonts|assets)[\\/]/.test(file)) res.setHeader('Cache-Control', 'public, max-age=86400');
+        else res.setHeader('Cache-Control', 'no-cache');
+      },
+    }),
+  );
 
   const http = createServer(app);
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(http, {
