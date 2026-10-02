@@ -7,7 +7,7 @@
  */
 import { CHARACTERS, characterSVG } from './art/characters.js';
 import { cardSVG } from './art/cards.js';
-import { Board, wait } from './board/board.js';
+import { Board, playerNumbers, wait } from './board/board.js';
 import { Narrator, revealCard } from './board/overlays.js';
 import { GameClient } from './gameClient.js';
 import { Voice } from './voiceManager.js';
@@ -24,6 +24,11 @@ window.blackops = { client, voice, board };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const nameOf = (v, id) => v.players.find((p) => p.id === id)?.name ?? '?';
+/** « 3. Marie » : nom précédé du numéro du joueur. */
+const numName = (v, id) => {
+  const n = playerNumbers(v.players).get(id);
+  return n ? `${n}. ${nameOf(v, id)}` : nameOf(v, id);
+};
 const time = (ts) => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 const NIGHT_PHASES = new Set(['NIGHT_START', 'THIEF_PHASE', 'CUPID_PHASE', 'WEREWOLF_PHASE', 'WHITE_WOLF_PHASE', 'SEER_PHASE', 'SALVATION_PHASE', 'WITCH_PHASE', 'NIGHT_RESOLUTION']);
 const TEAM = { village: 'Village', wolves: 'Loups-Garous', white_wolf: 'Solitaire', lovers: 'Amoureux', none: '—' };
@@ -120,9 +125,11 @@ function renderLobby(v) {
     : 'Seul l’Hôte peut modifier la composition.';
   $('lobby-code').textContent = v.code;
   $('lobby-count').textContent = `(${v.players.length}/${v.settings.maxPlayers})`;
-  $('lobby-players').innerHTML = v.players
+  const nums = playerNumbers(v.players);
+  $('lobby-players').innerHTML = [...v.players]
+    .sort((a, b) => a.seat - b.seat)
     .map(
-      (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${p.audio.diag ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
+      (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="num">${nums.get(p.id)}</span><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${p.audio.diag ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
       ${p.isBot ? '' : audioIcons(p.audio)}
       ${isHost && !p.isMe ? `<button class="btn small" data-kick="${esc(p.id)}">Exclure</button>` : ''}</li>`,
     )
@@ -179,8 +186,7 @@ function renderLobby(v) {
     ${check('salvateurCanSelfProtect', 'Salvateur peut se protéger')}
     ${check('cupidWinsWithLovers', 'Cupidon gagne avec un couple mixte')}
     ${check('endVoteWhenAllVoted', 'Clore le vote quand tous ont voté')}
-    ${check('revealVotes', '🗳️ Montrer qui a voté contre qui au résultat')}
-    ${check('simulateInactiveSteps', 'Jouer quand même le tour des rôles morts (cache leur mort)')}`;
+    ${check('revealVotes', '🗳️ Montrer qui a voté contre qui au résultat')}`;
   const el = $('settings');
   el.querySelectorAll('[data-role]').forEach(
     (b) => (b.onclick = () => safe(client.updateSettings({ roles: { ...s.roles, [b.dataset.role]: Math.max(0, (s.roles[b.dataset.role] ?? 0) + Number(b.dataset.d)) } }))),
@@ -386,7 +392,7 @@ function openTagEditor(playerId) {
   const box = document.createElement('div');
   box.className = 'tag-editor';
   box.innerHTML = `<form class="panel">
-    <h3>🏷️ ${esc(target.name)}${target.isMe ? ' (toi)' : ''}</h3>
+    <h3>🏷️ ${esc(numName(v, playerId))}${target.isMe ? ' (toi)' : ''}</h3>
     <p class="private">🔒 Étiquette personnelle : visible par toi seul.</p>
     <div class="chips">${TAG_PRESETS.map((t) => `<button type="button" class="${t === current ? 'on' : ''}">${esc(t)}</button>`).join('')}</div>
     <input name="tag" maxlength="24" placeholder="Ou écris ta propre étiquette…" value="${esc(current)}" autocomplete="off" />
@@ -571,7 +577,7 @@ function renderAction(v) {
     }
     const rows = [...byTarget.entries()]
       .sort((a, b) => b[1].reduce((n, x) => n + x.weight, 0) - a[1].reduce((n, x) => n + x.weight, 0))
-      .map(([t, list]) => `<div class="target"><b>${esc(nameOf(v, t))}</b> (${list.reduce((n, x) => n + x.weight, 0)}) ← ${list.map((x) => `${esc(nameOf(v, x.voterId))}${x.weight > 1 ? ' 👑' : ''}`).join(', ')}</div>`)
+      .map(([t, list]) => `<div class="target"><b>${esc(numName(v, t))}</b> (${list.reduce((n, x) => n + x.weight, 0)}) ← ${list.map((x) => `${esc(numName(v, x.voterId))}${x.weight > 1 ? ' 👑' : ''}`).join(', ')}</div>`)
       .join('');
     el.innerHTML = `<h3>🗳️ Qui a voté contre qui</h3><div class="vote-list">${rows}</div>`;
     return;
@@ -581,7 +587,7 @@ function renderAction(v) {
     if (v.status === 'running') {
       if (!v.me.alive) msg = '👻 Tu observes la partie depuis l’au-delà.';
       else if (NIGHT_PHASES.has(v.phase.id)) msg = '😴 Tu dors… le village est plongé dans la nuit.';
-      else if (v.phase.id === 'PLAYER_SPEECH') msg = `🎙️ ${esc(nameOf(v, v.phase.speakerId))} a la parole. Écoute bien…`;
+      else if (v.phase.id === 'PLAYER_SPEECH') msg = `🎙️ ${esc(numName(v, v.phase.speakerId))} a la parole. Écoute bien…`;
       else if (v.phase.id === 'DEATH_LAST_WORD') msg = `💀 Dernière parole de ${esc(nameOf(v, v.phase.speakerId))}.`;
       else if (v.phase.id === 'FREE_DISCUSSION') msg = '🗣️ Discussion libre : tout le monde peut parler !';
     }
@@ -773,7 +779,7 @@ function onTransitions(v, prev) {
     const urgent = { urgent: true };
     if (line) narrator.say(line[0], line[1], urgent);
     else if (NIGHT_PHASES.has(ph.id) && ph.id !== 'NIGHT_RESOLUTION') narrator.say(`${ph.label}…`, 'night', urgent);
-    else if (ph.id === 'PLAYER_SPEECH') narrator.say(`${nameOf(v, ph.speakerId)} a la parole`, 'info', urgent);
+    else if (ph.id === 'PLAYER_SPEECH') narrator.say(`${numName(v, ph.speakerId)} a la parole`, 'info', urgent);
     else if (ph.id === 'DEATH_LAST_WORD') narrator.say(`Dernière parole de ${nameOf(v, ph.speakerId)}`, 'death', urgent);
   }
   // Annonces publiques marquantes (morts, votes, victoire) — jamais les rôles.

@@ -21,6 +21,7 @@ export class Board extends EventTarget {
     this.root = root;
     this.pions = new Map();
     this.layout = new Map();
+    this.numbers = new Map();
     this.square = { cx: 0.5, cy: 0.552, rx: 0.247, ry: 0.234 };
     this.mode = 'contain';
     root.innerHTML = `
@@ -153,6 +154,7 @@ export class Board extends EventTarget {
     if (key !== this.layoutKey) {
       this.layoutKey = key;
       this.computeLayout(v.players, v.me.id);
+      this.numbers = playerNumbers(v.players);
     }
     const prompt = v.prompt;
     // Choix de la meute (visible uniquement des loups, pendant leur phase).
@@ -169,7 +171,7 @@ export class Board extends EventTarget {
         el = document.createElement('div');
         el.className = 'pion';
         el.dataset.id = p.id;
-        el.innerHTML = `<div class="halo"></div><div class="figure"></div><div class="tomb"></div><div class="plate"><span class="mic"></span><span class="pname"></span><span class="badges"></span><button class="tagbox" type="button"></button></div><div class="wave"><i></i><i></i><i></i><i></i></div><div class="mark"></div><div class="paw"></div>`;
+        el.innerHTML = `<div class="halo"></div><div class="figure"></div><div class="tomb"></div><div class="plate"><span class="mic"></span><span class="pnum"></span><span class="pname"></span><span class="badges"></span><button class="tagbox" type="button"></button></div><div class="wave"><i></i><i></i><i></i><i></i></div><div class="mark"></div><div class="paw"></div>`;
         // Étiquette personnelle : son propre bouton, qui ne déclenche jamais l'action sur le joueur.
         el.querySelector('.tagbox').addEventListener('click', (e) => {
           e.stopPropagation();
@@ -193,6 +195,7 @@ export class Board extends EventTarget {
         el.querySelector('.figure').innerHTML = characterSVG(p.avatar, { pose, title: p.name });
       }
       el.querySelector('.pname').textContent = p.name;
+      el.querySelector('.pnum').textContent = String(this.numbers.get(p.id) ?? '');
       // Étiquette personnelle (visible par moi seul) — pendant la partie.
       const tag = v.myTags?.[p.id] ?? '';
       const tagBox = el.querySelector('.tagbox');
@@ -362,3 +365,8 @@ function starPath() {
 }
 
 export const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Numéro de chaque joueur (1, 2, 3…) selon sa place autour de la table — identique pour tous. */
+export function playerNumbers(players) {
+  return new Map([...players].sort((a, b) => a.seat - b.seat).map((p, i) => [p.id, i + 1]));
+}

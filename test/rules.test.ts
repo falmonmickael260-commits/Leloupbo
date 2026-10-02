@@ -192,15 +192,15 @@ describe('Nuit', () => {
     assert.ok(!seen.includes('WITCH_PHASE'), seen.join(' → '));
   });
 
-  it('option : simule les phases d’un rôle mort pour ne pas révéler sa mort', () => {
+  it('saute le tour d’un rôle mort même si l’ancien réglage « simuler » est resté coché', () => {
     const g = setup(['werewolf', 'seer', 'villager', 'villager', 'villager'], { simulateInactiveSteps: true });
     g.engine.state.players[1].alive = false;
-    g.until('SEER_PHASE');
-    assert.equal(g.engine.state.phase.data.inactive, true);
-    const v = g.view(2);
-    assert.equal(v.phase.id, 'SEER_PHASE');
-    assert.ok(!/"inactive"\s*:/.test(JSON.stringify(v)));
-    assert.equal(g.view(1).prompt, null);
+    const seen: string[] = [];
+    while (g.phase !== 'SUNRISE') {
+      seen.push(g.phase);
+      g.skip();
+    }
+    assert.ok(!seen.includes('SEER_PHASE'), seen.join(' → '));
   });
 });
 

@@ -51,7 +51,8 @@ function nextNightStep(ctx: Ctx, afterOrder: number): void {
     if (step.order <= afterOrder) continue;
     if (!stepInComposition(ctx, step) || !step.isScheduled(ctx)) continue;
     const active = step.actors(ctx).length > 0;
-    if (!active && !s.settings.simulateInactiveSteps) continue;
+    // Rôle mort (ou sans action possible) : son tour est sauté, sans compte à rebours.
+    if (!active) continue;
     const d = s.settings.durations;
     const duration = active ? step.duration(s.settings) : randomBetween(ctx, d.inactiveStepMin, d.inactiveStepMax);
     // `inactive` est un secret : la vue ne l'expose jamais.

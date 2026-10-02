@@ -456,3 +456,6 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 .wolf-gauge .g-scale span { padding: 2px 7px; border: 2px solid rgba(27, 19, 14, 0.25); border-radius: 999px; color: #6b5d4d; }
 .wolf-gauge .g-scale span.on { border-color: var(--ink); background: #ffe9a6; color: var(--ink); }
 .wolf-gauge .g-auto { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; }
+/* Numéro du joueur à côté de son nom */
+.pion .pnum { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 3px; box-sizing: border-box; border-radius: 6px; background: var(--ink); color: #ffe08a; font: 900 13px/1 var(--font-ui); }
+.plist .num { flex: none; display: inline-grid; place-items: center; min-width: 26px; height: 26px; border-radius: 8px; background: var(--ink); color: #ffe08a; font: 900 15px/1 var(--font-ui); }
