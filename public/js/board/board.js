@@ -42,13 +42,14 @@ export class Board extends EventTarget {
     this.fx = root.querySelector('.fx');
     this.stars();
     this.daynight = new DayNight(this.stage);
+    this.decor = null;
     // Le jour bascule vers la nuit : la meute hurle au loin pendant le coucher du soleil.
     this.daynight.onSegment = (from, to) => {
       if (from === 'day' && to === 'sunset') this.dispatchEvent(new CustomEvent('sfx', { detail: 'dusk' }));
       // La nuit s'achève : oiseaux et cloche au lever du soleil.
       if (from === 'night' && to === 'dawn') this.dispatchEvent(new CustomEvent('sfx', { detail: 'dawn' }));
     };
-    this.loadLights();
+    this.setDecor(DEFAULT_DECOR);
     this.ro = new ResizeObserver(() => this.fit());
     this.ro.observe(root);
   }
@@ -65,15 +66,28 @@ export class Board extends EventTarget {
     el.innerHTML = html;
   }
 
-  async loadLights() {
+  /** Change de map (décor) : ne recharge que si elle est différente. */
+  setDecor(name) {
+    const forced = new URLSearchParams(location.search).get('decor'); // ?decor=… pour tester
+    const decor = forced || name || DEFAULT_DECOR;
+    if (decor === this.decor) return;
+    this.decor = decor;
+    this.loadLights(decor);
+  }
+
+  async loadLights(decor = DEFAULT_DECOR) {
+    const token = (this.loadToken = (this.loadToken ?? 0) + 1);
+    const village = this.stage.querySelector('.village');
+    const lightsImg = this.stage.querySelector('.lights');
     try {
-      // Décor par défaut : « blackops » (image fournie). ?decor=village → ancien village dessiné.
-      const decor = new URLSearchParams(location.search).get('decor') || DEFAULT_DECOR;
       const url = decor === 'village' || !/^[a-z0-9-]+$/i.test(decor) ? '/assets/lights.json' : `/assets/decor/${decor}.json`;
       const data = await (await fetch(url)).json();
+      if (token !== this.loadToken) return; // une autre map a été demandée entre-temps
       if (!data.image) {
-        this.stage.querySelector('.village').src = '/assets/village.svg';
-        this.stage.querySelector('.lights').src = '/assets/village-lights.svg';
+        village.src = '/assets/village.svg';
+        lightsImg.src = '/assets/village-lights.svg';
+        for (const img of [village, lightsImg]) img.style.objectFit = img.style.objectPosition = '';
+        this.stage.classList.remove('custom-decor');
       } else {
         for (const [sel, src] of [['.village', data.image], ['.lights', data.lightsImage]]) {
           const img = this.stage.querySelector(sel);
@@ -195,6 +209,7 @@ export class Board extends EventTarget {
   update(v, ui = {}) {
     this.lastView = v;
     if (!v) return;
+    this.setDecor(v.settings?.map);
     const key = `${v.players.map((p) => `${p.id}:${p.seat}`).join(',')}|${v.me.id}`;
     if (key !== this.layoutKey) {
       this.layoutKey = key;

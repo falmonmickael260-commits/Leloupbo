@@ -1,5 +1,6 @@
 import type { DurationPreset, Durations, GameSettings } from '../shared/types.ts';
 import { fail } from './errors.ts';
+import { DEFAULT_MAP, isMapId } from '../shared/maps.ts';
 
 export const MIN_PLAYERS = 4;
 export const MAX_PLAYERS = 18;
@@ -74,6 +75,7 @@ export function defaultSettings(): GameSettings {
     revealVotes: true,
     revealRolesOnGameOver: true,
     autoWolves: true,
+    map: DEFAULT_MAP,
     simulateInactiveSteps: false,
     abandonTimeoutMs: 3 * 60 * S,
     maxDays: 40,
@@ -143,6 +145,11 @@ export function applySettingsPatch(
       if (typeof p[key] !== 'boolean') fail('BAD_SETTINGS', `Valeur invalide pour ${key}.`);
       next[key] = p[key] as boolean;
     }
+  }
+
+  if (p.map !== undefined) {
+    if (!isMapId(p.map)) fail('BAD_SETTINGS', 'Map inconnue.');
+    next.map = p.map;
   }
 
   if (p.whiteWolfSeerResult !== undefined) {

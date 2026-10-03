@@ -102,6 +102,8 @@ export interface GameSettings {
   /** Dévoiler qui a voté contre qui au moment du résultat. */
   revealVotes: boolean;
   revealRolesOnGameOver: boolean;
+  /** Map (décor) de la partie, choisie par l'Hôte dans le lobby. */
+  map: string;
   /** Nombre de Loups-Garous réglé automatiquement selon le nombre de joueurs (5-8 → 2, 9-11 → 3, 12-18 → 4). */
   autoWolves: boolean;
   /** Joue les phases des rôles morts/absents avec une durée aléatoire (évite de révéler leur mort). */

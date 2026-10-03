@@ -576,3 +576,18 @@ describe('Fin de partie, étiquettes et loups automatiques', () => {
     }
   });
 });
+
+describe('Maps', () => {
+  it('liste des maps identique côté serveur et navigateur ; map inconnue refusée', async () => {
+    const { MAPS } = await import('../src/shared/maps.ts');
+    const fs = await import('node:fs');
+    const client = fs.readFileSync(new URL('../public/js/maps.js', import.meta.url), 'utf8');
+    const ids = [...client.matchAll(/id: '([a-z0-9-]+)'/g)].map((m) => m[1]);
+    assert.deepEqual(ids, MAPS.map((m) => m.id));
+    for (const id of ids) assert.ok(fs.existsSync(new URL(`../public/assets/decor/${id}.json`, import.meta.url)), id);
+    const e = GameEngine.create('M', T0, seededRng(1));
+    const host = e.join('H', 'h', T0);
+    assert.equal(e.state.settings.map, 'blackops');
+    rejects(() => e.updateSettings(host.id, { map: 'inconnue' }, T0), 'BAD_SETTINGS');
+  });
+});

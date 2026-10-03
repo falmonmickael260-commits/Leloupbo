@@ -11,6 +11,7 @@ import { Board, playerNumbers, wait } from './board/board.js';
 import { Narrator, revealCard } from './board/overlays.js';
 import { GameClient } from './gameClient.js';
 import { Voice } from './voiceManager.js';
+import { MAPS } from './maps.js';
 import * as sfx from './sfx.js';
 
 const params = new URLSearchParams(location.search);
@@ -164,7 +165,15 @@ function renderLobby(v) {
     })
     .join('');
   const check = (key, label) => `<div class="settings-row"><span>${label}</span><input type="checkbox" data-bool="${key}" ${s[key] ? 'checked' : ''} ${dis}/></div>`;
+  // Choix de la map (affiché dès qu'il y en a plusieurs).
+  const mapPicker =
+    MAPS.length > 1
+      ? `<div class="map-picker">${MAPS.map(
+          (m) => `<button class="map-opt ${s.map === m.id ? 'on' : ''}" data-map="${m.id}" ${dis}><span class="map-img" style="background-image:url('${m.preview}')"></span><span>${esc(m.name)}</span></button>`,
+        ).join('')}</div>`
+      : '';
   $('settings').innerHTML = `
+    ${mapPicker}
     ${wolfGauge(v.players.length, s, dis)}
     ${roleRows}
     <hr/>
@@ -192,6 +201,7 @@ function renderLobby(v) {
   el.querySelectorAll('[data-role]').forEach(
     (b) => (b.onclick = () => safe(client.updateSettings({ roles: { ...s.roles, [b.dataset.role]: Math.max(0, (s.roles[b.dataset.role] ?? 0) + Number(b.dataset.d)) } }))),
   );
+  el.querySelectorAll('[data-map]').forEach((b) => (b.onclick = () => safe(client.updateSettings({ map: b.dataset.map }))));
   el.querySelectorAll('[data-bool]').forEach((c) => (c.onchange = () => safe(client.updateSettings({ [c.dataset.bool]: c.checked }))));
   el.querySelectorAll('[data-select]').forEach(
     (c) => (c.onchange = () => safe(client.updateSettings({ [c.dataset.select]: c.dataset.select === 'maxPlayers' ? Number(c.value) : c.value }))),

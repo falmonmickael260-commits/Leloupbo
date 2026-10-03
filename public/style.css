@@ -693,3 +693,9 @@ input[type='checkbox'] { accent-color: #e2b450; }
   .action h3 { font-size: 15px !important; }
   .narration { font-size: 17px !important; }
 }
+/* Choix de la map (lobby) */
+.map-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.map-opt { display: flex; flex-direction: column; gap: 4px; padding: 4px; border-radius: 8px; background: #08070a; border: 1.5px solid var(--lux-line-soft); color: var(--lux-text); font: 800 12px var(--font-ui); text-transform: uppercase; cursor: pointer; }
+.map-opt .map-img { display: block; aspect-ratio: 16 / 8; border-radius: 5px; background-size: cover; background-position: center 60%; }
+.map-opt.on { border-color: #f2c75c; box-shadow: 0 0 0 1px #f2c75c, 0 0 14px rgba(242, 199, 92, 0.35); color: #f2c75c; }
+.map-opt:disabled { cursor: default; }
