@@ -10,6 +10,8 @@ import { DayNight } from './daynight.js';
 
 export const BOARD_W = 1536;
 export const BOARD_H = 1024;
+/** Décor affiché par défaut (fichier public/assets/decor/<nom>.json). */
+const DEFAULT_DECOR = 'blackops';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 const MIC_ON = '<svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke-width="2.4"/></svg>';
@@ -27,10 +29,10 @@ export class Board extends EventTarget {
     root.innerHTML = `
       <div class="stage" data-sky="day">
         <div class="sky"><div class="stars"></div><div class="sun"></div><div class="moon"></div></div>
-        <img class="village" src="/assets/village.svg" alt="Le Village des Blackops" draggable="false"/>
+        <img class="village" alt="Le Village des Blackops" draggable="false"/>
         <div class="tint"></div>
         <div class="night"></div>
-        <img class="lights" src="/assets/village-lights.svg" alt="" draggable="false"/>
+        <img class="lights" alt="" draggable="false"/>
         <div class="glows"></div>
         <div class="pions"></div>
         <div class="fx"></div>
@@ -63,11 +65,14 @@ export class Board extends EventTarget {
 
   async loadLights() {
     try {
-      // Décor fourni (ex. ?decor=blackops → /assets/decor/blackops.json), sinon le village dessiné.
-      const decor = new URLSearchParams(location.search).get('decor');
-      const url = decor && /^[a-z0-9-]+$/i.test(decor) ? `/assets/decor/${decor}.json` : '/assets/lights.json';
+      // Décor par défaut : « blackops » (image fournie). ?decor=village → ancien village dessiné.
+      const decor = new URLSearchParams(location.search).get('decor') || DEFAULT_DECOR;
+      const url = decor === 'village' || !/^[a-z0-9-]+$/i.test(decor) ? '/assets/lights.json' : `/assets/decor/${decor}.json`;
       const data = await (await fetch(url)).json();
-      if (data.image) {
+      if (!data.image) {
+        this.stage.querySelector('.village').src = '/assets/village.svg';
+        this.stage.querySelector('.lights').src = '/assets/village-lights.svg';
+      } else {
         for (const [sel, src] of [['.village', data.image], ['.lights', data.lightsImage]]) {
           const img = this.stage.querySelector(sel);
           img.style.objectFit = data.fit ?? 'fill';
@@ -94,6 +99,12 @@ export class Board extends EventTarget {
       night.style.maskComposite = 'intersect';
 
     } catch {
+      // Décor introuvable : on revient au village dessiné.
+      const v = this.stage.querySelector('.village');
+      if (!v.getAttribute('src')) {
+        v.src = '/assets/village.svg';
+        this.stage.querySelector('.lights').src = '/assets/village-lights.svg';
+      }
       /* les lumières sont décoratives */
     }
     // La place (cercle des joueurs) vient d'être chargée : on replace les pions et le cadrage.
