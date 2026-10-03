@@ -591,3 +591,31 @@ describe('Maps', () => {
     rejects(() => e.updateSettings(host.id, { map: 'inconnue' }, T0), 'BAD_SETTINGS');
   });
 });
+
+describe('Fin anticipée', () => {
+  it('victoire des Loups dès que le village ne peut plus gagner (parité, sans pouvoir restant)', () => {
+    const g = setup(['werewolf', 'werewolf', 'villager', 'villager'], { wolvesWinAtParity: true });
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [2]);
+    g.act(1, 'wolf_vote', [2]);
+    g.until('GAME_OVER');
+    assert.equal(g.engine.state.winner!.camp, 'wolves');
+    assert.equal(g.engine.state.dayNumber, 1); // pas besoin d'attendre une journée de plus
+  });
+
+  it('pas de fin anticipée si la Sorcière garde sa potion de mort ou si le Chasseur vit', () => {
+    for (const special of ['witch', 'hunter']) {
+      const g = setup(['werewolf', 'werewolf', special, 'villager'], { wolvesWinAtParity: true });
+      g.until('WEREWOLF_PHASE');
+      g.act(0, 'wolf_vote', [3]);
+      g.act(1, 'wolf_vote', [3]);
+      if (special === 'witch') {
+        g.until('WITCH_PHASE');
+        g.act(2, 'witch', [], 'none');
+      }
+      g.until('SUNRISE');
+      assert.equal(g.engine.state.status, 'running', special);
+    }
+  });
+});
+

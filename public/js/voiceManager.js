@@ -14,6 +14,11 @@ export class Voice extends EventTarget {
     this.client = client;
     this.impl = null;
     this.starting = null;
+    try {
+      this.selfMuted = sessionStorage.getItem('blackops:selfMute') === '1';
+    } catch {
+      this.selfMuted = false;
+    }
   }
 
   async start() {
@@ -23,6 +28,7 @@ export class Voice extends EventTarget {
       const impl = join.mode === 'sfu' ? new VoiceSFU(this.client) : new VoiceMesh(this.client);
       for (const type of ['change', 'talking', 'audio']) impl.addEventListener(type, (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail })));
       this.impl = impl;
+      impl.selfMuted = this.selfMuted;
       this.lastError = null;
       await impl.start(join);
     })()
@@ -53,7 +59,23 @@ export class Voice extends EventTarget {
   }
 
   state() {
-    return this.impl ? this.impl.state() : { ...IDLE };
+    const st = this.impl ? this.impl.state() : { ...IDLE };
+    return { ...st, selfMuted: this.selfMuted };
+  }
+
+  /** Coupure volontaire de MON micro (bouton « Me couper »). Les règles du serveur restent prioritaires. */
+  setSelfMute(muted) {
+    this.selfMuted = !!muted;
+    try {
+      sessionStorage.setItem('blackops:selfMute', this.selfMuted ? '1' : '');
+    } catch {
+      /* stockage indisponible */
+    }
+    if (this.impl) {
+      this.impl.selfMuted = this.selfMuted;
+      this.impl.applyPermissions?.();
+    }
+    this.dispatchEvent(new CustomEvent('change', { detail: this.state() }));
   }
 
   level() {

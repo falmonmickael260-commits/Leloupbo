@@ -62,7 +62,7 @@ export function defaultSettings(): GameSettings {
     captainEnabled: true,
     durationPreset: 'normal',
     durations: { ...DURATION_PRESETS.normal },
-    wolvesWinAtParity: false,
+    wolvesWinAtParity: true,
     whiteWolfSeerResult: 'LOUP',
     witchCanSelfSave: true,
     witchBothPotionsSameNight: true,

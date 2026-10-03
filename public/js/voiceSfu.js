@@ -247,7 +247,7 @@ export class VoiceSFU extends EventTarget {
     const room = this.room;
     if (!v || !room || !this.active) return;
     // Micro ouvert seulement quand le serveur donne la parole ; la piste, elle, reste publiée.
-    const allowed = !!this.micTrack && v.canSpeak;
+    const allowed = !!this.micTrack && v.canSpeak && !this.selfMuted;
     this.micOn = allowed;
     this.#syncMic();
     // Chez moi, seuls les joueurs que j'ai le droit d'entendre sont audibles (règles du serveur).

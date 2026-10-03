@@ -1,7 +1,7 @@
 /** Maps (décors) au choix dans le lobby. `id` = fichier public/assets/decor/<id>.json ; 'village' = village dessiné. */
 export const MAPS = [
   { id: 'blackops', name: 'Le Village des Blackops' },
-  // Deuxième map : à ajouter ici (et dans public/js/maps.js) quand l'image sera fournie.
+  { id: 'clairiere', name: 'La Clairière' },
 ] as const;
 
 export type MapId = (typeof MAPS)[number]['id'];

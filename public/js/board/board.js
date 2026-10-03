@@ -277,7 +277,7 @@ export class Board extends EventTarget {
       if (!p.connected && !p.isBot) badges.push('<b title="Déconnecté">📴</b>');
       el.querySelector('.badges').innerHTML = badges.join('');
       // Micro : autorisé (vert) ou coupé (barré), selon les permissions serveur.
-      const micOn = running && p.alive !== false && (p.isMe ? v.voice.canSpeak : v.voice.hearFrom.includes(p.id));
+      const micOn = running && p.alive !== false && (p.isMe ? v.voice.canSpeak && !ui.selfMuted : v.voice.hearFrom.includes(p.id));
       const mic = el.querySelector('.mic');
       mic.innerHTML = micOn ? MIC_ON : MIC_OFF;
       mic.className = `mic ${micOn ? 'on' : 'off'}`;

@@ -60,17 +60,25 @@ registerWinCondition({
   },
 });
 
-// Variante optionnelle : les Loups gagnent dès qu'ils sont à parité avec le reste du village.
+// Fin anticipée (activée par défaut) : le village ne peut plus gagner → victoire des Loups.
+// C'est le cas quand les Loups sont au moins aussi nombreux que les autres vivants (ils gagnent
+// chaque vote du jour et tuent chaque nuit), SAUF s'il reste un pouvoir capable de renverser
+// la partie : Sorcière avec sa potion de mort, Chasseur vivant (il tire en mourant),
+// Loup-Blanc ou couple mixte (autres camps en jeu).
 registerWinCondition({
   id: 'wolves_parity',
   priority: 20,
   check(ctx) {
     if (!ctx.state.settings.wolvesWinAtParity) return null;
-    const alive = alivePlayers(ctx.state);
-    const camps = alive.map((p) => effectiveCamp(ctx.state, p));
+    const s = ctx.state;
+    const alive = alivePlayers(s);
+    const camps = alive.map((p) => effectiveCamp(s, p));
     if (camps.some((c) => c === 'white_wolf' || c === 'lovers')) return null;
     const wolves = camps.filter((c) => c === 'wolves').length;
-    return wolves > 0 && wolves >= alive.length - wolves ? campVictory(ctx, 'wolves') : null;
+    if (wolves === 0 || wolves < alive.length - wolves) return null;
+    const villagers = alive.filter((_, i) => camps[i] !== 'wolves');
+    const canTurn = villagers.some((p) => (p.role === 'witch' && !!p.roleData.death) || p.role === 'hunter');
+    return canTurn ? null : campVictory(ctx, 'wolves');
   },
 });
 

@@ -699,3 +699,5 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .map-opt .map-img { display: block; aspect-ratio: 16 / 8; border-radius: 5px; background-size: cover; background-position: center 60%; }
 .map-opt.on { border-color: #f2c75c; box-shadow: 0 0 0 1px #f2c75c, 0 0 14px rgba(242, 199, 92, 0.35); color: #f2c75c; }
 .map-opt:disabled { cursor: default; }
+.mic-btn.self { border-color: #a3271c; color: #ffb4a6; }
+.mic-btn.self i { background: #5a1a14; }

@@ -183,7 +183,7 @@ export class VoiceMesh extends EventTarget {
     if (!voice || !this.active) return;
     const track = this.stream?.getAudioTracks()[0] ?? null;
     for (const [id, peer] of this.peers) {
-      const send = voice.canSpeak && voice.speakTo.includes(id) && track ? track : null;
+      const send = voice.canSpeak && !this.selfMuted && voice.speakTo.includes(id) && track ? track : null;
       const sender = peer.pc.getTransceivers()[0]?.sender;
       if (sender && sender.track !== send) sender.replaceTrack(send).then(() => this.#capBitrate(sender)).catch(() => {});
       peer.audio.muted = !voice.hearFrom.includes(id);
@@ -232,8 +232,8 @@ export class VoiceMesh extends EventTarget {
       hasMic: !!this.stream,
       micError: this.micError ?? null,
       micLive: !!this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted),
-      transmitting: !!(this.active && this.stream && voice?.canSpeak),
-      sending: !!(this.active && this.stream && voice?.canSpeak && connected > 0),
+      transmitting: !!(this.active && this.stream && voice?.canSpeak && !this.selfMuted),
+      sending: !!(this.active && this.stream && voice?.canSpeak && !this.selfMuted && connected > 0),
       speakerOk: !this.audioBlocked,
       peers: this.peers.size,
       connected,

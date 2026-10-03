@@ -191,7 +191,7 @@ function renderLobby(v) {
       <option ${s.whiteWolfSeerResult === 'LOUP' ? 'selected' : ''}>LOUP</option>
       <option ${s.whiteWolfSeerResult === 'CIVIL' ? 'selected' : ''}>CIVIL</option></select></div>
     ${check('captainEnabled', '👑 Élection du Capitaine')}
-    ${check('wolvesWinAtParity', 'Loups gagnants à parité')}
+    ${check('wolvesWinAtParity', '🐺 Victoire des Loups dès que le village ne peut plus gagner')}
     ${check('witchCanSelfSave', 'Sorcière peut se sauver')}
     ${check('salvateurCanSelfProtect', 'Salvateur peut se protéger')}
     ${check('cupidWinsWithLovers', 'Cupidon gagne avec un couple mixte')}
@@ -254,17 +254,20 @@ function renderMyVoice() {
     html = `⚠️ Ton micro est bloqué. <button class="btn small btn-gold" data-retry>Autoriser le micro</button><br><span class="hint">${
       IS_IOS ? 'Si rien ne s’affiche : Réglages de l’iPhone → Safari → Micro → « Demander » ou « Autoriser », puis recharge la page.' : 'Si rien ne s’affiche : touche le cadenas 🔒 à gauche de l’adresse → Micro → Autoriser, puis recharge la page.'
     }</span>`;
+  else if (st.selfMuted) html = '🔇 <b>Tu as coupé ton micro</b> : personne ne t’entend. <button class="btn small btn-gold" data-mute="0">Réactiver mon micro</button>';
   else if (!st.micLive) html = '⚠️ Ton micro est coupé par le téléphone (appel en cours ou autre appli qui utilise le micro ?). Ferme-les puis <button class="btn small btn-gold" data-retry>Réessayer</button>';
   else if (st.sending === false && Date.now() - (ui.voiceSince ?? 0) > 6000) html = '⚠️ Ton micro n’arrive pas jusqu’aux autres. <button class="btn small btn-gold" data-retry>Réessayer</button>';
   else if (st.sending === false) html = '⏳ Envoi de ton micro aux autres…';
   else if (Date.now() - ui.heardAt < 20000) html = '✅ <b>Les autres t’entendent</b> (ton nom s’allume quand tu parles). <span class="lvl"><i></i></span>';
   else html = '🎙️ Micro prêt. <b>Parle pour tester</b> : quand ton nom s’allume en vert, les autres t’entendent. <span class="lvl"><i></i></span>';
+  if (st.active && st.hasMic && st.micLive && !st.selfMuted) html += ' <button class="btn small" data-mute="1">🔇 Me couper</button>';
   if (st.active && st.speakerOk === false) html += '<br>🔇 Ton haut-parleur est bloqué. <button class="btn small btn-gold" data-unlock>Activer le son</button>';
   else if (st.active) html += '<br><span class="hint">🔊 Tu n’entends rien ? Monte le volume et enlève le mode silencieux.</span>';
   if (el.dataset.html === html) return;
   el.dataset.html = html;
   el.innerHTML = html;
-  el.className = `my-voice ${st.active && st.hasMic && st.micLive && st.sending !== false && !IN_APP ? 'ok' : 'ko'}`;
+  el.className = `my-voice ${st.active && st.hasMic && st.micLive && (st.sending !== false || st.selfMuted) && !IN_APP ? 'ok' : 'ko'}`;
+  el.querySelector('[data-mute]')?.addEventListener('click', (e) => voice.setSelfMute(e.currentTarget.dataset.mute === '1'));
   el.querySelector('[data-unlock]')?.addEventListener('click', () => {
     primeAudio();
     voice.unlockAudio();
@@ -340,7 +343,7 @@ setInterval(() => {
   const st = voice.state();
   audioStatus.connected = !!st.active;
   // Vert seulement si le micro capte vraiment (et, dans le lobby, arrive jusqu'au serveur).
-  audioStatus.mic = !!(st.active && st.hasMic && st.micLive !== false && (v.status !== 'lobby' || st.sending !== false));
+  audioStatus.mic = !!(st.active && st.hasMic && !st.selfMuted && st.micLive !== false && (v.status !== 'lobby' || st.sending !== false));
   audioStatus.speaker = !!(st.active && st.speakerOk !== false);
   reportAudio();
 }, 150);
@@ -503,9 +506,12 @@ function renderMic(v = client.view) {
   } else if (!st.hasMic) {
     btn.className = 'mic-btn muted';
     btn.innerHTML = '<i>⚠️</i>Micro refusé · autorise-le';
+  } else if (st.selfMuted) {
+    btn.className = 'mic-btn muted self';
+    btn.innerHTML = '<i>🔇</i>Tu t’es coupé · toucher pour réactiver';
   } else if (v.voice.canSpeak) {
     btn.className = 'mic-btn live';
-    btn.innerHTML = '<i>🎙️</i>Ton micro est ouvert';
+    btn.innerHTML = '<i>🎙️</i>Micro ouvert · toucher pour couper';
   } else {
     btn.className = 'mic-btn muted';
     btn.innerHTML = '<i>🔇</i>Micro coupé · pas ton tour';
@@ -568,8 +574,20 @@ async function keepScreenOn() {
 document.addEventListener('visibilitychange', keepScreenOn);
 client.addEventListener('view', keepScreenOn);
 // Bouton : relance la voix (utile si le micro a été refusé puis autorisé).
-$('btn-mic').onclick = () => retryVoice();
-voice.addEventListener('change', () => renderMic());
+// Bouton micro : coupe / réactive MON micro (si la voix marche), sinon relance la voix.
+$('btn-mic').onclick = () => {
+  const st = voice.state();
+  if (st.active && st.hasMic && !ui.voiceError) voice.setSelfMute(!st.selfMuted);
+  else retryVoice();
+};
+voice.addEventListener('change', () => {
+  renderMic();
+  const muted = !!voice.state().selfMuted;
+  if (muted !== !!ui.selfMuted) {
+    ui.selfMuted = muted;
+    if (client.view) board.update(client.view, ui);
+  }
+});
 // Certains téléphones bloquent le son tant qu'on n'a pas touché l'écran.
 voice.addEventListener('audio', (e) => $('audio-unlock').classList.toggle('show', !!e.detail.blocked));
 const unlock = () => {
