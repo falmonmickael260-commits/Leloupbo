@@ -22,6 +22,7 @@ from pathlib import Path
 from PIL import Image, ImageFilter
 
 W, H = 1536, 1024
+VERSION = 3  # à augmenter quand on remplace le décor (force le rechargement chez les joueurs)
 OUT = Path(__file__).resolve().parents[2] / 'public' / 'assets' / 'decor'
 
 
@@ -119,8 +120,8 @@ def main():
     cfg = {
         'width': W,
         'height': H,
-        'image': f'/assets/decor/{name}.webp',
-        'lightsImage': f'/assets/decor/{name}-lights.webp',
+        'image': f'/assets/decor/{name}.webp?v={VERSION}',
+        'lightsImage': f'/assets/decor/{name}-lights.webp?v={VERSION}',
         'fit': 'cover',
         'square': square,
         'layout': layout,

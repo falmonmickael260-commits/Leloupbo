@@ -33,7 +33,9 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
   app.use(
     express.static(PUBLIC_DIR, {
       setHeaders(res, file) {
-        if (/[\\/](fonts|assets)[\\/]/.test(file)) res.setHeader('Cache-Control', 'public, max-age=86400');
+        // Polices : gardées en cache. Tout le reste (page, scripts, images, cartes, décor) est
+        // revérifié à chaque visite : une image remplacée est visible tout de suite.
+        if (/[\\/]fonts[\\/]/.test(file)) res.setHeader('Cache-Control', 'public, max-age=86400');
         else res.setHeader('Cache-Control', 'no-cache');
       },
     }),

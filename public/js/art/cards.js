@@ -70,9 +70,11 @@ const fit = (name) => (name.length > 9 ? `textLength="${Math.min(220, name.lengt
  * Cartes illustrées fournies (public/assets/cartes/<rôle>.webp, sources dans scripts/art/cartes-src).
  * Un rôle sans image garde sa carte dessinée.
  */
+/** Version des images de cartes : à changer quand on remplace les fichiers (force le rechargement). */
+const CARDS_V = '3';
 const CARD_IMAGES = new Set(['werewolf', 'white_wolf', 'seer', 'witch', 'cupid', 'thief', 'hunter', 'salvateur', 'villager']);
 // Préchargement : la carte est prête au moment de sa révélation.
-if (typeof Image !== 'undefined') for (const r of [...CARD_IMAGES, 'dos']) new Image().src = `/assets/cartes/${r}.webp`;
+if (typeof Image !== 'undefined') for (const r of [...CARD_IMAGES, 'dos']) new Image().src = `/assets/cartes/${r}.webp?v=${CARDS_V}`;
 
 export function cardSVG(roleId, roleName) {
   if (CARD_IMAGES.has(roleId)) {
@@ -80,7 +82,7 @@ export function cardSVG(roleId, roleName) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" class="role-card-svg" role="img" aria-label="${roleName}">
   <defs><clipPath id="${id}r"><rect x="0" y="0" width="300" height="450" rx="18"/></clipPath></defs>
   <rect x="0" y="0" width="300" height="450" rx="18" fill="#141218"/>
-  <image href="/assets/cartes/${roleId}.webp" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id}r)"/>
+  <image href="/assets/cartes/${roleId}.webp?v=${CARDS_V}" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id}r)"/>
   <rect x="1.5" y="1.5" width="297" height="447" rx="17" fill="none" stroke="${INK}" stroke-width="3"/>
 </svg>`;
   }
@@ -120,7 +122,7 @@ export function cardBackSVG() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" class="role-card-svg" aria-hidden="true">
   <defs><clipPath id="${id}r"><rect x="0" y="0" width="300" height="450" rx="18"/></clipPath></defs>
   <rect x="0" y="0" width="300" height="450" rx="18" fill="#141218"/>
-  <image href="/assets/cartes/dos.webp" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id}r)"/>
+  <image href="/assets/cartes/dos.webp?v=${CARDS_V}" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id}r)"/>
   <rect x="1.5" y="1.5" width="297" height="447" rx="17" fill="none" stroke="${INK}" stroke-width="3"/>
 </svg>`;
 }
