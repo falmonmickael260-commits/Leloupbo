@@ -372,7 +372,7 @@ const recorded = new Map();
 export function preloadRecorded() {
   const c = audio();
   if (!c) return;
-  for (const name of ['fusil', 'recharge', 'jour', 'meute']) {
+  for (const name of ['fusil', 'recharge', 'jour', 'meute', 'coeur', 'cloche']) {
     if (recorded.has(name)) continue;
     recorded.set(name, null);
     fetch(`/assets/sfx/${name}.mp3`)
@@ -451,56 +451,86 @@ export function revealHit() {
 }
 
 /** Mort(s) de la nuit, annoncée(s) au lever du jour : cœur qui s'accélère puis s'arrête, puis un coup de glas. */
-export function nightDeath(volume = 0.7) {
+export function nightDeath(volume = 0.66) {
   const c = ready();
   if (!c) return;
+  // Vrais enregistrements fournis (public/assets/sfx/coeur.mp3 puis cloche.mp3) : prioritaires.
+  const heart = recorded.get('coeur');
+  const bellRec = recorded.get('cloche');
   const t0 = c.currentTime + 0.05;
   const out = c.createGain();
   out.gain.value = volume;
   out.connect(master);
-  // Battements : « boum-boum », de plus en plus rapprochés.
-  const thump = (t, level, freq) => {
-    const o = c.createOscillator();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(freq, t);
-    o.frequency.exponentialRampToValueAtTime(freq * 0.55, t + 0.12);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(level, t + 0.012);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-    const lp = c.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 180;
-    o.connect(g).connect(lp).connect(out);
-    o.start(t);
-    o.stop(t + 0.2);
-  };
-  let t = t0;
-  const gaps = [0.95, 0.85, 0.74, 0.63, 0.54, 0.47, 0.42];
-  gaps.forEach((gap, k) => {
-    const level = 0.7 + k * 0.05;
-    thump(t, level, 62);
-    thump(t + 0.17, level * 0.7, 55);
-    t += gap;
-  });
-  // Silence… le cœur s'arrête. Puis un seul coup de glas, grave et long.
-  const tb = t + 0.55;
-  for (const [ratio, amp, dec] of [[0.5, 0.5, 6.5], [1, 0.42, 5.0], [1.19, 0.24, 4.0], [1.5, 0.16, 3.2], [2.0, 0.14, 2.6], [2.74, 0.07, 1.8], [3.76, 0.04, 1.2]]) {
-    const o = c.createOscillator();
-    o.frequency.value = 220 * ratio;
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.0001, tb);
-    g.gain.exponentialRampToValueAtTime(amp * 0.55, tb + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0001, tb + dec);
-    const lp = c.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 1800;
-    o.connect(g).connect(lp).connect(out);
-    o.start(tb);
-    o.stop(tb + dec + 0.1);
+  let tb;
+  if (heart) {
+    const src = c.createBufferSource();
+    src.buffer = heart;
+    src.connect(out);
+    src.start(t0);
+    tb = t0 + heart.duration + 0.4;
+  } else {
+    // Battement « boum-boum » audible aussi sur un haut-parleur de téléphone :
+    // fondamentale grave + harmoniques (110-240 Hz) + petit claquement d'attaque.
+    const thump = (t, level, freq) => {
+      for (const [mult, amp, dec] of [[1, 1, 0.2], [2, 0.75, 0.14], [3.6, 0.35, 0.08]]) {
+        const o = c.createOscillator();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(freq * mult, t);
+        o.frequency.exponentialRampToValueAtTime(freq * mult * 0.6, t + dec);
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(level * amp, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dec);
+        o.connect(g).connect(out);
+        o.start(t);
+        o.stop(t + dec + 0.05);
+      }
+      const n = c.createBufferSource();
+      n.buffer = noiseBuffer(c, 0.05);
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 260;
+      bp.Q.value = 1.4;
+      const ng = c.createGain();
+      ng.gain.setValueAtTime(level * 0.9, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+      n.connect(bp).connect(ng).connect(out);
+      n.start(t);
+    };
+    let t = t0;
+    const gaps = [0.95, 0.86, 0.76, 0.66, 0.57, 0.5, 0.44, 0.4];
+    gaps.forEach((gap, k) => {
+      const level = 0.75 + k * 0.06; // de plus en plus fort et rapide
+      thump(t, level, 68);
+      thump(t + 0.16, level * 0.72, 60);
+      t += gap;
+    });
+    tb = t + 0.6; // silence… le cœur s'arrête
   }
-  const wet = c.createGain();
-  wet.gain.value = 0.5;
-  out.connect(wet).connect(reverb);
-  return tb - c.currentTime; // délai avant le coup de cloche
+  if (bellRec) {
+    const src = c.createBufferSource();
+    src.buffer = bellRec;
+    src.connect(out);
+    src.start(tb);
+  } else {
+    // Un seul coup de glas : grave, long, qui résonne dans le village.
+    for (const [ratio, amp, dec] of [[0.5, 0.55, 7], [1, 0.5, 5.5], [1.19, 0.3, 4.4], [1.5, 0.22, 3.4], [2.0, 0.2, 2.8], [2.74, 0.1, 2.0], [3.76, 0.06, 1.3]]) {
+      const o = c.createOscillator();
+      o.frequency.value = 220 * ratio;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, tb);
+      g.gain.exponentialRampToValueAtTime(amp * 0.8, tb + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, tb + dec);
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2200;
+      o.connect(g).connect(lp).connect(out);
+      o.start(tb);
+      o.stop(tb + dec + 0.1);
+    }
+    const wet = c.createGain();
+    wet.gain.value = 0.6;
+    out.connect(wet).connect(reverb);
+  }
+  return tb - c.currentTime;
 }
