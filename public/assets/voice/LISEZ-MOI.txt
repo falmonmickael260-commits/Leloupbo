@@ -1,0 +1,8 @@
+Voix du narrateur
+=================
+
+Déposer ici :  village-endort.mp3   → « Le village s'endort… »
+
+Joué automatiquement à chaque tombée de la nuit (phase « La nuit tombe »).
+Format : MP3 (ou renommer en .mp3 un M4A/AAC), mono ou stéréo, 2 à 5 secondes, sans blanc au début.
+Si le fichier est absent, le jeu affiche simplement le texte.
