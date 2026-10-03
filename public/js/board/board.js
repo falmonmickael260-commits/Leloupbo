@@ -63,7 +63,19 @@ export class Board extends EventTarget {
 
   async loadLights() {
     try {
-      const data = await (await fetch('/assets/lights.json')).json();
+      // Décor fourni (ex. ?decor=blackops → /assets/decor/blackops.json), sinon le village dessiné.
+      const decor = new URLSearchParams(location.search).get('decor');
+      const url = decor && /^[a-z0-9-]+$/i.test(decor) ? `/assets/decor/${decor}.json` : '/assets/lights.json';
+      const data = await (await fetch(url)).json();
+      if (data.image) {
+        for (const [sel, src] of [['.village', data.image], ['.lights', data.lightsImage]]) {
+          const img = this.stage.querySelector(sel);
+          img.style.objectFit = data.fit ?? 'fill';
+          img.style.objectPosition = '50% 100%';
+          if (src) img.src = src;
+        }
+        this.stage.classList.add('custom-decor');
+      }
       this.square = data.square;
       const W = data.width;
       // Halos lumineux (fenêtres, lanternes, feu) visibles la nuit.
@@ -84,6 +96,9 @@ export class Board extends EventTarget {
     } catch {
       /* les lumières sont décoratives */
     }
+    // La place (cercle des joueurs) vient d'être chargée : on replace les pions et le cadrage.
+    this.layoutKey = null;
+    this.fit();
     if (this.lastView) this.update(this.lastView);
   }
 
