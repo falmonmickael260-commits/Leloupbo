@@ -101,6 +101,9 @@ export class DayNight {
   apply(v) {
     const e = this.el;
     e.sky.style.background = `linear-gradient(180deg, ${rgb(v.top)} 0%, ${rgb(v.mid)} 16%, ${rgb(v.bot)} 27%)`;
+    // Couleur du haut du ciel : prolonge le ciel au-dessus du plateau (marge du haut sur téléphone).
+    document.documentElement.style.setProperty('--sky-top', rgb(v.top));
+    document.documentElement.style.setProperty('--sky-mid', rgb(v.mid));
     e.sun.style.transform = `translate(${v.sunX}px, ${v.sunY}px)`;
     e.sun.style.opacity = v.sun;
     e.moon.style.transform = `translate(${v.moonX}px, ${v.moonY}px)`;

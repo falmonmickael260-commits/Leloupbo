@@ -290,3 +290,21 @@ Fichiers : `src/server/voiceSfu.ts`, `src/server/ice.ts`, `public/js/voiceSfu.js
   place, dans la zone que les pions ne recouvrent jamais. Les lettres sont des tracés
   vectoriels (`scripts/art/sign-text.json`, générés par `scripts/art/sign-glyphs.mjs`) pour
   un rendu identique sur tous les appareils.
+
+## 13. Décor fourni, personnages modernes, robustesse de la voix
+
+- **Décor par défaut** : `public/assets/decor/blackops.*`, généré depuis
+  `scripts/art/decor-src/blackops.png` par `scripts/art/decor.py` (ciel transparent →
+  ciel animé derrière ; calque des lumières isolé pour la nuit ; enseignes illuminées via
+  `--glow` ; place des joueurs via `--plaza`, arc libre devant l'enseigne via `--gap`,
+  cadrage téléphone via `--mobile-width` / `--mobile-gap` / `--mobile-scale`).
+  `?decor=village` réaffiche l'ancien village dessiné.
+- **Téléphone** : la marge au-dessus du plateau prolonge la couleur du ciel
+  (`--sky-top` / `--sky-mid` fournis par `DayNight`), le narrateur s'y affiche.
+- **Personnages** (`public/js/art/characters.js`) : tenues modernes décrites par
+  `top` / `bottom` / `acc` ; identifiants inchangés (choix des joueurs conservés).
+- **Voix LiveKit** : micro publié une seule fois (coupé/ouvert selon le tour) ;
+  `canSubscribe` retiré uniquement pendant la phase des Loups ; surveillance côté client
+  toutes les 3 s (`#watch` : relance du micro, republication, réabonnement, relance du son,
+  reconnexion unique à délais croissants) ; réessai serveur des mises à jour de droits ;
+  écran maintenu allumé (Wake Lock) pendant le lobby et la partie.

@@ -165,7 +165,7 @@ export class Board extends EventTarget {
     const L = this.decorLayout ?? {};
     // Téléphone : le cercle reste dans la largeur visible de l'écran.
     const rxFull = this.square.rx * BOARD_W * 0.8;
-    const rx = this.portrait && L.mobileWidth ? Math.min(rxFull, L.mobileWidth / 2 - 75) : rxFull;
+    const rx = this.portrait && L.mobileWidth ? Math.min(rxFull, L.mobileWidth / 2 - 115) : rxFull;
     const ry = this.square.ry * BOARD_H * 0.78;
     const size = (n > 14 ? 0.78 : n > 10 ? 0.88 : 1) * (this.portrait && L.mobileScale ? L.mobileScale : 1);
     // Arc occupé par les joueurs : tout le cercle, ou un arc qui laisse le haut libre (enseigne du décor).

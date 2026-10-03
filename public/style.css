@@ -490,3 +490,11 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 .roles-panel .rp-card svg { width: 100%; height: auto; display: block; }
 .roles-panel .rp-count { position: absolute; right: -6px; top: -6px; background: var(--gold); border: 2.5px solid var(--ink); border-radius: 999px; padding: 1px 7px; font: 900 14px var(--font-ui); box-shadow: 1.5px 1.5px 0 var(--ink); }
 @media (max-width: 600px) { .hud-corner .roles-chip { display: none !important; } .roles-panel { top: 120px; } }
+
+/* Téléphone : la marge au-dessus du plateau prolonge le ciel (jour, coucher, nuit) au lieu d'une bande vide. */
+@media (orientation: portrait) and (max-width: 900px) {
+  .board { background: linear-gradient(180deg, var(--sky-top, #1b2450) 0, var(--sky-top, #1b2450) calc(var(--board-top, 0px) * 0.45), var(--sky-mid, #1b2450) calc(var(--board-top, 0px) + 2px), #120c08 calc(var(--board-top, 0px) + 2px)); }
+  /* Narrateur juste au-dessus du village (il ne cache plus les joueurs en bas). */
+  .narrator { top: max(168px, calc(var(--board-top, 300px) - 74px)); bottom: auto; }
+  .narration { font-size: clamp(20px, 6vw, 30px); padding: 8px 18px; }
+}
