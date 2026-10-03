@@ -731,6 +731,38 @@ $('dead-form').onsubmit = (e) => {
   if (text) safe(client.chat('dead', text).then(() => ($('dead-input').value = '')));
 };
 $('btn-menu').onclick = () => $('menu').classList.toggle('open');
+
+// ================================================================== RÔLES DE LA PARTIE (info)
+// Composition publique de la partie : quels rôles sont en jeu et combien — jamais qui les a, ni qui est mort.
+const TEAM_ORDER = { wolves: 0, white_wolf: 1, village: 2, none: 3 };
+function renderRolesPanel(v) {
+  const el = $('roles-panel');
+  const comp = v?.composition;
+  $('btn-roles').style.display = comp ? '' : 'none';
+  if (!comp) {
+    el.classList.remove('open');
+    return;
+  }
+  const key = JSON.stringify(comp);
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  const roles = Object.entries(comp)
+    .filter(([, n]) => n > 0)
+    .map(([id, n]) => ({ n, info: v.roleCatalog.find((r) => r.id === id) ?? { id, name: id, emoji: '🎴', team: 'none' } }))
+    .sort((a, b) => (TEAM_ORDER[a.info.team] ?? 3) - (TEAM_ORDER[b.info.team] ?? 3) || (a.info.id === 'villager') - (b.info.id === 'villager'));
+  const total = roles.reduce((t, r) => t + r.n, 0);
+  el.innerHTML = `<div class="rp-head"><h3>🎴 Rôles de la partie</h3><button class="icon-btn" data-close-roles>✕</button></div>
+    <p class="rp-sub">${total} cartes en jeu${comp.thief ? ' (dont 2 pour le Voleur)' : ''} · pour information seulement</p>
+    <div class="rp-grid">${roles
+      .map(({ n, info }) => `<div class="rp-item" title="${esc(info.description ?? '')}"><div class="rp-card">${cardSVG(info.id, info.name)}${n > 1 ? `<b class="rp-count">×${n}</b>` : ''}</div><span>${info.emoji} ${esc(info.name)}</span></div>`)
+      .join('')}</div>`;
+  el.querySelector('[data-close-roles]').onclick = () => el.classList.remove('open');
+}
+$('btn-roles').onclick = () => $('roles-panel').classList.toggle('open');
+$('btn-roles-menu').onclick = () => {
+  $('menu').classList.remove('open');
+  $('roles-panel').classList.add('open');
+};
 $('btn-leave-game').onclick = () => {
   $('menu').classList.remove('open');
   if (client.view?.status === 'finished' || confirm('Quitter la partie ? Ton personnage sera considéré comme ayant abandonné (mort).')) {
@@ -880,6 +912,7 @@ function render() {
   renderAction(v);
   renderChats(v);
   renderGameOver(v);
+  renderRolesPanel(v);
   board.update(v, ui);
   board.showVotes(v.phase.votes);
   renderTimer();

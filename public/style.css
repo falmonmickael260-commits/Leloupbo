@@ -477,3 +477,16 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 /* Décor fourni (photo / rendu déjà sombre) : nuit plus douce, lampes du décor bien visibles */
 .custom-decor .night { background: linear-gradient(180deg, #2b3670, #3b4c8f 60%, #33427e); }
 .custom-decor .lights { filter: brightness(1.25) saturate(1.1); }
+/* Rôles de la partie (composition, pour information) */
+.roles-chip { cursor: pointer; font: 900 14px var(--font-ui); }
+.roles-panel { position: absolute; right: 12px; top: 64px; z-index: 30; width: min(420px, calc(100vw - 24px)); max-height: 70vh; overflow-y: auto; display: none; background: var(--paper); border: 4px solid var(--ink); border-radius: 16px; box-shadow: 6px 6px 0 var(--ink); padding: 12px; pointer-events: auto; }
+.roles-panel.open { display: block; }
+.roles-panel .rp-head { display: flex; align-items: center; justify-content: space-between; }
+.roles-panel h3 { margin: 0; font: 400 24px/1 var(--font-title); letter-spacing: 1px; }
+.roles-panel .rp-sub { margin: 4px 0 10px; font-size: 13px; font-weight: 700; color: #6b5d4d; }
+.roles-panel .rp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
+.roles-panel .rp-item { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; font: 800 12px/1.2 var(--font-ui); }
+.roles-panel .rp-card { position: relative; width: 72px; }
+.roles-panel .rp-card svg { width: 100%; height: auto; display: block; }
+.roles-panel .rp-count { position: absolute; right: -6px; top: -6px; background: var(--gold); border: 2.5px solid var(--ink); border-radius: 999px; padding: 1px 7px; font: 900 14px var(--font-ui); box-shadow: 1.5px 1.5px 0 var(--ink); }
+@media (max-width: 600px) { .hud-corner .roles-chip { display: none !important; } .roles-panel { top: 120px; } }

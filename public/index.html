@@ -64,6 +64,7 @@
           <div class="timer" id="timer"><svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="19"/><circle class="ring" id="timer-ring" cx="22" cy="22" r="19"/></svg><span id="timer-text"></span></div>
         </div>
         <div class="hud-corner">
+          <button id="btn-roles" class="chip roles-chip" title="Rôles de la partie">🎴 Rôles</button>
           <span id="code" class="chip"></span><span id="conn" class="chip dot">●</span>
           <button id="btn-menu" class="icon-btn" title="Menu">☰</button>
         </div>
@@ -95,9 +96,11 @@
         <form id="dead-form" class="chat-form"><input id="dead-input" maxlength="300" placeholder="Parler aux autres âmes…" autocomplete="off" /><button class="btn small">Envoyer</button></form>
       </aside>
 
+      <div id="roles-panel" class="roles-panel"></div>
       <div id="gameover" class="gameover"></div>
 
       <div id="menu" class="menu">
+        <button id="btn-roles-menu" class="btn">🎴 Rôles de la partie</button>
         <button id="btn-leave-game" class="btn ghost">Quitter la partie</button>
       </div>
     </section>
