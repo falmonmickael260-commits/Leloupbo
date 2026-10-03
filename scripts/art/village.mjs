@@ -459,6 +459,10 @@ for (const [x, y, h] of [[1010, 302, 60], [1150, 277, 66], [190, 472, 68]]) base
     `<g transform="translate(${cx} ${y})"><path d="${g.d}" fill="${INK}" stroke="${INK}" stroke-width="10" stroke-linejoin="round"/><path d="${g.d}" fill="#ffe08a" stroke="#fff3c4" stroke-width="0.8"/></g>`;
   s += line(glyphs.line1, py + 44);
   s += line(glyphs.line2, py + 94);
+  // La nuit, les lettres s'illuminent comme une enseigne (calque lumière, halo doré).
+  const glow = (g, y) =>
+    `<g transform="translate(${cx} ${y})"><path d="${g.d}" fill="none" stroke="#ffb547" stroke-width="16" stroke-linejoin="round" opacity=".55" filter="url(#signGlow)"/><path d="${g.d}" fill="#fff1b0" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/></g>`;
+  lights.push(`<filter id="signGlow" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>` + glow(glyphs.line1, py + 44) + glow(glyphs.line2, py + 94));
   // Lierre sur les poteaux.
   for (let k = 0; k < 18; k++) {
     const y = rr(py + bh + 16, groundY - 10);

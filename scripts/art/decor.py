@@ -7,9 +7,10 @@ Prépare un décor fourni (image avec ciel transparent) pour le plateau :
   - fichier de configuration (.json) : position des lumières et de la place.
 
 Usage (outil ponctuel, hors dépendances du jeu : pip install pillow) :
-  python3 scripts/art/decor.py <image> <nom> [--plaza cx,cy,rx,ry]
+  python3 scripts/art/decor.py <image> <nom> [--plaza cx,cy,rx,ry] [--glow x0,y0,x1,y1]...
 
-Coordonnées de --plaza en pixels de l'IMAGE SOURCE : centre et rayons du cercle
+--glow : zone (ex. une enseigne) dont les parties claires s'illuminent la nuit.
+Coordonnées de --plaza et --glow en pixels de l'IMAGE SOURCE : centre et rayons du cercle
 des joueurs (pieds). Le plateau mesure 1536×1024 ; le décor y est mis à l'échelle
 sur la hauteur et centré (les bords gauche/droit d'une image très large sont rognés).
 """
@@ -28,6 +29,7 @@ def main():
     plaza = None
     if '--plaza' in sys.argv:
         plaza = [float(v) for v in sys.argv[sys.argv.index('--plaza') + 1].split(',')]
+    glows = [[int(v) for v in sys.argv[i + 1].split(',')] for i, a in enumerate(sys.argv) if a == '--glow']
     im = Image.open(src).convert('RGBA')
     w, h = im.size
     s = H / h
@@ -47,6 +49,14 @@ def main():
             lum = (r + g + b) / 3
             if r > 200 and g > 150 and r - b > 55 and lum > 165:
                 mp[x, y] = min(255, int((lum - 150) * 3))
+    # Enseignes : leurs lettres claires s'illuminent (en plus des lampes).
+    for x0, y0, x1, y1 in glows:
+        for y in range(max(0, y0), min(h, y1)):
+            for x in range(max(0, x0), min(w, x1)):
+                r, g, b, a = px[x, y]
+                lum = (r + g + b) / 3
+                if a > 200 and lum > 120:
+                    mp[x, y] = max(mp[x, y], min(255, int((lum - 100) * 2.6)))
     mask = mask.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.GaussianBlur(1.2))
     lights = im.copy()
     lights.putalpha(mask)
@@ -88,6 +98,10 @@ def main():
                 continue
             r = max(45, min(150, size * s * 1.6))
             spots.append({'x': round(sx / W, 4), 'y': round(sy / H, 4), 'r': round(r / W, 4), 'kind': 'lantern'})
+
+    for x0, y0, x1, y1 in glows:
+        cx, cy = (x0 + x1) / 2 * s + offx, (y0 + y1) / 2 * s
+        spots.append({'x': round(cx / W, 4), 'y': round(cy / H, 4), 'r': round((x1 - x0) * s * 0.75 / W, 4), 'kind': 'sign'})
 
     if plaza:
         pcx, pcy, prx, pry = plaza
