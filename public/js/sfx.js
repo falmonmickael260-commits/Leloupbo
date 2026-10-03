@@ -449,3 +449,58 @@ export function revealHit() {
     o.stop(st + 1.25);
   });
 }
+
+/** Mort(s) de la nuit, annoncée(s) au lever du jour : cœur qui s'accélère puis s'arrête, puis un coup de glas. */
+export function nightDeath(volume = 0.7) {
+  const c = ready();
+  if (!c) return;
+  const t0 = c.currentTime + 0.05;
+  const out = c.createGain();
+  out.gain.value = volume;
+  out.connect(master);
+  // Battements : « boum-boum », de plus en plus rapprochés.
+  const thump = (t, level, freq) => {
+    const o = c.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    o.frequency.exponentialRampToValueAtTime(freq * 0.55, t + 0.12);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(level, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 180;
+    o.connect(g).connect(lp).connect(out);
+    o.start(t);
+    o.stop(t + 0.2);
+  };
+  let t = t0;
+  const gaps = [0.95, 0.85, 0.74, 0.63, 0.54, 0.47, 0.42];
+  gaps.forEach((gap, k) => {
+    const level = 0.7 + k * 0.05;
+    thump(t, level, 62);
+    thump(t + 0.17, level * 0.7, 55);
+    t += gap;
+  });
+  // Silence… le cœur s'arrête. Puis un seul coup de glas, grave et long.
+  const tb = t + 0.55;
+  for (const [ratio, amp, dec] of [[0.5, 0.5, 6.5], [1, 0.42, 5.0], [1.19, 0.24, 4.0], [1.5, 0.16, 3.2], [2.0, 0.14, 2.6], [2.74, 0.07, 1.8], [3.76, 0.04, 1.2]]) {
+    const o = c.createOscillator();
+    o.frequency.value = 220 * ratio;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, tb);
+    g.gain.exponentialRampToValueAtTime(amp * 0.55, tb + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, tb + dec);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1800;
+    o.connect(g).connect(lp).connect(out);
+    o.start(tb);
+    o.stop(tb + dec + 0.1);
+  }
+  const wet = c.createGain();
+  wet.gain.value = 0.5;
+  out.connect(wet).connect(reverb);
+  return tb - c.currentTime; // délai avant le coup de cloche
+}

@@ -380,7 +380,7 @@ board.addEventListener('sfx', (e) => {
   if (e.detail === 'dusk' && st === 'running') sfx.howlPack();
   else if (e.detail === 'shot' && st && st !== 'lobby') sfx.gunshot();
   else if (e.detail === 'rack' && st && st !== 'lobby') sfx.shotgunRack();
-  else if (e.detail === 'dawn' && st === 'running') sfx.dawn();
+  else if (e.detail === 'dawn' && st === 'running' && !(Date.now() < (ui.noBirdsUntil ?? 0))) sfx.dawn();
 });
 // Étiquette personnelle : seul l'auteur la voit (le serveur ne l'envoie qu'à lui).
 const TAG_PRESETS = ['❤️ Mon ami(e)', '🐺 Suspect', '🔥 À surveiller', '✅ Confiance', '🔮 Voyante ?', '🤔 Bizarre', '🛡️ Protégé', '🤐 Trop calme'];
@@ -856,6 +856,11 @@ function onTransitions(v, prev) {
   else {
     const idx = anns.findIndex((a) => a.id === ui.lastAnn);
     const fresh = idx >= 0 ? anns.slice(idx + 1) : anns.slice(-3);
+    // Lever du jour avec mort(s) cette nuit : cœur qui s'arrête + un coup de glas (pas d'oiseaux ce matin-là).
+    if (ph.id === 'SUNRISE' && fresh.some((a) => a.kind === 'death' && a.text.startsWith('💀') && /cette nuit/.test(a.text))) {
+      ui.noBirdsUntil = Date.now() + 8000;
+      sfx.nightDeath();
+    }
     for (const a of fresh) if ((['death', 'vote', 'victory'].includes(a.kind) || /Capitaine/.test(a.text)) && !a.text.startsWith('🗳️')) narrator.say(a.text.replace(/^[^\p{L}]+/u, ''), a.kind === 'victory' ? 'victory' : a.kind === 'death' ? 'death' : 'vote');
     if (anns.length) ui.lastAnn = anns[anns.length - 1].id;
   }
