@@ -471,7 +471,7 @@ function renderMe(v) {
   // Pendant la révélation, le rôle reste secret jusqu'à l'arrêt de la carte (suspense).
   if (r && ui.revealing) st.push('<span>🎴 Distribution de ton rôle…</span>');
   else if (r) st.push(`<span>${r.emoji} ${esc(r.name)} · <span class="muted">${TEAM[r.team] ?? ''}</span></span>`);
-  if (v.me.lover) st.push(`<span>❤️ Amoureux de <b>${esc(v.me.lover.name)}</b></span>`);
+  if (v.me.lover && !ui.revealing) st.push(`<span>❤️ Amoureux de <b>${esc(v.me.lover.name)}</b></span>`);
   if (v.me.pack && v.me.pack.length > 1 && !ui.revealing) st.push(`<span>🐺 Meute : ${v.me.pack.filter((w) => w.id !== v.me.id).map((w) => `${esc(w.name)}${w.alive ? '' : ' 💀'}`).join(', ')}</span>`);
   if (v.me.roleState && 'potionVie' in v.me.roleState) st.push(`<span>🧪 Vie ${v.me.roleState.potionVie ? '✔' : '✘'} · Mort ${v.me.roleState.potionMort ? '✔' : '✘'}</span>`);
   if (v.me.isCaptain) st.push('<span>👑 Capitaine (voix double)</span>');
