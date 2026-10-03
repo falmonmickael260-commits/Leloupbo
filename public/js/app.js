@@ -175,6 +175,7 @@ function renderLobby(v) {
       <option value="normal" ${s.durationPreset === 'normal' ? 'selected' : ''}>Normales</option>
       <option value="fast" ${s.durationPreset === 'fast' ? 'selected' : ''}>Rapides (test)</option></select></div>
     <div class="settings-row"><span>Égalité au vote</span><select data-select="tieRule" ${dis}>
+      <option value="revote" ${s.tieRule === 'revote' ? 'selected' : ''}>Les ex æquo reparlent puis revote</option>
       <option value="none" ${s.tieRule === 'none' ? 'selected' : ''}>Personne</option>
       <option value="random" ${s.tieRule === 'random' ? 'selected' : ''}>Tirage au sort</option></select></div>
     <div class="settings-row"><span>Voyante sur le Loup-Blanc</span><select data-select="whiteWolfSeerResult" ${dis}>
@@ -615,7 +616,7 @@ function renderAction(v) {
       .sort((a, b) => b[1].reduce((n, x) => n + x.weight, 0) - a[1].reduce((n, x) => n + x.weight, 0))
       .map(([t, list]) => `<div class="target"><b>${esc(numName(v, t))}</b> (${list.reduce((n, x) => n + x.weight, 0)}) ← ${list.map((x) => `${esc(numName(v, x.voterId))}${x.weight > 1 ? ' 👑' : ''}`).join(', ')}</div>`)
       .join('');
-    el.innerHTML = `<h3>🗳️ Qui a voté contre qui</h3><div class="vote-list">${rows}</div>`;
+    el.innerHTML = `<h3>🗳️ Qui a voté pour qui</h3><div class="vote-list">${rows}</div>`;
     return;
   }
   if (!p) {
@@ -951,7 +952,8 @@ function render() {
   renderGameOver(v);
   renderRolesPanel(v);
   board.update(v, ui);
-  board.showVotes(v.phase.votes);
+  // Plus de flèches sur le plateau : qui a voté pour qui s'affiche seulement en bas.
+  board.showVotes(null);
   renderTimer();
   $('btn-leave-game').textContent = v.status === 'finished' ? 'Quitter' : 'Quitter la partie (abandon)';
 }

@@ -298,8 +298,61 @@ describe('Jour', () => {
     assert.ok(!g.announcements().some((a) => a.startsWith('🗳️')));
   });
 
-  it('égalité : personne n’est éliminé (règle par défaut)', () => {
+  it('égalité (règle par défaut) : les ex æquo reprennent la parole puis revote entre eux seulement', () => {
     const g = toDay();
+    g.until('VOTING');
+    // P2 et P3 à égalité (2 voix chacun).
+    g.act(0, 'vote', [2]);
+    g.act(1, 'vote', [2]);
+    g.act(2, 'vote', [3]);
+    g.act(4, 'vote', [3]);
+    g.act(3, 'vote', [0]);
+    assert.equal(g.phase, 'VOTE_RESULT');
+    assert.ok(g.announcements().some((a) => a.startsWith('⚖️ Égalité entre P2 et P3')));
+    assert.ok(g.alive(2) && g.alive(3));
+    // Parole : P2 puis P3, au micro, seuls.
+    g.skip();
+    assert.equal(g.phase, 'PLAYER_SPEECH');
+    assert.equal(g.view(0).phase.speakerId, g.ids[2]);
+    assert.equal(g.view(2).voice.canSpeak, true);
+    assert.equal(g.view(0).voice.canSpeak, false);
+    g.act(2, 'finish');
+    assert.equal(g.view(0).phase.speakerId, g.ids[3]);
+    g.act(3, 'finish');
+    // Revote limité aux ex æquo (jamais pour soi-même), sans discussion libre.
+    assert.equal(g.phase, 'VOTING');
+    assert.deepEqual(g.view(0).prompt!.targets.sort(), [g.ids[2], g.ids[3]].sort());
+    assert.deepEqual(g.view(2).prompt!.targets, [g.ids[3]]);
+    assert.match(g.view(0).prompt!.title, /Revote/);
+    rejects(() => g.act(0, 'vote', [4]), 'BAD_TARGET');
+    for (const i of [0, 1, 4, 2]) g.act(i, 'vote', [3]);
+    g.act(3, 'vote', [2]);
+    assert.equal(g.phase, 'VOTE_RESULT'); // résultat du revote (qui a voté pour qui)
+    g.skip();
+    assert.equal(g.phase, 'DEATH_LAST_WORD');
+    assert.equal(g.alive(3), false);
+    assert.equal(g.engine.state.runoff, null);
+  });
+
+  it('égalité au revote : personne n’est éliminé', () => {
+    const g = toDay();
+    g.until('VOTING');
+    for (const [i, t] of [[0, 2], [1, 2], [2, 3], [4, 3], [3, 0]]) g.act(i, 'vote', [t]);
+    g.skip(); // parole P2
+    g.act(2, 'finish');
+    g.act(3, 'finish');
+    for (const [i, t] of [[0, 2], [1, 2], [4, 3], [2, 3]]) g.act(i, 'vote', [t]);
+    g.skip();
+    assert.equal(g.phase, 'VOTE_RESULT');
+    assert.ok(g.announcements().some((a) => a.includes('Nouvelle égalité')));
+    assert.ok(g.alive(2) && g.alive(3));
+    g.skip();
+    assert.notEqual(g.phase, 'PLAYER_SPEECH'); // pas de troisième tour : la nuit tombe
+  });
+
+  it('égalité avec la règle « personne » : personne n’est éliminé', () => {
+    const g = toDay();
+    g.engine.state.settings.tieRule = 'none';
     g.until('VOTING');
     g.act(0, 'vote', [2]);
     g.act(1, 'vote', [3]);

@@ -10,7 +10,10 @@ import { tally } from './tally.ts';
 
 export function voteTargets(state: GameState, voterId: string): string[] {
   const kind = state.ballot?.kind;
+  // Revote après une égalité : uniquement entre les ex æquo (jamais pour soi-même).
+  const runoff = kind === 'day' && state.runoff?.stage === 'voting' ? state.runoff.candidates : null;
   return alivePlayers(state)
+    .filter((p) => !runoff || runoff.includes(p.id))
     .filter((p) => kind === 'captain' || p.id !== voterId)
     .map((p) => p.id);
 }
@@ -45,7 +48,7 @@ export function countDayVote(ctx: Ctx): { eliminated: string | null; tie: string
   const s = ctx.state;
   const { leaders } = tally(validBallots(s), (voter) => (voter === s.captainId ? 2 : 1));
   if (leaders.length === 1) return { eliminated: leaders[0], tie: [] };
-  if (leaders.length > 1 && s.settings.tieRule === 'random') return { eliminated: shuffle(leaders, ctx.rng)[0], tie: leaders };
+  if (leaders.length > 1 && s.settings.tieRule === 'random' && !s.runoff) return { eliminated: shuffle(leaders, ctx.rng)[0], tie: leaders };
   return { eliminated: null, tie: leaders };
 }
 

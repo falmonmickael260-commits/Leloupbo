@@ -187,7 +187,25 @@ function advanceSpeaker(ctx: Ctx): void {
     }
   }
   s.speech = null;
+  // Égalité : après la parole des ex æquo, on revote directement entre eux.
+  if (s.runoff?.stage === 'speech') {
+    s.runoff.stage = 'voting';
+    return startVoting(ctx);
+  }
   enterPhase(ctx, 'FREE_DISCUSSION', s.settings.durations.freeDiscussion);
+}
+
+/** Égalité au vote : chaque ex æquo reprend la parole (micro), dans l'ordre de la table. */
+function startRunoff(ctx: Ctx): void {
+  const s = ctx.state;
+  const runoff = s.runoff!;
+  runoff.stage = 'speech';
+  const order = s.players
+    .filter((p) => runoff.candidates.includes(p.id))
+    .sort((a, b) => a.seat - b.seat)
+    .map((p) => p.id);
+  s.speech = { order, index: -1 };
+  advanceSpeaker(ctx);
 }
 
 function startVoting(ctx: Ctx): void {
@@ -199,6 +217,7 @@ function startVoting(ctx: Ctx): void {
 function resolveVote(ctx: Ctx): void {
   const s = ctx.state;
   const { eliminated, tie } = countDayVote(ctx);
+  const wasRunoff = s.runoff?.stage === 'voting';
   // Révélation des votes (option) : secrets pendant le vote, dévoilés au résultat.
   const votes = s.settings.revealVotes
     ? Object.entries(validBallots(s)).map(([voterId, targetId]) => ({ voterId, targetId, weight: voterId === s.captainId ? 2 : 1 }))
@@ -210,13 +229,20 @@ function resolveVote(ctx: Ctx): void {
     const lines = votes.map((x) => `${playerName(s, x.voterId)}${x.weight > 1 ? ' (👑×2)' : ''} → ${playerName(s, x.targetId)}`);
     announce(ctx, 'vote', `🗳️ Votes : ${lines.join(' · ')}`);
   }
+  if (wasRunoff) s.runoff = null;
+  // Première égalité : les ex æquo reprennent la parole, puis revote entre eux.
+  if (!eliminated && tie.length > 1 && !wasRunoff && s.settings.tieRule === 'revote') {
+    s.runoff = { candidates: [...tie], stage: 'pending' };
+    announce(ctx, 'vote', `⚖️ Égalité entre ${formatNames(tie.map((id) => playerName(s, id)))} ! Ils reprennent la parole, puis le village revote entre eux.`);
+    return;
+  }
   if (eliminated) {
     if (tie.length > 1) announce(ctx, 'vote', '⚖️ Égalité ! Le sort départage le village…');
     // Seul le nom est annoncé : le rôle n'est jamais révélé.
     announce(ctx, 'vote', `⚖️ Le village a choisi ${playerName(s, eliminated)}.`);
     kill(ctx, eliminated, 'vote');
   } else if (tie.length > 1) {
-    announce(ctx, 'vote', '⚖️ Égalité : le village n’a pas su se décider. Personne n’est éliminé.');
+    announce(ctx, 'vote', wasRunoff ? '⚖️ Nouvelle égalité : personne n’est éliminé.' : '⚖️ Égalité : le village n’a pas su se décider. Personne n’est éliminé.');
   } else {
     announce(ctx, 'vote', '⚖️ Aucun vote : personne n’est éliminé.');
   }
@@ -285,6 +311,7 @@ export function finishPhase(ctx: Ctx): void {
     case 'VOTING':
       return resolveVote(ctx);
     case 'VOTE_RESULT':
+      if (s.runoff?.stage === 'pending') return startRunoff(ctx);
       enterPhase(ctx, 'DEATH_SEQUENCE', null);
       return runPipeline(ctx);
     case 'NIGHT_RESOLUTION':

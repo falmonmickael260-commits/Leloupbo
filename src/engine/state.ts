@@ -113,6 +113,8 @@ export interface GameState {
   tags?: Record<string, Record<string, string>>;
   /** Rôle de chaque joueur à la partie précédente du même lobby (pour varier les rôles). Secret. */
   previousRoles?: Record<string, RoleId>;
+  /** Égalité au vote du jour : les ex æquo reprennent la parole puis le village revote entre eux. */
+  runoff?: { candidates: string[]; stage: 'pending' | 'speech' | 'voting' } | null;
 }
 
 /** Contexte d'exécution d'une opération du moteur. */

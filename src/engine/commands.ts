@@ -73,8 +73,12 @@ export function promptFor(ctx: Ctx, playerId: string): ActionPrompt | null {
       const captain = s.ballot.kind === 'captain';
       return {
         action: 'vote',
-        title: captain ? '👑 Élisez le Capitaine' : '⚖️ Vote secret',
-        description: captain ? 'Votre vote est secret. Vous pouvez le modifier jusqu’à la fin.' : 'Cliquez sur la personne que vous soupçonnez. Personne ne verra votre vote.',
+        title: captain ? '👑 Élisez le Capitaine' : s.runoff?.stage === 'voting' ? '⚖️ Revote entre les ex æquo' : '⚖️ Vote secret',
+        description: captain
+          ? 'Votre vote est secret. Vous pouvez le modifier jusqu’à la fin.'
+          : s.runoff?.stage === 'voting'
+            ? 'Égalité au premier vote : choisissez entre les joueurs à égalité.'
+            : 'Cliquez sur la personne que vous soupçonnez. Personne ne verra votre vote.',
         targets: voteTargets(s, p.id),
         minTargets: 1,
         maxTargets: 1,

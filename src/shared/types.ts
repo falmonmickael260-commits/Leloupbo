@@ -54,7 +54,8 @@ export type GameStatus = 'lobby' | 'running' | 'finished';
 export type ChatChannel = 'village' | 'wolves' | 'dead';
 export type VoiceMode = 'open' | 'turn' | 'last_word' | 'wolves' | 'muted';
 export type DurationPreset = 'normal' | 'fast';
-export type TieRule = 'none' | 'random';
+/** Égalité au vote : revote entre les ex æquo (après leur parole), personne, ou tirage au sort. */
+export type TieRule = 'revote' | 'none' | 'random';
 
 export interface Durations {
   roleReveal: number;

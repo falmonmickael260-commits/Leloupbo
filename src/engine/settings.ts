@@ -69,7 +69,7 @@ export function defaultSettings(): GameSettings {
     salvateurSameTargetTwice: false,
     salvateurBlocksWhiteWolf: false,
     cupidWinsWithLovers: false,
-    tieRule: 'none',
+    tieRule: 'revote',
     endVoteWhenAllVoted: true,
     revealVotes: true,
     revealRolesOnGameOver: true,
@@ -150,7 +150,7 @@ export function applySettingsPatch(
     next.whiteWolfSeerResult = p.whiteWolfSeerResult;
   }
   if (p.tieRule !== undefined) {
-    if (p.tieRule !== 'none' && p.tieRule !== 'random') fail('BAD_SETTINGS', 'Valeur invalide.');
+    if (p.tieRule !== 'revote' && p.tieRule !== 'none' && p.tieRule !== 'random') fail('BAD_SETTINGS', 'Valeur invalide.');
     next.tieRule = p.tieRule;
   }
   return next;
