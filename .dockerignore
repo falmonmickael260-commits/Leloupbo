@@ -3,3 +3,4 @@ data
 .git
 test
 *.log
+scripts/art/decor-src

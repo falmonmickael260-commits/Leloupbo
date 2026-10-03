@@ -66,7 +66,29 @@ function burst(theme) {
 let uid = 0;
 // Largeur bornée : le nom tient dans le cartouche même si la police BD n'est pas encore chargée.
 const fit = (name) => (name.length > 9 ? `textLength="${Math.min(220, name.length * 17)}" lengthAdjust="spacingAndGlyphs"` : '');
+/**
+ * Cartes illustrées fournies (public/assets/cartes/<rôle>.webp, sources dans scripts/art/cartes-src).
+ * Un rôle sans image garde sa carte dessinée.
+ */
+const CARD_IMAGES = new Set(['werewolf', 'white_wolf', 'seer', 'witch', 'cupid', 'thief', 'hunter', 'salvateur', 'villager']);
+// Préchargement : la carte est prête au moment de sa révélation.
+if (typeof Image !== 'undefined') for (const r of CARD_IMAGES) new Image().src = `/assets/cartes/${r}.webp`;
+
 export function cardSVG(roleId, roleName) {
+  if (CARD_IMAGES.has(roleId)) {
+    const id = `c${++uid}`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" class="role-card-svg" role="img" aria-label="${roleName}">
+  <defs><clipPath id="${id}r"><rect x="0" y="0" width="300" height="450" rx="18"/></clipPath></defs>
+  <rect x="0" y="0" width="300" height="450" rx="18" fill="#141218"/>
+  <image href="/assets/cartes/${roleId}.webp" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id}r)"/>
+  <rect x="1.5" y="1.5" width="297" height="447" rx="17" fill="none" stroke="${INK}" stroke-width="3"/>
+</svg>`;
+  }
+  return drawnCardSVG(roleId, roleName);
+}
+
+/** Carte dessinée (style BD) — utilisée pour un rôle sans illustration fournie. */
+function drawnCardSVG(roleId, roleName) {
   const theme = THEMES[roleId] ?? THEMES.villager;
   const id = `c${++uid}`;
   const emblem = (EMBLEMS[roleId] ?? EMBLEMS.villager)();
@@ -97,7 +119,7 @@ export function cardBackSVG() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" class="role-card-svg" aria-hidden="true">
   <defs><pattern id="${id}d" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="6" cy="6" r="2.4" fill="#000"/></pattern></defs>
   <rect x="4" y="4" width="292" height="442" rx="20" fill="${INK}"/>
-  <rect x="10" y="10" width="280" height="430" rx="16" fill="#2a2350" ${ink(3)}/>
+  <rect x="10" y="10" width="280" height="430" rx="16" fill="#18161d" ${ink(3)}/>
   <rect x="10" y="10" width="280" height="430" rx="16" fill="url(#${id}d)" opacity=".25"/>
   <rect x="26" y="26" width="248" height="398" rx="10" fill="none" stroke="#f2c94c" stroke-width="4"/>
   ${moon(150, 190, 70)}
