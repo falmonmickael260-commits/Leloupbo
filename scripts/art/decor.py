@@ -8,6 +8,7 @@ Prépare un décor fourni (image avec ciel transparent) pour le plateau :
 
 Usage (outil ponctuel, hors dépendances du jeu : pip install pillow) :
   python3 scripts/art/decor.py <image> <nom> [--plaza cx,cy,rx,ry] [--glow x0,y0,x1,y1]...
+                               [--gap degrés] [--mobile-width px] [--mobile-scale k]
 
 --glow : zone (ex. une enseigne) dont les parties claires s'illuminent la nuit.
 Coordonnées de --plaza et --glow en pixels de l'IMAGE SOURCE : centre et rayons du cercle
@@ -30,6 +31,12 @@ def main():
     if '--plaza' in sys.argv:
         plaza = [float(v) for v in sys.argv[sys.argv.index('--plaza') + 1].split(',')]
     glows = [[int(v) for v in sys.argv[i + 1].split(',')] for i, a in enumerate(sys.argv) if a == '--glow']
+    # Disposition : --gap (degrés laissés libres en haut du cercle, ex. devant une enseigne),
+    # --mobile-width (largeur de plateau visible sur téléphone), --mobile-scale (taille des pions sur téléphone).
+    layout = {}
+    for flag, key in (('--gap', 'gapTop'), ('--mobile-gap', 'mobileGap'), ('--mobile-width', 'mobileWidth'), ('--mobile-scale', 'mobileScale')):
+        if flag in sys.argv:
+            layout[key] = float(sys.argv[sys.argv.index(flag) + 1])
     im = Image.open(src).convert('RGBA')
     w, h = im.size
     s = H / h
@@ -116,6 +123,7 @@ def main():
         'lightsImage': f'/assets/decor/{name}-lights.webp',
         'fit': 'cover',
         'square': square,
+        'layout': layout,
         'lights': spots,
     }
     (OUT / f'{name}.json').write_text(json.dumps(cfg))

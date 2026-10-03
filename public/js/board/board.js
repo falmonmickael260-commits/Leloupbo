@@ -82,6 +82,7 @@ export class Board extends EventTarget {
         this.stage.classList.add('custom-decor');
       }
       this.square = data.square;
+      this.decorLayout = data.layout ?? {};
       const W = data.width;
       // Halos lumineux (fenêtres, lanternes, feu) visibles la nuit.
       this.stage.querySelector('.glows').innerHTML = data.lights
@@ -122,9 +123,14 @@ export class Board extends EventTarget {
     let x;
     let y;
     const portrait = h > w * 1.05;
+    if (portrait !== this.portrait) {
+      this.portrait = portrait;
+      this.layoutKey = null; // taille des pions différente sur téléphone
+      if (this.lastView) queueMicrotask(() => this.update(this.lastView));
+    }
     if (portrait) {
       // Mobile : on cadre la place centrale (cercle des joueurs sur toute la largeur).
-      s = Math.min(h / BOARD_H, w / 760);
+      s = Math.min(h / BOARD_H, w / (this.decorLayout?.mobileWidth ?? 760));
       const cx = this.square.cx * BOARD_W;
       const cy = this.square.cy * BOARD_H + 20;
       x = Math.min(0, Math.max(w - BOARD_W * s, w / 2 - cx * s));
@@ -156,12 +162,23 @@ export class Board extends EventTarget {
     const meIdx = Math.max(0, sorted.findIndex((p) => p.id === meId));
     const cx = this.square.cx * BOARD_W;
     const cy = this.square.cy * BOARD_H + 20;
-    const rx = this.square.rx * BOARD_W * 0.8;
+    const L = this.decorLayout ?? {};
+    // Téléphone : le cercle reste dans la largeur visible de l'écran.
+    const rxFull = this.square.rx * BOARD_W * 0.8;
+    const rx = this.portrait && L.mobileWidth ? Math.min(rxFull, L.mobileWidth / 2 - 75) : rxFull;
     const ry = this.square.ry * BOARD_H * 0.78;
-    const size = n > 14 ? 0.78 : n > 10 ? 0.88 : 1;
+    const size = (n > 14 ? 0.78 : n > 10 ? 0.88 : 1) * (this.portrait && L.mobileScale ? L.mobileScale : 1);
+    // Arc occupé par les joueurs : tout le cercle, ou un arc qui laisse le haut libre (enseigne du décor).
+    const gap = (this.portrait && L.mobileGap) || L.gapTop || 0;
+    const span = (Math.PI * 2 * (360 - gap)) / 360;
+    // Avec un espace libre en haut : les deux joueurs extrêmes sont exactement aux bords de l'arc.
+    const step = gap ? span / Math.max(1, 2 * Math.floor(n / 2)) : span / n;
     this.layout.clear();
     sorted.forEach((p, i) => {
-      const a = Math.PI / 2 + ((i - meIdx) / n) * Math.PI * 2;
+      // « Moi » en bas ; les autres de part et d'autre, symétriquement.
+      const j = (i - meIdx + n) % n;
+      const off = gap ? (j <= (n - 1) / 2 ? j : j - n) * step : j * step;
+      const a = Math.PI / 2 + off;
       const x = cx + Math.cos(a) * rx;
       const y = cy + Math.sin(a) * ry;
       const depth = 0.82 + 0.3 * ((y - (cy - ry)) / (2 * ry));
