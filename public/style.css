@@ -701,3 +701,7 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .map-opt:disabled { cursor: default; }
 .mic-btn.self { border-color: #a3271c; color: #ffb4a6; }
 .mic-btn.self i { background: #5a1a14; }
+/* Téléphone plein écran : narrateur sous le panneau d'action, au-dessus du rond des joueurs */
+@media (orientation: portrait) and (max-width: 900px) {
+  .narrator { top: 37vh !important; }
+}

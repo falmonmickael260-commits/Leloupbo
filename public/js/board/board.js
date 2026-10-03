@@ -144,7 +144,21 @@ export class Board extends EventTarget {
       this.layoutKey = null; // taille des pions différente sur téléphone
       if (this.lastView) queueMicrotask(() => this.update(this.lastView));
     }
-    if (portrait) {
+    const fill = portrait && this.decorLayout?.mobileTop != null;
+    if (fill) {
+      // Téléphone : le décor remplit tout l'écran en hauteur (ciel, enseigne… en haut),
+      // centré sur la place ; les joueurs forment un rond sur la place (voir computeLayout).
+      s = h / BOARD_H;
+      const cx = this.square.cx * BOARD_W;
+      x = Math.min(0, Math.max(w - BOARD_W * s, w / 2 - cx * s));
+      y = 0;
+      const visibleW = Math.min(BOARD_W, w / s);
+      if (Math.abs(visibleW - (this.visibleW ?? 0)) > 4) {
+        this.visibleW = visibleW;
+        this.layoutKey = null;
+        if (this.lastView) queueMicrotask(() => this.update(this.lastView));
+      }
+    } else if (portrait) {
       // Mobile : on cadre la place centrale (cercle des joueurs sur toute la largeur).
       s = Math.min(h / BOARD_H, w / (this.decorLayout?.mobileWidth ?? 760));
       const cx = this.square.cx * BOARD_W;
@@ -177,13 +191,22 @@ export class Board extends EventTarget {
     const sorted = [...players].sort((a, b) => a.seat - b.seat);
     const meIdx = Math.max(0, sorted.findIndex((p) => p.id === meId));
     const cx = this.square.cx * BOARD_W;
-    const cy = this.square.cy * BOARD_H + 20;
+    let cy = this.square.cy * BOARD_H + 20;
     const L = this.decorLayout ?? {};
     // Téléphone : le cercle reste dans la largeur visible de l'écran.
     const rxFull = this.square.rx * BOARD_W * 0.8;
-    const rx = this.portrait && L.mobileWidth ? Math.min(rxFull, L.mobileWidth / 2 - 115) : rxFull;
-    const ry = this.square.ry * BOARD_H * 0.78;
+    let rx = this.portrait && L.mobileWidth ? Math.min(rxFull, L.mobileWidth / 2 - 115) : rxFull;
+    let ry = this.square.ry * BOARD_H * 0.78;
     const size = (n > 14 ? 0.78 : n > 10 ? 0.88 : 1) * (this.portrait && L.mobileScale ? L.mobileScale : 1);
+    if (this.portrait && L.mobileTop != null && this.visibleW) {
+      // Téléphone plein écran : rond entre le bas de l'enseigne et le bas de l'écran,
+      // dans la largeur visible.
+      const top = L.mobileTop + 175 * size; // pieds du joueur le plus haut (tête sous l'enseigne)
+      const bottom = BOARD_H - 22;
+      ry = Math.max(60, (bottom - top) / 2);
+      rx = Math.min(rxFull, this.visibleW / 2 - 70 * size - 10);
+      cy = top + ry;
+    }
     // Arc occupé par les joueurs : tout le cercle, ou un arc qui laisse le haut libre (enseigne du décor).
     const gap = (this.portrait && L.mobileGap) || L.gapTop || 0;
     const span = (Math.PI * 2 * (360 - gap)) / 360;

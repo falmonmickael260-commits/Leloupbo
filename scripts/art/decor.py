@@ -8,7 +8,9 @@ Prépare un décor fourni (image avec ciel transparent) pour le plateau :
 
 Usage (outil ponctuel, hors dépendances du jeu : pip install pillow) :
   python3 scripts/art/decor.py <image> <nom> [--plaza cx,cy,rx,ry] [--glow x0,y0,x1,y1]...
-                               [--gap degrés] [--mobile-width px] [--mobile-scale k]
+                               [--gap degrés] [--mobile-width px] [--mobile-scale k] [--mobile-top y]
+  --mobile-top : téléphone en plein écran ; y (pixels du PLATEAU 1536×1024) sous lequel
+                 commencent les joueurs (ex. bas de l'enseigne).
 
 --glow : zone (ex. une enseigne) dont les parties claires s'illuminent la nuit.
 Coordonnées de --plaza et --glow en pixels de l'IMAGE SOURCE : centre et rayons du cercle
@@ -35,7 +37,7 @@ def main():
     # Disposition : --gap (degrés laissés libres en haut du cercle, ex. devant une enseigne),
     # --mobile-width (largeur de plateau visible sur téléphone), --mobile-scale (taille des pions sur téléphone).
     layout = {}
-    for flag, key in (('--gap', 'gapTop'), ('--mobile-gap', 'mobileGap'), ('--mobile-width', 'mobileWidth'), ('--mobile-scale', 'mobileScale')):
+    for flag, key in (('--gap', 'gapTop'), ('--mobile-gap', 'mobileGap'), ('--mobile-width', 'mobileWidth'), ('--mobile-scale', 'mobileScale'), ('--mobile-top', 'mobileTop')):
         if flag in sys.argv:
             layout[key] = float(sys.argv[sys.argv.index(flag) + 1])
     im = Image.open(src).convert('RGBA')
