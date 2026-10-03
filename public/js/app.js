@@ -529,6 +529,29 @@ async function autoVoice(v) {
   }
   renderMic();
 }
+// Écran toujours allumé pendant le lobby et la partie : un téléphone en veille coupe son micro.
+let wakeLock = null;
+async function keepScreenOn() {
+  const st = client.view?.status;
+  const want = !!st && st !== 'finished' && document.visibilityState === 'visible';
+  if (keepScreenOn.busy || want === !!wakeLock) return;
+  keepScreenOn.busy = true;
+  try {
+    if (want && !wakeLock && navigator.wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => (wakeLock = null));
+    } else if (!want && wakeLock) {
+      await wakeLock.release();
+      wakeLock = null;
+    }
+  } catch {
+    /* refusé (économie d'énergie…) : sans effet */
+  } finally {
+    keepScreenOn.busy = false;
+  }
+}
+document.addEventListener('visibilitychange', keepScreenOn);
+client.addEventListener('view', keepScreenOn);
 // Bouton : relance la voix (utile si le micro a été refusé puis autorisé).
 $('btn-mic').onclick = () => retryVoice();
 voice.addEventListener('change', () => renderMic());

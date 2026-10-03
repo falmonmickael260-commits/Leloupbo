@@ -79,18 +79,12 @@ export class VoiceSFU extends EventTarget {
     this.room = room;
     const E = LK.RoomEvent;
     room.on(E.TrackSubscribed, (track, _pub, participant) => {
-      if (track.kind !== 'audio') return;
-      const el = track.attach();
-      el.setAttribute('playsinline', '');
-      el.autoplay = true;
-      el.style.display = 'none';
-      document.body.appendChild(el);
-      this.audioEls.set(participant.identity, el);
-      this.applyPermissions();
+      if (track.kind === 'audio') this.#attach(track, participant.identity);
     });
     room.on(E.TrackUnsubscribed, (track, _pub, participant) => {
       track.detach().forEach((el) => el.remove());
-      this.audioEls.delete(participant.identity);
+      // Ne retirer que si c'est bien CETTE piste (une ancienne piste peut se fermer après la nouvelle).
+      if (this.audioEls.get(participant.identity)?.lkTrack === track) this.audioEls.delete(participant.identity);
     });
     room.on(E.ActiveSpeakersChanged, (speakers) => {
       this.talking = new Set(speakers.map((p) => p.identity));
@@ -109,7 +103,7 @@ export class VoiceSFU extends EventTarget {
       this.micOn = false;
       this.#emit();
       // Coupure définitive (jeton expiré, serveur redémarré…) : on redemande un accès.
-      if (this.active) setTimeout(() => this.#rejoin(), 2000);
+      if (this.active) this.#scheduleRejoin(2000);
     });
     // Retour dans l'appli (iPhone : le micro et le son sont coupés quand Safari passe en arrière-plan).
     this.onVisible = () => {
@@ -140,21 +134,91 @@ export class VoiceSFU extends EventTarget {
     this.#audioState();
     this.client.addEventListener('view', this.onView);
     this.applyPermissions();
+    // Surveillance : répare toute seule les pannes de son / micro (voir #watch).
+    this.watchdog = setInterval(() => this.#watch(), 3000);
     this.#emit();
   }
 
+  /** Branche la voix reçue d'un joueur sur un élément audio (une seule par joueur). */
+  #attach(track, identity) {
+    const old = this.audioEls.get(identity);
+    if (old?.lkTrack === track) return;
+    old?.remove();
+    const el = track.attach();
+    el.lkTrack = track;
+    el.setAttribute('playsinline', '');
+    el.autoplay = true;
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    this.audioEls.set(identity, el);
+    this.applyPermissions();
+  }
+
+  /** Une seule reconnexion à la fois, avec des délais croissants (2 s, 4 s, 8 s… 20 s max). */
+  #scheduleRejoin(delay) {
+    if (!this.active || this.rejoinTimer || this.rejoining) return;
+    this.rejoinTimer = setTimeout(() => {
+      this.rejoinTimer = null;
+      this.#rejoin();
+    }, delay);
+  }
+
   async #rejoin() {
-    if (!this.active) return;
+    if (!this.active || this.rejoining) return;
+    if (this.room?.state === 'connected' || this.room?.state === 'reconnecting') return;
+    this.rejoining = true;
     try {
       const r = await this.client.request('voice:join');
       if (r.mode !== 'sfu') return;
       await this.room.connect(r.url, r.token, { autoSubscribe: true });
+      this.rejoinFails = 0;
       this.applyPermissions();
     } catch (e) {
       console.warn('[voice] reconnexion audio', e);
-      setTimeout(() => this.#rejoin(), 5000);
+      this.rejoinFails = (this.rejoinFails ?? 0) + 1;
+      this.rejoining = false;
+      this.#scheduleRejoin(Math.min(20000, 2000 * 2 ** this.rejoinFails));
+    } finally {
+      this.rejoining = false;
     }
     this.#emit();
+  }
+
+  /**
+   * Vérification toutes les 3 s — répare sans action du joueur :
+   *  - connexion audio perdue → reconnexion ;
+   *  - micro arrêté par le téléphone (appel, casque branché/débranché…) → relancé ;
+   *  - micro qui devrait être publié / ouvert / coupé → resynchronisé ;
+   *  - voix d'un joueur non reçue alors qu'on a le droit d'écouter → réabonnement ;
+   *  - son d'un joueur en pause → relancé (ou invitation à toucher l'écran).
+   */
+  #watch() {
+    const room = this.room;
+    if (!this.active || !room) return;
+    if (room.state === 'disconnected') return this.#scheduleRejoin(500);
+    if (room.state !== 'connected') return;
+    const track = this.micTrack;
+    if (track) {
+      if (track.mediaStreamTrack?.readyState === 'ended') {
+        track.restartTrack().catch(() => {});
+        return;
+      }
+      const published = [...room.localParticipant.audioTrackPublications.values()].some((p) => p.track === track);
+      if (!published || track.isMuted === this.micOn) this.#syncMic();
+    }
+    if (room.localParticipant.permissions?.canSubscribe !== false) {
+      for (const p of room.remoteParticipants.values()) {
+        for (const pub of p.audioTrackPublications.values()) {
+          if (!pub.isSubscribed) pub.setSubscribed(true);
+          // Voix reçue mais pas branchée sur un élément audio → on la branche.
+          else if (pub.track && this.audioEls.get(p.identity)?.lkTrack !== pub.track) this.#attach(pub.track, p.identity);
+        }
+      }
+    }
+    for (const el of this.audioEls.values()) {
+      if (!el.isConnected) document.body.appendChild(el);
+      if (el.paused && el.srcObject) el.play().catch(() => this.dispatchEvent(new CustomEvent('audio', { detail: { blocked: true } })));
+    }
   }
 
   #audioState() {
@@ -276,6 +340,9 @@ export class VoiceSFU extends EventTarget {
     this.active = false;
     this.client.removeEventListener('view', this.onView);
     document.removeEventListener('visibilitychange', this.onVisible);
+    clearInterval(this.watchdog);
+    clearTimeout(this.rejoinTimer);
+    this.rejoinTimer = null;
     this.room?.disconnect();
     this.micTrack?.stop();
     this.micTrack = null;

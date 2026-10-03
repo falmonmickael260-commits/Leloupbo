@@ -72,6 +72,7 @@ export class LiveKitBridge {
   /** Dernières permissions appliquées, par partie puis par joueur. */
   private readonly applied = new Map<string, Map<string, string>>();
   private readonly pending = new Map<string, NodeJS.Timeout>();
+  private readonly retries = new Map<string, number>();
   /** Dernier contrôle du serveur audio : null = pas encore vérifié. */
   health: { ok: boolean | null; error?: string; checkedAt?: string } = { ok: null };
 
@@ -150,7 +151,16 @@ export class LiveKitBridge {
       code,
       setTimeout(() => {
         this.pending.delete(code);
-        this.flush(engine).catch((e) => console.warn('[livekit] synchronisation des permissions :', e?.message ?? e));
+        this.flush(engine).then(
+          () => this.retries.delete(code),
+          (e) => {
+            // Échec (réseau…) : on réessaie, sinon un joueur pourrait rester sourd toute une phase.
+            const n = (this.retries.get(code) ?? 0) + 1;
+            this.retries.set(code, n);
+            console.warn(`[livekit] synchronisation des permissions (essai ${n}) :`, e?.message ?? e);
+            if (n <= 8) setTimeout(() => this.sync(engine), Math.min(10_000, 500 * 2 ** n)).unref?.();
+          },
+        );
       }, 40),
     );
   }
@@ -160,6 +170,7 @@ export class LiveKitBridge {
     const known = this.applied.get(code);
     if (!known || known.size === 0) return;
     const room = this.roomName(code);
+    const failures: unknown[] = [];
     await Promise.all(
       [...known.keys()].map(async (playerId) => {
         const perm = this.permissionsFor(engine, playerId);
@@ -174,16 +185,18 @@ export class LiveKitBridge {
           // Joueur pas (encore / plus) dans la salle audio : son prochain jeton portera les bons droits.
           const msg = String((e as Error)?.message ?? e);
           if (/not found|does not exist|404/i.test(msg)) known.delete(playerId);
-          else throw e;
+          else failures.push(e); // les autres joueurs sont quand même mis à jour
         }
       }),
     );
+    if (failures.length) throw failures[0];
   }
 
   forget(code: string): void {
     clearTimeout(this.pending.get(code));
     this.pending.delete(code);
     this.applied.delete(code);
+    this.retries.delete(code);
     this.rooms.deleteRoom(this.roomName(code)).catch(() => {});
   }
 }
