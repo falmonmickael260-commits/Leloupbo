@@ -163,8 +163,17 @@ describe('Nuit', () => {
     const g = setup(['thief', 'werewolf', 'villager', 'villager', 'villager'], {}, ['seer', 'villager']);
     g.until('THIEF_PHASE');
     const p = g.view(0).prompt!;
-    assert.ok(p.options!.some((o) => o.id === 'keep'));
+    assert.equal(p.title, '🃏 LE VOLEUR');
+    assert.match(p.description, /Choisis ton destin/);
+    assert.deepEqual(p.options!.map((o) => o.id), ['0', '1']); // doit choisir l'une des deux cartes
     g.cmd(0, { action: 'thief', option: '0' });
+    assert.ok(g.privateLog(0).some((m) => m.includes('Ton nouveau rôle est secret')));
+    // Aucun autre joueur ne reçoit la moindre information sur l'échange.
+    for (const i of [1, 2, 3, 4]) {
+      const json = JSON.stringify(g.view(i));
+      assert.ok(!json.includes('Voyante') || !json.includes('"seer"') || !g.view(i).privateLog.some((m) => m.kind === 'thief'), `fuite vers P${i}`);
+      assert.ok(!g.view(i).announcements.some((a) => /Voleur|vol/i.test(a.text)), `annonce vers P${i}`);
+    }
     assert.equal(g.engine.state.players[0].role, 'seer');
     assert.equal(g.view(0).me.role!.id, 'seer');
     g.until('SEER_PHASE');
@@ -174,8 +183,8 @@ describe('Nuit', () => {
   it('Voleur : doit prendre un loup si les deux cartes sont des loups', () => {
     const g = setup(['thief', 'werewolf', 'villager', 'villager', 'villager'], {}, ['werewolf', 'werewolf']);
     g.until('THIEF_PHASE');
-    assert.ok(!g.view(0).prompt!.options!.some((o) => o.id === 'keep'));
-    g.skip(); // timeout → prend la première carte
+    assert.match(g.view(0).prompt!.description, /tu dois en prendre une/);
+    g.skip(); // temps écoulé → une des deux cartes (toutes deux Loups)
     assert.equal(g.engine.state.players[0].role, 'werewolf');
     assert.equal(g.view(0).prompt!.action, 'wolf_vote');
   });
@@ -616,6 +625,83 @@ describe('Fin anticipée', () => {
       g.until('SUNRISE');
       assert.equal(g.engine.state.status, 'running', special);
     }
+  });
+});
+
+describe('Loup Noir', () => {
+  function night1() {
+    // P0 Loup Noir, P1 Loup-Garou, P2 Voyante, P3 Sorcière, P4-P6 villageois
+    const g = setup(['black_wolf', 'werewolf', 'seer', 'witch', 'villager', 'villager', 'villager']);
+    g.until('WEREWOLF_PHASE');
+    return g;
+  }
+
+  it('choix TUER / INFECTER réservé au Loup Noir ; la meute voit son choix', () => {
+    const g = night1();
+    assert.deepEqual(g.view(0).prompt!.options!.map((o) => o.id), ['kill', 'infect']);
+    assert.equal(g.view(1).prompt!.options, undefined);
+    rejects(() => g.cmd(1, { action: 'wolf_vote', targets: [], option: 'infect' }), 'BAD_OPTION');
+    g.cmd(0, { action: 'wolf_vote', targets: [], option: 'infect' });
+    assert.equal((g.view(1).prompt!.info as any).blackWolf.mode, 'infect');
+    // Les villageois ne voient rien de tout cela.
+    assert.equal(g.view(4).prompt, null);
+  });
+
+  it('INFECTER : la victime survit, garde son rôle, rejoint secrètement la meute ; Voyante → LOUP', () => {
+    const g = night1();
+    g.cmd(0, { action: 'wolf_vote', targets: [g.ids[4]], option: 'infect' });
+    g.act(1, 'wolf_vote', [4]);
+    g.until('SUNRISE');
+    const victim = g.engine.state.players[4];
+    assert.equal(victim.alive, true);
+    assert.equal(victim.role, 'villager');
+    assert.equal(victim.infected, true);
+    assert.ok(g.announcements().includes('🌅 Personne n’est mort cette nuit.'));
+    // Personne au village n'est informé ; l'infecté et la meute le savent.
+    assert.equal(g.view(4).me.infected, true);
+    assert.ok(g.view(4).me.pack!.some((w) => w.id === g.ids[0]));
+    assert.ok(g.view(1).me.pack!.some((w) => w.id === g.ids[4]));
+    for (const i of [2, 3, 5, 6]) {
+      assert.equal(g.view(i).me.pack, null);
+      const v = g.view(i);
+      assert.equal(v.me.infected, false, `P${i}`);
+      assert.ok(!v.privateLog.some((m) => m.kind !== 'role' && /infect/i.test(m.text)), `fuite (message privé) vers P${i}`);
+      assert.ok(!v.announcements.some((a) => /infect/i.test(a.text)), `fuite (annonce) vers P${i}`);
+      assert.ok(!JSON.stringify(v.players).includes('infect'), `fuite (joueurs) vers P${i}`);
+    }
+    // Pouvoir épuisé : plus de bouton INFECTER.
+    assert.equal(g.engine.state.players[0].roleData.infect, false);
+    g.until('WEREWOLF_PHASE');
+    assert.equal(g.view(0).prompt!.options, undefined);
+    // L'infecté se réveille avec la meute et ne peut pas être ciblé par elle.
+    assert.equal(g.view(4).prompt!.action, 'wolf_vote');
+    assert.ok(!g.view(0).prompt!.targets.includes(g.ids[4]));
+    g.act(0, 'wolf_vote', [5]);
+    g.act(1, 'wolf_vote', [5]);
+    g.act(4, 'wolf_vote', [5]);
+    g.until('SEER_PHASE');
+    g.act(2, 'seer', [4]);
+    assert.ok(g.privateLog(2).some((m) => m === `🔮 P4 : LOUP`));
+  });
+
+  it('TUER : la victime meurt normalement et le pouvoir reste disponible', () => {
+    const g = night1();
+    g.cmd(0, { action: 'wolf_vote', targets: [g.ids[5]], option: 'kill' });
+    g.act(1, 'wolf_vote', [5]);
+    g.until('SUNRISE');
+    assert.equal(g.alive(5), false);
+    assert.equal(g.engine.state.players[0].roleData.infect, true);
+  });
+
+  it('le Loup Noir compte parmi les loups prévus (nombre total de loups inchangé)', () => {
+    const e = GameEngine.create('B', T0, seededRng(2));
+    const host = e.join('H', 'h', T0);
+    for (let i = 0; i < 9; i++) e.join(`J${i}`, `t${i}`, T0); // 10 joueurs → 3 loups
+    e.updateSettings(host.id, { roles: { black_wolf: 1, seer: 1 } }, T0);
+    assert.equal(e.state.settings.roles.werewolf, 2);
+    e.start(host.id, T0);
+    const wolves = e.state.players.filter((p) => p.role === 'werewolf' || p.role === 'black_wolf');
+    assert.equal(wolves.length, 3);
   });
 });
 

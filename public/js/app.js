@@ -6,7 +6,7 @@
  * via GameClient. Toute validation reste côté serveur.
  */
 import { CHARACTERS, characterSVG } from './art/characters.js';
-import { cardSVG } from './art/cards.js';
+import { cardBackSVG, cardSVG } from './art/cards.js';
 import { Board, playerNumbers, wait } from './board/board.js';
 import { Narrator, revealCard } from './board/overlays.js';
 import { GameClient } from './gameClient.js';
@@ -486,6 +486,8 @@ function renderMe(v) {
   else if (r) st.push(`<span>${r.emoji} ${esc(r.name)} · <span class="muted">${TEAM[r.team] ?? ''}</span></span>`);
   if (v.me.lover && !ui.revealing) st.push(`<span>❤️ Amoureux de <b>${esc(v.me.lover.name)}</b></span>`);
   if (v.me.pack && v.me.pack.length > 1 && !ui.revealing) st.push(`<span>🐺 Meute : ${v.me.pack.filter((w) => w.id !== v.me.id).map((w) => `${esc(w.name)}${w.alive ? '' : ' 💀'}`).join(', ')}</span>`);
+  if (v.me.infected && !ui.revealing) st.push('<span>🖤 <b>Infecté</b> : tu joues secrètement pour les Loups (tu gardes ton rôle)</span>');
+  if (v.me.roleState && 'infection' in v.me.roleState) st.push(`<span>🖤 Infection ${v.me.roleState.infection ? 'disponible' : 'utilisée'}</span>`);
   if (v.me.roleState && 'potionVie' in v.me.roleState) st.push(`<span>🧪 Vie ${v.me.roleState.potionVie ? '✔' : '✘'} · Mort ${v.me.roleState.potionMort ? '✔' : '✘'}</span>`);
   if (v.me.isCaptain) st.push('<span>👑 Capitaine (voix double)</span>');
   if (!v.me.alive) st.push('<span>💀 Mort · spectateur</span>');
@@ -612,7 +614,7 @@ $('card-zoom').onclick = () => $('card-zoom').classList.remove('show');
 // ================================================================== ACTIONS
 const TAP_HINTS = {
   vote: '⚖️ Touche le joueur que tu soupçonnes',
-  wolf_vote: '🐺 Touche votre victime',
+  wolf_vote: '🐺 Touchez votre victime',
   seer: '🔮 Touche un joueur pour voir s’il est LOUP ou CIVIL',
   protect: '🛡️ Touche le joueur à protéger cette nuit',
   white_wolf: '🤍 Touche un loup à dévorer, ou passe',
@@ -681,7 +683,11 @@ function renderAction(v) {
       html += `<div class="row">${btns.join('')}</div>`;
     }
   } else if (p.action === 'thief') {
-    html += `<h3>🦝 ${esc(p.description)}</h3><div class="options">${(p.options ?? []).map((o) => `<button class="btn" data-opt="${esc(o.id)}">${esc(o.label)}</button>`).join('')}</div>`;
+    html += `<h3>🃏 LE VOLEUR</h3><p>Choisis ton destin…</p><div class="row"><button class="btn btn-gold" id="btn-thief">🃏 Voir les deux cartes</button></div>`;
+    if (ui.thiefSeq !== v.phase.seq) {
+      ui.thiefSeq = v.phase.seq;
+      setTimeout(() => openThief(), 50);
+    }
   } else {
     const hint = TAP_HINTS[p.action] ?? esc(p.title);
     if (p.action === 'vote' && p.submitted) html += `<h3>✅ Vote enregistré</h3><p>Touche un autre joueur pour changer d’avis.</p>`;
@@ -690,10 +696,18 @@ function renderAction(v) {
     if (p.action === 'wolf_vote') {
       const votes = (p.info?.packVotes ?? []).filter((w) => w.targetName);
       if (votes.length) html += `<p class="wolf-votes">${votes.map((w) => `🐺 ${esc(w.wolfName)} → <b>${esc(w.targetName)}</b>`).join(' · ')}</p>`;
+      const bw = p.info?.blackWolf;
+      if (p.options?.length) {
+        // Loup Noir : TUER ou INFECTER (une seule fois dans la partie).
+        html += `<div class="row black-wolf">${p.options
+          .map((o) => `<button class="btn ${bw?.mode === o.id ? 'btn-gold' : ''}" data-bw="${esc(o.id)}">${esc(o.label)}</button>`)
+          .join('')}</div><p class="hint">🖤 Infection : la victime ne meurt pas et rejoint secrètement la meute. Une seule fois dans la partie.</p>`;
+      } else if (bw?.mode === 'infect') html += `<p class="wolf-votes">🖤 ${esc(bw.name)} (Loup Noir) veut <b>INFECTER</b> la victime.</p>`;
     }
     if (p.minTargets === 0) html += `<div class="row"><button class="btn" id="btn-pass">${p.action === 'hunter_shot' ? 'Ne pas tirer' : 'Passer'}</button></div>`;
   }
   el.innerHTML = html;
+  el.querySelectorAll('[data-bw]').forEach((b) => (b.onclick = () => safe(client.command('wolf_vote', [], b.dataset.bw))));
   el.querySelectorAll('[data-opt]').forEach((b) => (b.onclick = () => safe(client.command(p.action, [], b.dataset.opt))));
   el.querySelectorAll('[data-witch]').forEach(
     (b) =>
@@ -706,8 +720,83 @@ function renderAction(v) {
         safe(client.command('witch', [], w));
       }),
   );
+  const th = $('btn-thief');
+  if (th) th.onclick = () => openThief();
   const pass = $('btn-pass');
   if (pass) pass.onclick = () => safe(client.command(p.action, []));
+}
+
+// ================================================================== VOLEUR (écran privé)
+/** Les deux cartes du centre, face cachée : on les retourne, on en choisit une, échange animé. */
+function openThief() {
+  const v = client.view;
+  const p = v?.prompt;
+  if (!p || p.action !== 'thief' || document.querySelector('.thief-stage')) return;
+  const cards = p.info?.cards ?? [];
+  const mine = v.me.role;
+  const st = document.createElement('div');
+  st.className = 'thief-stage';
+  st.innerHTML = `<div class="ts-box">
+      <h2>🃏 LE VOLEUR</h2>
+      <p class="ts-sub">Choisis ton destin…</p>
+      <div class="ts-cards">${cards
+        .map(
+          (c, i) => `<div class="ts-slot" data-i="${i}">
+            <div class="ts-card"><div class="ts-face back">${cardBackSVG()}</div><div class="ts-face front">${cardSVG(c.id, c.name)}</div></div>
+            <button class="btn btn-gold ts-take" data-take="${i}">Prendre</button>
+          </div>`,
+        )
+        .join('')}</div>
+      <p class="ts-hint">${p.info?.mustTakeWolf ? '🐺 Les deux cartes sont des Loups : tu dois en prendre une.' : 'Touche une carte pour la retourner.'}</p>
+      <div class="ts-mine"><span>Ta carte</span><div class="mini">${mine ? cardSVG(mine.id, mine.name) : ''}</div></div>
+    </div>`;
+  document.body.appendChild(st);
+  requestAnimationFrame(() => st.classList.add('in'));
+  const flip = (slot) => {
+    if (slot.classList.contains('shown')) return;
+    slot.classList.add('shown');
+    sfx.tick(4);
+    if (st.querySelectorAll('.ts-slot.shown').length === cards.length) st.querySelector('.ts-hint').textContent = 'Choisis la carte que tu veux prendre.';
+  };
+  st.querySelectorAll('.ts-slot').forEach((slot) => slot.querySelector('.ts-card').addEventListener('click', () => flip(slot)));
+  // Retournement automatique après un court instant (suspense).
+  setTimeout(() => st.querySelectorAll('.ts-slot').forEach((s, k) => setTimeout(() => flip(s), k * 450)), 900);
+  st.querySelectorAll('[data-take]').forEach(
+    (b) =>
+      (b.onclick = async () => {
+        const i = Number(b.dataset.take);
+        const chosen = cards[i];
+        // Le nouveau rôle a déjà été « révélé » ici : pas de nouvelle animation de distribution.
+        try {
+          sessionStorage.setItem(`blackops:revealed:${profile}:${v.code}:${v.me.id}`, chosen.id);
+        } catch {
+          /* stockage indisponible */
+        }
+        st.classList.add('busy');
+        try {
+          await client.command('thief', [], String(i));
+        } catch (e) {
+          st.classList.remove('busy');
+          return toast(e.message);
+        }
+        // Échange : ma carte part au centre, la carte choisie vient à moi.
+        const slot = st.querySelector(`.ts-slot[data-i="${i}"]`);
+        const mineEl = st.querySelector('.ts-mine .mini');
+        const a = slot.querySelector('.ts-card').getBoundingClientRect();
+        const m = mineEl.getBoundingClientRect();
+        const dx = m.left + m.width / 2 - (a.left + a.width / 2);
+        const dy = m.top + m.height / 2 - (a.top + a.height / 2);
+        slot.querySelector('.ts-card').animate([{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(${m.width / a.width}) rotate(8deg)` }], { duration: 750, easing: 'cubic-bezier(.6,0,.3,1)', fill: 'forwards' });
+        mineEl.animate([{ transform: 'none' }, { transform: `translate(${-dx}px, ${-dy}px) scale(${a.width / m.width}) rotate(-8deg)`, opacity: 0.85 }], { duration: 750, easing: 'cubic-bezier(.6,0,.3,1)', fill: 'forwards' });
+        sfx.revealHit();
+        await wait(900);
+        st.querySelector('.ts-box').innerHTML = '<h2>🃏 Échange fait</h2><p class="ts-secret">Ton nouveau rôle est secret.</p>';
+        await wait(1800);
+        st.classList.remove('in');
+        await wait(400);
+        st.remove();
+      }),
+  );
 }
 
 // ================================================================== JOURNAL & CHATS
@@ -842,7 +931,7 @@ function renderGameOver(v) {
   const items = (v.finalRoles ?? [])
     .map((r) => {
       const pl = v.players.find((p) => p.id === r.id);
-      return `<div class="final-item ${w.has(r.id) ? 'win' : ''} ${pl?.alive ? '' : 'dead'}"><div class="mini">${cardSVG(r.role, r.roleName)}</div>${w.has(r.id) ? '🏆 ' : ''}${esc(pl?.name)}${r.loverId ? ' ❤️' : ''}${pl?.alive ? '' : ' 💀'}</div>`;
+      return `<div class="final-item ${w.has(r.id) ? 'win' : ''} ${pl?.alive ? '' : 'dead'}"><div class="mini">${cardSVG(r.role, r.roleName)}</div>${w.has(r.id) ? '🏆 ' : ''}${esc(pl?.name)}${r.loverId ? ' ❤️' : ''}${r.infected ? ' 🖤' : ''}${pl?.alive ? '' : ' 💀'}</div>`;
     })
     .join('');
   el.innerHTML = `<h2>${esc(v.winner.title)}</h2><div class="final-grid">${items}</div>

@@ -43,7 +43,8 @@ registerNightStep({
     const [targetId] = validateTargets(cmd.targets, p.targets, 1, 1);
     const target = ctx.state.players.find((x) => x.id === targetId)!;
     // Calcul exclusivement côté serveur : seul LOUP / CIVIL est transmis.
-    const result = getRole(target.role)?.seerResult(ctx.state.settings) ?? 'CIVIL';
+    // Un joueur infecté par le Loup Noir apparaît LOUP (son ancien rôle n'est jamais révélé).
+    const result = target.infected ? 'LOUP' : (getRole(target.role)?.seerResult(ctx.state.settings) ?? 'CIVIL');
     data(ctx).done = true;
     tell(ctx, actor.id, 'seer', `🔮 ${playerName(ctx.state, targetId)} : ${result}`);
   },

@@ -705,3 +705,27 @@ input[type='checkbox'] { accent-color: #e2b450; }
 @media (orientation: portrait) and (max-width: 900px) {
   .narrator { top: 37vh !important; }
 }
+/* Voleur : écran privé, deux cartes face cachée, échange animé */
+.thief-stage { position: fixed; inset: 0; z-index: 58; display: grid; place-items: center; padding: 16px; background: radial-gradient(circle at 50% 40%, rgba(40, 30, 10, 0.85), rgba(3, 2, 5, 0.94)); opacity: 0; transition: opacity 0.35s; }
+.thief-stage.in { opacity: 1; }
+.thief-stage.busy .ts-take { pointer-events: none; opacity: 0.5; }
+.ts-box { width: min(560px, 100%); text-align: center; }
+.ts-box h2 { margin: 0; color: #f2c75c; font: 900 clamp(24px, 6vw, 34px)/1.1 var(--font-ui); letter-spacing: 0.08em; text-shadow: 0 0 18px rgba(242, 199, 92, 0.35); }
+.ts-sub { margin: 4px 0 16px; color: var(--lux-text); font: italic 700 18px var(--font-ui); }
+.ts-cards { display: flex; justify-content: center; gap: clamp(12px, 4vw, 28px); }
+.ts-slot { width: min(200px, 40vw); display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.ts-card { position: relative; width: 100%; aspect-ratio: 2 / 3; cursor: pointer; filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.7)); transition: transform 0.25s; }
+.ts-card:hover { transform: translateY(-4px); }
+.ts-face { position: absolute; inset: 0; transition: transform 0.28s ease-in; }
+.ts-face svg { width: 100%; height: 100%; display: block; }
+.ts-face.front { transform: scaleX(0); }
+.ts-slot.shown .ts-face.back { transform: scaleX(0); }
+.ts-slot.shown .ts-face.front { transform: scaleX(1); transition: transform 0.28s 0.28s ease-out; }
+.ts-take { visibility: hidden; width: 100%; }
+.ts-slot.shown .ts-take { visibility: visible; }
+.ts-hint { margin: 14px 0 6px; color: var(--lux-muted); font-weight: 700; }
+.ts-mine { display: inline-flex; align-items: center; gap: 10px; margin-top: 6px; color: var(--lux-muted); font-weight: 800; }
+.ts-mine .mini { width: 64px; aspect-ratio: 2 / 3; }
+.ts-mine .mini svg { width: 100%; height: 100%; display: block; }
+.ts-secret { color: var(--lux-text); font: 800 20px var(--font-ui); margin-top: 12px; }
+.black-wolf { justify-content: center; }

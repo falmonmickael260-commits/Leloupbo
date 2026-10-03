@@ -5,6 +5,7 @@
 import './villager.ts';
 import './werewolf.ts';
 import './whiteWolf.ts';
+import './blackWolf.ts';
 import './seer.ts';
 import './witch.ts';
 import './cupid.ts';

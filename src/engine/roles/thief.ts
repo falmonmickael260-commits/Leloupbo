@@ -5,9 +5,9 @@ import { getRole, playersWithRole, registerNightStep, registerRole, requireRole,
 registerRole({
   id: 'thief',
   name: 'Voleur',
-  emoji: '🦝',
+  emoji: '🃏',
   team: 'village',
-  description: 'La première nuit, il découvre deux cartes non distribuées et peut échanger sa carte avec l’une d’elles.',
+  description: 'La première nuit, il découvre les deux cartes restées au centre et doit échanger sa carte avec l’une d’elles : il prend ce nouveau rôle.',
   unique: true,
   distributable: true,
   seerResult: () => 'CIVIL',
@@ -22,21 +22,19 @@ function mustTake(ctx: Ctx): boolean {
   return cards.length === 2 && cards.every((c) => !!getRole(c)?.wolfPack);
 }
 
-function become(ctx: Ctx, thief: PlayerState, choice: 'keep' | 0 | 1): void {
+/**
+ * Échange : la carte du Voleur part au centre, il prend la carte choisie et devient ce rôle
+ * (pouvoirs actifs, ancien rôle abandonné). Rien n'est annoncé aux autres joueurs.
+ */
+function become(ctx: Ctx, thief: PlayerState, choice: 0 | 1): void {
   const d = data(ctx);
   d.done = true;
-  if (choice === 'keep') {
-    thief.role = 'villager';
-    thief.roleData = {};
-    tell(ctx, thief.id, 'thief', '🦝 Vous gardez votre carte : vous êtes désormais Simple Villageois.');
-    return;
-  }
   const newRole = ctx.state.extraCards[choice];
   ctx.state.extraCards[choice] = 'thief';
   thief.role = newRole;
   thief.roleData = requireRole(newRole).initRoleData?.() ?? {};
   const def = requireRole(newRole);
-  tell(ctx, thief.id, 'thief', `🦝 Vous avez volé la carte ${def.emoji} ${def.name}. C’est désormais votre rôle.`);
+  tell(ctx, thief.id, 'thief', `🃏 Tu as pris la carte ${def.emoji} ${def.name}. Ton nouveau rôle est secret.`);
 }
 
 registerNightStep({
@@ -54,11 +52,12 @@ registerNightStep({
       const def = requireRole(c);
       return { id: String(i), label: `Prendre ${def.emoji} ${def.name}` };
     });
-    if (!mustTake(ctx)) options.push({ id: 'keep', label: 'Garder ma carte (devenir Simple Villageois)' });
     return {
       action: 'thief',
-      title: '🦝 Les deux cartes restantes',
-      description: mustTake(ctx) ? 'Les deux cartes sont des Loups : vous devez en prendre une.' : 'Échangez votre carte ou gardez-la.',
+      title: '🃏 LE VOLEUR',
+      description: mustTake(ctx) ? 'Choisis ton destin... Les deux cartes sont des Loups : tu dois en prendre une.' : 'Choisis ton destin...',
+      // Cartes du centre (visibles du Voleur seul) pour l'animation de retournement / échange.
+      info: { cards: cards.map((c) => ({ id: c, name: requireRole(c).name })), mustTakeWolf: mustTake(ctx) },
       targets: [],
       minTargets: 0,
       maxTargets: 0,
@@ -71,12 +70,13 @@ registerNightStep({
     const p = this.prompt(ctx, actor);
     if (!p) return;
     if (!p.options!.some((o) => o.id === cmd.option)) fail('BAD_OPTION', 'Option indisponible.');
-    become(ctx, actor, cmd.option === 'keep' ? 'keep' : (Number(cmd.option) as 0 | 1));
+    become(ctx, actor, Number(cmd.option) as 0 | 1);
   },
   isComplete: (ctx) => data(ctx).done,
   onEnd(ctx) {
     if (data(ctx).done) return;
     const thief = this.actors(ctx)[0];
-    if (thief) become(ctx, thief, mustTake(ctx) ? 0 : 'keep');
+    // Temps écoulé sans choix : une des deux cartes au hasard.
+    if (thief) become(ctx, thief, ctx.rng.int(2) as 0 | 1);
   },
 });

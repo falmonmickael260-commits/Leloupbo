@@ -54,7 +54,8 @@ export function roleInfo(def: RoleDefinition): RoleInfo {
 // ---------- Aides communes aux rôles ----------
 
 export function isWolfPack(p: PlayerState): boolean {
-  return !!getRole(p.role)?.wolfPack;
+  // Un joueur infecté par le Loup Noir rejoint la meute (réveil, vote, chat et voix des Loups).
+  return !!getRole(p.role)?.wolfPack || !!p.infected;
 }
 
 export function playersWithRole(state: GameState, roleId: RoleId, aliveOnly = true): PlayerState[] {

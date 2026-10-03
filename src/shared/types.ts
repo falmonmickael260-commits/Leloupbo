@@ -206,7 +206,7 @@ export interface Announcement {
 export interface PrivateMessage {
   id: string;
   at: number;
-  kind: 'role' | 'lover' | 'seer' | 'witch' | 'wolves' | 'thief' | 'death' | 'info';
+  kind: 'role' | 'lover' | 'seer' | 'witch' | 'wolves' | 'thief' | 'death' | 'info' | 'infected';
   text: string;
 }
 
@@ -245,6 +245,8 @@ export interface MeView {
   lover: { id: string; name: string } | null;
   pack: { id: string; name: string; alive: boolean }[] | null;
   roleState: Record<string, unknown> | null;
+  /** Infecté par le Loup Noir (connu de lui seul et de la meute). */
+  infected: boolean;
 }
 
 export interface VoteView {
@@ -278,5 +280,5 @@ export interface PlayerView {
   /** MES étiquettes personnelles (id du joueur → texte). Jamais celles des autres joueurs. */
   myTags: Record<string, string>;
   /** Rôles révélés uniquement en fin de partie. */
-  finalRoles: { id: string; role: RoleId; roleName: string; loverId: string | null }[] | null;
+  finalRoles: { id: string; role: RoleId; roleName: string; loverId: string | null; infected?: boolean }[] | null;
 }

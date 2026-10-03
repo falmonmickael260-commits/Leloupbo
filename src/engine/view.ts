@@ -64,6 +64,7 @@ function meView(ctx: Ctx, playerId: string): MeView {
     lover: lover ? { id: lover.id, name: lover.name } : null,
     pack,
     roleState: def?.selfInfo?.(ctx, p) ?? null,
+    infected: !!p.infected,
   };
 }
 
@@ -124,7 +125,7 @@ export function buildView(ctx: Ctx, playerId: string): PlayerView {
     winner: s.winner,
     myTags: { ...(s.tags?.[playerId] ?? {}) },
     finalRoles: reveal
-      ? s.players.map((p) => ({ id: p.id, role: p.role ?? 'villager', roleName: getRole(p.role)?.name ?? '?', loverId: p.loverId }))
+      ? s.players.map((p) => ({ id: p.id, role: p.role ?? 'villager', roleName: getRole(p.role)?.name ?? '?', loverId: p.loverId, infected: !!p.infected }))
       : null,
   };
 }

@@ -43,7 +43,9 @@ export function createGameState(code: string, now: number): GameState {
 /** Loups automatiques : ajuste le nombre de Loups-Garous au nombre de joueurs du lobby. */
 export function syncAutoWolves(s: GameState): void {
   if (s.status !== 'lobby' || !s.settings.autoWolves) return;
-  s.settings.roles = { ...s.settings.roles, werewolf: wolvesFor(s.players.length) };
+  // Le Loup Noir compte parmi les loups prévus : il remplace un Loup-Garou.
+  const black = s.settings.roles.black_wolf ?? 0;
+  s.settings.roles = { ...s.settings.roles, werewolf: Math.max(1, wolvesFor(s.players.length) - black) };
 }
 
 export function sanitizeName(raw: unknown): string {
@@ -175,6 +177,7 @@ export function startGame(ctx: Ctx, playerId: string): void {
     p.alive = true;
     p.deathCause = null;
     p.loverId = null;
+    p.infected = false;
   });
   s.extraCards = shuffled.slice(n);
   s.composition = composition;
@@ -240,6 +243,7 @@ export function returnToLobby(ctx: Ctx): void {
       alive: true,
       deathCause: null,
       loverId: null,
+      infected: false,
       roleData: {},
     })),
   });

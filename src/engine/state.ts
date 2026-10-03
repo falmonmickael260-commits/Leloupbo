@@ -41,6 +41,8 @@ export interface PlayerState {
   deathCause: DeathCause | null;
   abandoned: boolean;
   loverId: string | null;
+  /** Infecté par le Loup Noir : joue secrètement pour les Loups (garde son rôle et ses pouvoirs). */
+  infected?: boolean;
   /** Données persistantes propres au rôle (potions, dernière protection…). */
   roleData: Record<string, unknown>;
 }
