@@ -72,7 +72,7 @@ const fit = (name) => (name.length > 9 ? `textLength="${Math.min(220, name.lengt
  */
 const CARD_IMAGES = new Set(['werewolf', 'white_wolf', 'seer', 'witch', 'cupid', 'thief', 'hunter', 'salvateur', 'villager']);
 // Préchargement : la carte est prête au moment de sa révélation.
-if (typeof Image !== 'undefined') for (const r of CARD_IMAGES) new Image().src = `/assets/cartes/${r}.webp`;
+if (typeof Image !== 'undefined') for (const r of [...CARD_IMAGES, 'dos']) new Image().src = `/assets/cartes/${r}.webp`;
 
 export function cardSVG(roleId, roleName) {
   if (CARD_IMAGES.has(roleId)) {
@@ -115,6 +115,18 @@ function drawnCardSVG(roleId, roleName) {
 }
 
 export function cardBackSVG() {
+  const id = `b${++uid}`;
+  // Dos illustré fourni.
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" class="role-card-svg" aria-hidden="true">
+  <defs><clipPath id="${id}r"><rect x="0" y="0" width="300" height="450" rx="18"/></clipPath></defs>
+  <rect x="0" y="0" width="300" height="450" rx="18" fill="#141218"/>
+  <image href="/assets/cartes/dos.webp" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id}r)"/>
+  <rect x="1.5" y="1.5" width="297" height="447" rx="17" fill="none" stroke="${INK}" stroke-width="3"/>
+</svg>`;
+}
+
+/** Dos dessiné (ancien) — conservé pour référence. */
+export function drawnCardBackSVG() {
   const id = `b${++uid}`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" class="role-card-svg" aria-hidden="true">
   <defs><pattern id="${id}d" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="6" cy="6" r="2.4" fill="#000"/></pattern></defs>
