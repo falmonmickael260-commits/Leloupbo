@@ -385,11 +385,15 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 /* ---------- Voyante : grande carte au centre ---------- */
 .seer-big { position: fixed; inset: 0; z-index: 55; display: grid; place-items: center; background: rgba(10, 6, 3, 0.55); pointer-events: none; animation: fadein 0.25s both; }
 .seer-big.out { animation: fadeout 0.35s both; }
-.seer-big .big-card { width: min(300px, 70vw); aspect-ratio: 2 / 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 6px solid var(--ink); border-radius: 24px; box-shadow: 10px 10px 0 var(--ink); animation: seerPop 0.45s cubic-bezier(.2, 1.4, .4, 1) both; }
-.seer-big.wolf .big-card { background: radial-gradient(circle at 50% 35%, #ff9b8a, #c9382a); }
-.seer-big.civil .big-card { background: radial-gradient(circle at 50% 35%, #c6f5ad, #4aa83a); }
-.seer-big .big-icon { font-size: clamp(90px, 22vw, 130px); line-height: 1; }
-.seer-big .big-word { font: 400 clamp(56px, 14vw, 84px)/1 var(--font-title); letter-spacing: 4px; color: #fff; -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill; }
+.seer-flip { display: flex; flex-direction: column; align-items: center; gap: 14px; animation: seerPop 0.45s cubic-bezier(.2, 1.4, .4, 1) both; }
+.seer-flip .sf-card { position: relative; width: min(300px, 70vw, 42vh); aspect-ratio: 2 / 3; perspective: 1200px; }
+.seer-flip .sf-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; transition: transform 0.7s cubic-bezier(.3, .1, .2, 1); filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.75)); }
+.seer-flip .sf-face svg { width: 100%; height: 100%; display: block; }
+.seer-flip .sf-face.front { transform: rotateY(180deg); }
+.seer-big.flipped .sf-face.back { transform: rotateY(-180deg); }
+.seer-big.flipped .sf-face.front { transform: rotateY(0deg); }
+.seer-big.wolf.flipped .sf-face.front { filter: drop-shadow(0 0 28px rgba(220, 30, 30, 0.75)); }
+.seer-big.civil.flipped .sf-face.front { filter: drop-shadow(0 0 28px rgba(226, 180, 80, 0.7)); }
 .seer-big .big-name { background: #fff; border: 3px solid var(--ink); border-radius: 10px; padding: 3px 12px; font: 900 18px var(--font-ui); max-width: 90%; text-align: center; }
 @keyframes seerPop { 0% { transform: scaleX(0.05) scaleY(0.8); } 100% { transform: none; } }
 @keyframes fadein { from { opacity: 0; } }
@@ -675,7 +679,6 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .lovers-big .lovers-card { background: linear-gradient(180deg, #24141b, #0e090c); color: var(--lux-text); border: 1.5px solid #d6527a; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 24px rgba(214, 82, 122, 0.35); }
 .lovers-big .lv-title { -webkit-text-stroke: 0; font-family: var(--font-ui); font-weight: 900; text-transform: uppercase; color: #ff7aa2; }
 .lovers-big .lv-rule { color: #d8b3c0; }
-.seer-big .big-card { border: 2px solid #e2b450; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75); }
 .seer-big .big-name { background: #08070a; color: var(--lux-text); border: 1px solid var(--lux-line); }
 
 /* Téléphone : barre du bas */

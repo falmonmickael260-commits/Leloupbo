@@ -67,27 +67,27 @@ let uid = 0;
 // Largeur bornée : le nom tient dans le cartouche même si la police BD n'est pas encore chargée.
 const fit = (name) => (name.length > 9 ? `textLength="${Math.min(220, name.length * 17)}" lengthAdjust="spacingAndGlyphs"` : '');
 /**
- * Cartes illustrées fournies (public/assets/cartes/<rôle>.webp, sources dans scripts/art/cartes-src).
+ * Cartes illustrées fournies (public/assets/cartes/<rôle>.webp, générées par scripts/art/cards.py).
  * Un rôle sans image garde sa carte dessinée.
  */
 /** Version des images de cartes : à changer quand on remplace les fichiers (force le rechargement). */
-const CARDS_V = '4';
-const CARD_IMAGES = new Set(['werewolf', 'black_wolf', 'white_wolf', 'seer', 'witch', 'cupid', 'thief', 'hunter', 'salvateur', 'villager']);
+const CARDS_V = '5';
+const CARD_IMAGES = new Set(['werewolf', 'black_wolf', 'white_wolf', 'seer', 'witch', 'cupid', 'thief', 'hunter', 'salvateur', 'villager', 'loup', 'civil']);
 // Préchargement : la carte est prête au moment de sa révélation.
 if (typeof Image !== 'undefined') for (const r of [...CARD_IMAGES, 'dos']) new Image().src = `/assets/cartes/${r}.webp?v=${CARDS_V}`;
 
 export function cardSVG(roleId, roleName) {
   if (CARD_IMAGES.has(roleId)) {
-    const id = `c${++uid}`;
+    // La carte fournie a son propre cadre et ses coins : affichée telle quelle, fond transparent.
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" class="role-card-svg" role="img" aria-label="${roleName}">
-  <defs><clipPath id="${id}r"><rect x="0" y="0" width="300" height="450" rx="18"/></clipPath></defs>
-  <rect x="0" y="0" width="300" height="450" rx="18" fill="#141218"/>
-  <image href="/assets/cartes/${roleId}.webp?v=${CARDS_V}" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id}r)"/>
-  <rect x="1.5" y="1.5" width="297" height="447" rx="17" fill="none" stroke="${INK}" stroke-width="3"/>
+  <image href="/assets/cartes/${roleId}.webp?v=${CARDS_V}" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid meet"/>
 </svg>`;
   }
   return drawnCardSVG(roleId, roleName);
 }
+
+/** Cartes génériques de la Voyante : elle ne voit jamais le rôle exact, seulement le camp. */
+export const seerCardSVG = (result) => (result === 'LOUP' ? cardSVG('loup', 'Loup') : cardSVG('civil', 'Civil'));
 
 /** Carte dessinée (style BD) — utilisée pour un rôle sans illustration fournie. */
 function drawnCardSVG(roleId, roleName) {
@@ -117,13 +117,9 @@ function drawnCardSVG(roleId, roleName) {
 }
 
 export function cardBackSVG() {
-  const id = `b${++uid}`;
-  // Dos illustré fourni.
+  // Dos illustré fourni, recadré à la silhouette des faces (scripts/art/cards.py).
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" class="role-card-svg" aria-hidden="true">
-  <defs><clipPath id="${id}r"><rect x="0" y="0" width="300" height="450" rx="18"/></clipPath></defs>
-  <rect x="0" y="0" width="300" height="450" rx="18" fill="#141218"/>
-  <image href="/assets/cartes/dos.webp?v=${CARDS_V}" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id}r)"/>
-  <rect x="1.5" y="1.5" width="297" height="447" rx="17" fill="none" stroke="${INK}" stroke-width="3"/>
+  <image href="/assets/cartes/dos.webp?v=${CARDS_V}" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid meet"/>
 </svg>`;
 }
 

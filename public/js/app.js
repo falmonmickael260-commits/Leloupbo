@@ -6,7 +6,7 @@
  * via GameClient. Toute validation reste côté serveur.
  */
 import { CHARACTERS, characterSVG } from './art/characters.js';
-import { cardBackSVG, cardSVG } from './art/cards.js';
+import { cardBackSVG, cardSVG, seerCardSVG } from './art/cards.js';
 import { Board, playerNumbers, wait } from './board/board.js';
 import { Narrator, revealCard } from './board/overlays.js';
 import { GameClient } from './gameClient.js';
@@ -1117,15 +1117,23 @@ function maybeShowLovers(v) {
   showLovers(v);
 }
 
-/** Voyante : la carte LOUP / CIVIL s'affiche en grand au centre pendant 2 secondes. */
+/**
+ * Voyante : une carte face cachée se retourne sur la carte générique LOUP ou CIVIL
+ * (jamais le rôle exact). Le résultat vient du message privé calculé par le serveur.
+ */
 function showSeerCard(name, result) {
   const wolf = result === 'LOUP';
   const el = document.createElement('div');
   el.className = `seer-big ${wolf ? 'wolf' : 'civil'}`;
-  el.innerHTML = `<div class="big-card"><span class="big-name">🔮 ${esc(name)}</span><span class="big-icon">${wolf ? '🐺' : '🧑‍🌾'}</span><span class="big-word">${wolf ? 'LOUP' : 'CIVIL'}</span></div>`;
+  el.innerHTML = `<div class="seer-flip"><span class="big-name">🔮 ${esc(name)}</span>
+    <div class="sf-card"><div class="sf-face back">${cardBackSVG()}</div><div class="sf-face front">${seerCardSVG(result)}</div></div></div>`;
   document.body.appendChild(el);
-  setTimeout(() => el.classList.add('out'), 2000);
-  setTimeout(() => el.remove(), 2400);
+  setTimeout(() => {
+    el.classList.add('flipped');
+    sfx.revealHit?.();
+  }, 650);
+  setTimeout(() => el.classList.add('out'), 3400);
+  setTimeout(() => el.remove(), 3800);
 }
 
 // Messages privés : la Voyante voit son résultat directement sur le personnage.

@@ -1,3 +1,4 @@
+import type { RoleId } from '../src/shared/types.ts';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { GameEngine } from '../src/engine/engine.ts';
@@ -106,6 +107,24 @@ describe('Nuit', () => {
     g.until('SEER_PHASE');
     g.act(1, 'seer', [4]);
     assert.ok(g.privateLog(1).includes('🔮 P4 : CIVIL'));
+  });
+
+  it('Voyante : carte générique selon le camp (Loups → LOUP, autres → CIVIL), privée', () => {
+    const expected: [RoleId, string][] = [
+      ['werewolf', 'LOUP'], ['black_wolf', 'LOUP'], ['white_wolf', 'LOUP'],
+      ['witch', 'CIVIL'], ['hunter', 'CIVIL'], ['salvateur', 'CIVIL'], ['cupid', 'CIVIL'], ['villager', 'CIVIL'],
+    ];
+    for (const [role, result] of expected) {
+      const g = setup(['seer', role, 'werewolf', 'villager', 'villager', 'villager']);
+      g.until('SEER_PHASE');
+      g.act(0, 'seer', [1]);
+      const mine = g.view(0).privateLog.filter((m) => m.kind === 'seer').map((m) => m.text);
+      assert.deepEqual(mine, [`🔮 P1 : ${result}`], role);
+      for (let i = 1; i < 6; i++) {
+        const v = g.view(i);
+        assert.ok(!v.privateLog.some((m) => m.kind !== 'role' && (m.kind === 'seer' || m.text.includes('🔮'))), `${role} : fuite vers P${i}`);
+      }
+    }
   });
 
   it('Sorcière : informée de la victime, pas de potion de mort la 1re nuit, potions uniques', () => {
