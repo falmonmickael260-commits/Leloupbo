@@ -254,7 +254,7 @@ export class Board extends EventTarget {
       const badges = [];
       if (p.isCaptain) badges.push('<b title="Capitaine">👑</b>');
       if (v.me.lover?.id === p.id) badges.push('<b title="Votre amoureux">❤️</b>');
-      if (pack.has(p.id) && !p.isMe) badges.push('<b title="Membre de la meute">🐺</b>');
+      if (pack.has(p.id) && !p.isMe && !ui.revealing) badges.push('<b title="Membre de la meute">🐺</b>');
       // Résultats de la Voyante : visibles uniquement par elle (issus de ses messages privés).
       const seerResult = ui.seerKnow?.get(p.id);
       if (seerResult) badges.push(`<b class="seer-badge ${seerResult === 'LOUP' ? 'wolf' : 'civil'}" title="Vu par la Voyante">🔮${seerResult === 'LOUP' ? '🐺' : '✅'}</b>`);

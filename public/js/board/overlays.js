@@ -65,21 +65,68 @@ export class Narrator {
 }
 
 /**
- * apparition → révélation (retournement) → affichage → réduction vers
- * l'emplacement de la carte dans l'interface → disparition.
+ * Distribution du rôle, avec suspense :
+ *   la carte apparaît (dos) → elle tourne de plus en plus vite en faisant défiler les rôles
+ *   de la partie → elle ralentit → elle s'arrête sur MON rôle (éclat de lumière) →
+ *   elle se range dans l'interface.
+ * `pool` : rôles en jeu ({ id, name }) pour le défilement ; `onTick(i, last)` : bruitages.
  */
-export async function revealCard(layer, role, slotEl) {
+export async function revealCard(layer, role, slotEl, { pool = [], onTick } = {}) {
   layer.innerHTML = `<div class="reveal-backdrop"></div>
-    <div class="reveal-card"><div class="flip"><div class="face back">${cardBackSVG()}</div><div class="face front">${cardSVG(role.id, role.name)}</div></div>
-    <p class="reveal-caption">Votre rôle secret</p></div>`;
+    <div class="reveal-card"><div class="reveal-glow"></div><div class="flip"><div class="face">${cardBackSVG()}</div></div>
+    <p class="reveal-caption">Ton rôle secret…</p></div>`;
   layer.classList.add('show');
   const card = layer.querySelector('.reveal-card');
   const flip = layer.querySelector('.flip');
+  const face = layer.querySelector('.face');
+  const caption = layer.querySelector('.reveal-caption');
   await wait(60);
   card.classList.add('in');
-  await wait(700);
-  flip.classList.add('flipped');
+  await wait(900);
+
+  // Défilement : faces des rôles en jeu (jamais deux fois la même d'affilée), dos intercalé au début.
+  const others = pool.filter((r) => r.id !== role.id);
+  const choices = others.length ? others : pool.length ? pool : [role];
+  const svgs = new Map();
+  const svgOf = (r) => {
+    if (!svgs.has(r.id)) svgs.set(r.id, cardSVG(r.id, r.name));
+    return svgs.get(r.id);
+  };
+  const turns = 16;
+  let prev = '';
+  card.classList.add('spinning');
+  for (let k = 0; k < turns; k++) {
+    const last = k === turns - 1;
+    // Rapide au début, puis de plus en plus lent (suspense).
+    const t = k / (turns - 1);
+    const dur = 70 + 520 * t * t * t;
+    await flip.animate([{ transform: 'scaleX(1)' }, { transform: 'scaleX(0.02)' }], { duration: dur / 2, easing: 'ease-in' }).finished;
+    let html;
+    if (last) html = svgOf(role);
+    else if (k < 3 && k % 2 === 0) html = cardBackSVG();
+    else {
+      let r;
+      do r = choices[Math.floor(Math.random() * choices.length)];
+      while (choices.length > 1 && r.id === prev);
+      prev = r.id;
+      html = svgOf(r);
+    }
+    face.innerHTML = html;
+    onTick?.(k, last);
+    await flip.animate([{ transform: 'scaleX(0.02)' }, { transform: 'scaleX(1)' }], { duration: dur / 2, easing: last ? 'cubic-bezier(.2,1.6,.4,1)' : 'ease-out' }).finished;
+  }
+  card.classList.remove('spinning');
+
+  // Arrêt sur mon rôle : éclat + rebond.
+  card.classList.add('revealed');
+  const flash = document.createElement('div');
+  flash.className = 'reveal-flash';
+  layer.appendChild(flash);
+  card.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.14)' }, { transform: 'scale(1)' }], { duration: 520, easing: 'cubic-bezier(.2,1.4,.4,1)' });
+  caption.innerHTML = `Tu es <b>${role.name}</b>`;
   await wait(2600);
+  flash.remove();
+
   // Réduction vers l'emplacement de la carte dans le HUD.
   const target = slotEl?.getBoundingClientRect();
   const from = card.getBoundingClientRect();

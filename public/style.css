@@ -498,3 +498,14 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
   .narrator { top: max(168px, calc(var(--board-top, 300px) - 74px)); bottom: auto; }
   .narration { font-size: clamp(20px, 6vw, 30px); padding: 8px 18px; }
 }
+
+/* Distribution du rôle avec suspense */
+.reveal-card .flip { will-change: transform; }
+.reveal-card .face { position: absolute; inset: 0; }
+.reveal-glow { position: absolute; inset: -18px; border-radius: 28px; background: radial-gradient(closest-side, rgba(255, 200, 80, 0.55), transparent); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.reveal-card.spinning .reveal-glow { opacity: 0.6; animation: glowPulse 0.5s ease-in-out infinite alternate; }
+.reveal-card.revealed .reveal-glow { opacity: 1; inset: -40px; background: radial-gradient(closest-side, rgba(255, 215, 110, 0.9), rgba(255, 170, 40, 0.25) 60%, transparent); }
+.reveal-flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, rgba(255, 245, 210, 0.95), rgba(255, 210, 120, 0.4) 30%, transparent 60%); pointer-events: none; animation: revealFlash 0.9s ease-out both; }
+.reveal-caption b { color: #ffd552; font-size: 1.25em; }
+@keyframes glowPulse { from { transform: scale(0.96); } to { transform: scale(1.06); } }
+@keyframes revealFlash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }

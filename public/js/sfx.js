@@ -348,15 +348,16 @@ export function dawn(volume = 0.85) {
     { pan: -0.6, base: 3400, start: 0.4 },
     { pan: 0.5, base: 4200, start: 1.1 },
     { pan: -0.1, base: 2800, start: 2.3 },
+    { pan: 0.8, base: 3800, start: 3.0 },
   ];
   for (const b of birds) {
     let tc = t + b.start;
-    for (let phrase = 0; phrase < 3; phrase++) {
+    for (let phrase = 0; phrase < 4; phrase++) {
       const notes = 3 + Math.floor(Math.random() * 4);
       for (let k = 0; k < notes; k++) {
         const up = Math.random() < 0.6;
         const f0 = b.base * (0.85 + Math.random() * 0.3);
-        chirp(tc, f0, up ? f0 * 1.35 : f0 * 0.7, 0.06 + Math.random() * 0.06, b.pan, 0.09);
+        chirp(tc, f0, up ? f0 * 1.35 : f0 * 0.7, 0.06 + Math.random() * 0.06, b.pan, 0.15);
         tc += 0.08 + Math.random() * 0.06;
       }
       tc += 0.5 + Math.random() * 0.7;
@@ -392,4 +393,59 @@ function playRecorded(name, volume) {
   src.connect(g).connect(master);
   src.start();
   return true;
+}
+
+/** Distribution du rôle : petit « clic » à chaque tour de carte (plus grave quand elle ralentit). */
+export function tick(i = 0) {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime;
+  const o = c.createOscillator();
+  o.type = 'square';
+  o.frequency.value = Math.max(500, 1500 - i * 55);
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 2200;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.12, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+  o.connect(bp).connect(g).connect(master);
+  o.start(t);
+  o.stop(t + 0.04);
+}
+
+/** Distribution du rôle : la carte s'arrête — coup sourd + scintillement. */
+export function revealHit() {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime;
+  const boom = c.createOscillator();
+  boom.type = 'sine';
+  boom.frequency.setValueAtTime(110, t);
+  boom.frequency.exponentialRampToValueAtTime(40, t + 0.5);
+  const bg = c.createGain();
+  bg.gain.setValueAtTime(0.7, t);
+  bg.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+  boom.connect(bg).connect(master);
+  boom.start(t);
+  boom.stop(t + 0.65);
+  const out = c.createGain();
+  out.gain.value = 0.22;
+  out.connect(master);
+  const wet = c.createGain();
+  wet.gain.value = 0.6;
+  out.connect(wet).connect(reverb);
+  [1046, 1318, 1568, 2093].forEach((f, k) => {
+    const o = c.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = f;
+    const g = c.createGain();
+    const st = t + k * 0.06;
+    g.gain.setValueAtTime(0.0001, st);
+    g.gain.exponentialRampToValueAtTime(0.6, st + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, st + 1.2);
+    o.connect(g).connect(out);
+    o.start(st);
+    o.stop(st + 1.25);
+  });
 }

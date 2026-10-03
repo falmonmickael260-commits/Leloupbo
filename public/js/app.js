@@ -467,9 +467,11 @@ function renderMe(v) {
   slot.style.visibility = ui.revealing ? 'hidden' : '';
   $('me-name').textContent = v.me.name;
   const st = [];
-  if (r) st.push(`<span>${r.emoji} ${esc(r.name)} · <span class="muted">${TEAM[r.team] ?? ''}</span></span>`);
+  // Pendant la révélation, le rôle reste secret jusqu'à l'arrêt de la carte (suspense).
+  if (r && ui.revealing) st.push('<span>🎴 Distribution de ton rôle…</span>');
+  else if (r) st.push(`<span>${r.emoji} ${esc(r.name)} · <span class="muted">${TEAM[r.team] ?? ''}</span></span>`);
   if (v.me.lover) st.push(`<span>❤️ Amoureux de <b>${esc(v.me.lover.name)}</b></span>`);
-  if (v.me.pack && v.me.pack.length > 1) st.push(`<span>🐺 Meute : ${v.me.pack.filter((w) => w.id !== v.me.id).map((w) => `${esc(w.name)}${w.alive ? '' : ' 💀'}`).join(', ')}</span>`);
+  if (v.me.pack && v.me.pack.length > 1 && !ui.revealing) st.push(`<span>🐺 Meute : ${v.me.pack.filter((w) => w.id !== v.me.id).map((w) => `${esc(w.name)}${w.alive ? '' : ' 💀'}`).join(', ')}</span>`);
   if (v.me.roleState && 'potionVie' in v.me.roleState) st.push(`<span>🧪 Vie ${v.me.roleState.potionVie ? '✔' : '✘'} · Mort ${v.me.roleState.potionMort ? '✔' : '✘'}</span>`);
   if (v.me.isCaptain) st.push('<span>👑 Capitaine (voix double)</span>');
   if (!v.me.alive) st.push('<span>💀 Mort · spectateur</span>');
@@ -901,7 +903,12 @@ async function maybeReveal(v) {
   }
   ui.revealing = true;
   renderMe(v);
-  await revealCard($('card-layer'), r, $('my-card'));
+  // Rôles en jeu pour le défilement (composition publique de la partie).
+  const pool = Object.keys(v.composition ?? {})
+    .map((id) => v.roleCatalog.find((x) => x.id === id))
+    .filter(Boolean)
+    .map((x) => ({ id: x.id, name: x.name }));
+  await revealCard($('card-layer'), r, $('my-card'), { pool, onTick: (i, last) => (last ? sfx.revealHit() : sfx.tick(i)) });
   ui.revealing = false;
   if (client.view) renderMe(client.view);
 }
