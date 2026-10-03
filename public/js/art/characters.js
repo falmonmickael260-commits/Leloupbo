@@ -8,20 +8,21 @@
 const INK = '#1b130e';
 
 export const CHARACTERS = [
-  { id: 'm-brun', name: 'Mathis', gender: 'm', skin: '#f1c9a0', hair: '#4a2c17', style: 'short', outfit: '#3f6aa0', outfit2: '#d8c7a0', age: 'young' },
-  { id: 'm-blond', name: 'Gaspard', gender: 'm', skin: '#f6d2ae', hair: '#e6c15c', style: 'swept', outfit: '#7a3b33', outfit2: '#5b4636', age: 'young' },
-  { id: 'm-roux', name: 'Ewen', gender: 'm', skin: '#f6cfae', hair: '#c4562a', style: 'messy', beard: 'short', outfit: '#3f7a4a', outfit2: '#6b4a2f', age: 'adult' },
-  { id: 'm-barbu', name: 'Bastien', gender: 'm', skin: '#d9a77e', hair: '#22160e', style: 'short', beard: 'full', outfit: '#6b5a3a', outfit2: '#8f2f2a', age: 'adult', cape: true },
-  { id: 'm-ancien', name: 'Anselme', gender: 'm', skin: '#e9be98', hair: '#d9d6cf', style: 'bald', beard: 'long', outfit: '#4b3f63', outfit2: '#a7975f', age: 'old' },
-  { id: 'm-boucle', name: 'Samuel', gender: 'm', skin: '#9c6a45', hair: '#1c120b', style: 'curly', outfit: '#b0763a', outfit2: '#3c4a5c', age: 'young' },
-  { id: 'm-forgeron', name: 'Bruno', gender: 'm', skin: '#e2b088', hair: '#5b3a21', style: 'shaved', beard: 'mustache', outfit: '#7d7469', outfit2: '#5a3a22', age: 'adult', apron: true },
-  { id: 'f-blonde', name: 'Margot', gender: 'f', skin: '#f6d6b6', hair: '#ecc75e', style: 'braid', outfit: '#3f7fa8', outfit2: '#f3ead6', age: 'young' },
-  { id: 'f-brune', name: 'Élise', gender: 'f', skin: '#efc6a2', hair: '#3b2416', style: 'long', outfit: '#8d2f3a', outfit2: '#e9dcc0', age: 'young' },
-  { id: 'f-rousse', name: 'Maëlle', gender: 'f', skin: '#f7d3b4', hair: '#c9522a', style: 'curlylong', outfit: '#3d6b45', outfit2: '#e2cfa0', age: 'adult' },
-  { id: 'f-courte', name: 'Inès', gender: 'f', skin: '#b98258', hair: '#1d130c', style: 'bob', outfit: '#5b4a8a', outfit2: '#d9c9a0', age: 'young' },
-  { id: 'f-ancienne', name: 'Berthe', gender: 'f', skin: '#eac2a0', hair: '#d8d4cc', style: 'bun', outfit: '#5a4a3a', outfit2: '#9f3f3a', age: 'old', shawl: true },
-  { id: 'f-chataine', name: 'Louise', gender: 'f', skin: '#f0c8a4', hair: '#7a4a26', style: 'ponytail', outfit: '#b5823a', outfit2: '#4a5a3a', age: 'adult' },
-  { id: 'f-foulard', name: 'Rose', gender: 'f', skin: '#d8a27a', hair: '#4a2a18', style: 'scarf', outfit: '#2f6a6a', outfit2: '#c94a3a', age: 'adult' },
+  // top : hoodie | bomber | leather | puffer | tee | track | blazer — bottom : jeans | joggers | cargo | leggings | pants
+  { id: 'm-brun', name: 'Ryan', gender: 'm', skin: '#f1c9a0', hair: '#3a2416', style: 'short', top: 'hoodie', topColor: '#26262b', accent: '#e0b23a', bottom: 'jeans', bottomColor: '#3d5f8f', shoe: '#ffffff', shoeAccent: '#d23b3b', acc: ['headphones-neck'], age: 'young' },
+  { id: 'm-blond', name: 'Enzo', gender: 'm', skin: '#f6d2ae', hair: '#e6c15c', style: 'swept', top: 'bomber', topColor: '#4f5b3a', inner: '#f2efe8', accent: '#e8833a', bottom: 'joggers', bottomColor: '#2a2a2e', shoe: '#f4f4f4', shoeAccent: '#2a2a2e', acc: ['chain'], age: 'young' },
+  { id: 'm-roux', name: 'Kylian', gender: 'm', skin: '#f6cfae', hair: '#c4562a', style: 'messy', beard: 'short', top: 'puffer', topColor: '#b8322e', bottom: 'cargo', bottomColor: '#8a7a55', shoe: '#9a9ca3', shoeAccent: '#ffffff', acc: ['beanie'], hat: '#3a3a40', age: 'adult' },
+  { id: 'm-barbu', name: 'Malik', gender: 'm', skin: '#c08a5e', hair: '#1a110a', style: 'short', beard: 'full', top: 'leather', topColor: '#1f1f22', inner: '#d9a52b', bottom: 'jeans', bottomColor: '#28344a', shoe: '#1f1f22', shoeAccent: '#d9a52b', acc: ['sunglasses'], age: 'adult' },
+  { id: 'm-ancien', name: 'Victor', gender: 'm', skin: '#e9be98', hair: '#d9d6cf', style: 'bald', beard: 'full', top: 'blazer', topColor: '#1c1c22', inner: '#f2f2f2', accent: '#d9a52b', bottom: 'pants', bottomColor: '#1c1c22', shoe: '#141416', shoeAccent: '#141416', acc: ['sunglasses', 'chain'], age: 'old' },
+  { id: 'm-boucle', name: 'Samuel', gender: 'm', skin: '#9c6a45', hair: '#1c120b', style: 'curly', top: 'track', topColor: '#2c4f9e', accent: '#ffffff', bottom: 'joggers', bottomColor: '#2c4f9e', shoe: '#ffffff', shoeAccent: '#2c4f9e', acc: ['cap-back'], hat: '#1f1f22', age: 'young' },
+  { id: 'm-forgeron', name: 'Tony', gender: 'm', skin: '#e2b088', hair: '#3a2416', style: 'shaved', beard: 'mustache', top: 'tee', topColor: '#1f1f22', accent: '#e0b23a', bottom: 'cargo', bottomColor: '#5b5f63', shoe: '#6b4a2f', shoeAccent: '#3a2a1a', acc: ['cap'], hat: '#b8322e', age: 'adult' },
+  { id: 'f-blonde', name: 'Jade', gender: 'f', skin: '#f6d6b6', hair: '#ecc75e', style: 'ponytail', top: 'hoodie', topColor: '#e86a9a', accent: '#ffffff', bottom: 'leggings', bottomColor: '#222226', shoe: '#ffffff', shoeAccent: '#e86a9a', acc: ['earrings'], age: 'young' },
+  { id: 'f-brune', name: 'Léa', gender: 'f', skin: '#efc6a2', hair: '#3b2416', style: 'long', top: 'bomber', topColor: '#1f1f22', inner: '#f2efe8', accent: '#d9a52b', bottom: 'jeans', bottomColor: '#7a9cc6', shoe: '#ffffff', shoeAccent: '#d9a52b', acc: ['earrings'], age: 'young' },
+  { id: 'f-rousse', name: 'Chloé', gender: 'f', skin: '#f7d3b4', hair: '#c9522a', style: 'curlylong', top: 'puffer', topColor: '#efe2c8', bottom: 'jeans', bottomColor: '#3d5f8f', shoe: '#f4f4f4', shoeAccent: '#c9522a', acc: ['headphones'], hat: '#2a2a2e', age: 'adult' },
+  { id: 'f-courte', name: 'Inès', gender: 'f', skin: '#b98258', hair: '#1d130c', style: 'bob', top: 'leather', topColor: '#1f1f22', inner: '#8d2f3a', bottom: 'jeans', bottomColor: '#2a2a30', shoe: '#1f1f22', shoeAccent: '#8d2f3a', acc: ['chain', 'earrings'], age: 'young' },
+  { id: 'f-ancienne', name: 'Martine', gender: 'f', skin: '#eac2a0', hair: '#d8d4cc', style: 'bun', top: 'blazer', topColor: '#7a2c3a', inner: '#f2efe8', accent: '#d9a52b', bottom: 'pants', bottomColor: '#2a2a30', shoe: '#ffffff', shoeAccent: '#7a2c3a', acc: ['glasses', 'earrings'], age: 'old' },
+  { id: 'f-chataine', name: 'Nina', gender: 'f', skin: '#f0c8a4', hair: '#7a4a26', style: 'ponytail', top: 'track', topColor: '#6b4aa8', accent: '#ffffff', bottom: 'joggers', bottomColor: '#6b4aa8', shoe: '#ffffff', shoeAccent: '#6b4aa8', acc: ['cap'], hat: '#f4f4f4', age: 'adult' },
+  { id: 'f-foulard', name: 'Maya', gender: 'f', skin: '#d8a27a', hair: '#1d130c', style: 'braids', top: 'tee', topColor: '#e8b830', accent: '#1f1f22', bottom: 'cargo', bottomColor: '#5a6b3a', shoe: '#ffffff', shoeAccent: '#1f1f22', acc: ['headphones-neck'], age: 'adult' },
 ];
 
 export const CHARACTER_IDS = CHARACTERS.map((c) => c.id);
@@ -47,6 +48,11 @@ function hairBack(c) {
       return `<path d="M76 24 q16 6 14 26 q-2 18 -10 30 q-4 -14 -4 -30 Z" fill="${h}" ${ink()}/>`;
     case 'bun':
       return `<circle cx="60" cy="12" r="9" fill="${h}" ${ink()}/>`;
+    case 'braids': {
+      let b = '';
+      for (const x of [40, 45, 50, 70, 75, 80]) b += `<path d="M${x} 30 q${x < 60 ? -3 : 3} 30 ${x < 60 ? -1 : 1} 66" stroke="${INK}" stroke-width="6.5" fill="none" stroke-linecap="round"/><path d="M${x} 30 q${x < 60 ? -3 : 3} 30 ${x < 60 ? -1 : 1} 66" stroke="${h}" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-dasharray="4 1.5"/>`;
+      return b;
+    }
     default:
       return '';
   }
@@ -70,6 +76,7 @@ function hairFront(c) {
       return `<path d="M44 34 q-2 -6 2 -9 M76 34 q2 -6 -2 -9" stroke="${INK}" stroke-width="5" fill="none"/><path d="M44 34 q-2 -6 2 -9 M76 34 q2 -6 -2 -9" stroke="${h}" stroke-width="3" fill="none"/><path d="M52 18 q4 -2 8 0" stroke="#fff" stroke-width="2" opacity=".6"/>`;
     case 'long':
     case 'braid':
+    case 'braids':
     case 'ponytail':
       return `<path d="M43 36 Q40 13 60 12 Q80 13 77 36 Q74 24 66 21 Q60 27 50 25 Q46 30 43 36 Z" fill="${h}" ${ink()}/><path d="M62 13 Q78 14 77 34 Q72 24 66 21 Z" fill="${d}"/>`;
     case 'curlylong':
@@ -119,50 +126,170 @@ function face(c) {
   return s;
 }
 
-/** SVG complet d'un personnage. */
+// ------------------------------------------------------------------ vêtements modernes
+const W = { m: { sw: 21, ww: 15 }, f: { sw: 17, ww: 13 } };
+
+function legs(c) {
+  const col = c.bottomColor;
+  const dk = shade(col, 0.68);
+  const waist = c.gender === 'm' ? 118 : 114;
+  const { ww } = W[c.gender];
+  const slim = c.bottom === 'leggings';
+  const lx0 = slim ? 47 : 45;
+  const rx1 = slim ? 73 : 75;
+  let s = `<path d="M${60 - ww - 1} ${waist} L${lx0} 180 L57 180 L60 ${waist + 10} L63 180 L${rx1} 180 L${60 + ww + 1} ${waist} Z" fill="${col}" ${ink()}/>`;
+  s += `<path d="M60 ${waist + 10} L63 180 L${rx1} 180 L${60 + ww + 1} ${waist} Z" fill="${dk}"/>`;
+  if (c.bottom === 'jeans') {
+    s += `<path d="M50 ${waist + 6} q2 30 0 58 M70 ${waist + 6} q-2 30 0 58" stroke="${shade(col, 1.25)}" stroke-width="1.2" fill="none" opacity=".7"/>`;
+    s += `<path d="M46 174 h11 M63 174 h11" stroke="${shade(col, 1.3)}" stroke-width="2"/>`;
+  } else if (c.bottom === 'joggers') {
+    s += `<path d="M${60 - ww} ${waist + 2} L46 176 M${60 + ww} ${waist + 2} L74 176" stroke="#ffffff" stroke-width="2" opacity=".85"/>`;
+    s += `<path d="M45 175 h12 v5 h-12 Z M63 175 h12 v5 h-12 Z" fill="${dk}" ${ink(1.4)}/>`;
+  } else if (c.bottom === 'cargo') {
+    s += `<path d="M44 140 h9 v12 h-9 Z M67 140 h9 v12 h-9 Z" fill="${shade(col, 0.85)}" ${ink(1.4)}/>`;
+  } else if (c.bottom === 'pants') {
+    s += `<path d="M51 ${waist + 4} V178 M69 ${waist + 4} V178" stroke="${shade(col, 1.5)}" stroke-width="1" opacity=".6"/>`;
+  }
+  return s;
+}
+
+function shoes(c) {
+  const up = c.shoe;
+  const ac = c.shoeAccent;
+  const one = (x, flip) =>
+    `<path d="M${x} 178 h17 v6 q${flip ? 6 : 0} 1 ${flip ? 6 : 0} 4 v2 h-${flip ? 23 : 21} q-${flip ? 0 : 2} 0 -${flip ? 0 : 2} -3 Z" fill="${up}" ${ink()}/>` +
+    `<path d="M${x - (flip ? 0 : 2)} 188 h${flip ? 23 : 23} v3 h-${flip ? 23 : 23} Z" fill="#f4f4f4" ${ink(1.6)}/>` +
+    `<path d="M${x + 4} 184 q6 -4 11 -1" stroke="${ac}" stroke-width="2.2" fill="none"/>`;
+  return one(40, false) + one(62, true);
+}
+
+function torsoPath(c) {
+  const { sw, ww } = W[c.gender];
+  const waist = c.gender === 'm' ? 120 : 116;
+  return { d: `M${60 - sw} 64 Q${60 - sw - 2} 96 ${60 - ww - 1} ${waist} L${60 + ww + 1} ${waist} Q${60 + sw + 2} 96 ${60 + sw} 64 Q70 58 60 58 Q50 58 ${60 - sw} 64 Z`, waist, sw, ww };
+}
+
+function top(c) {
+  const col = c.topColor;
+  const dk = shade(col, 0.66);
+  const lt = shade(col, 1.25);
+  const { d, waist, sw, ww } = torsoPath(c);
+  let s = '';
+  // capuche (derrière la nuque) pour le sweat
+  if (c.top === 'hoodie') s += `<path d="M${60 - sw + 2} 66 Q${60 - sw - 2} 46 50 44 L70 44 Q${60 + sw + 2} 46 ${60 + sw - 2} 66 Q70 56 60 56 Q50 56 ${60 - sw + 2} 66 Z" fill="${dk}" ${ink()}/>`;
+  s += `<path d="${d}" fill="${col}" ${ink()}/><path d="M62 59 Q72 60 ${60 + sw} 64 Q${60 + sw + 2} 96 ${60 + ww + 1} ${waist} L66 ${waist} Z" fill="${dk}" opacity=".75"/>`;
+  switch (c.top) {
+    case 'hoodie':
+      s += `<path d="M48 ${waist - 22} h24 l3 14 h-30 Z" fill="${dk}" ${ink(1.6)}/>`;
+      s += `<path d="M56 60 L55 80 M64 60 L65 80" stroke="${c.accent}" stroke-width="2"/><circle cx="55" cy="81" r="1.6" fill="${c.accent}"/><circle cx="65" cy="81" r="1.6" fill="${c.accent}"/>`;
+      s += `<path d="M${60 - ww - 1} ${waist - 5} H${60 + ww + 1}" stroke="${dk}" stroke-width="4"/>`;
+      break;
+    case 'bomber':
+      s += `<path d="M55 60 L56 ${waist} L64 ${waist} L65 60 Q60 63 55 60 Z" fill="${c.inner}" ${ink(1.6)}/>`;
+      s += `<path d="M53 60 Q60 66 67 60 Q60 56 53 60 Z" fill="${c.accent}" ${ink(1.6)}/>`;
+      s += `<path d="M${60 - ww - 1} ${waist - 6} H55 M65 ${waist - 6} H${60 + ww + 1}" stroke="${c.accent}" stroke-width="4"/>`;
+      s += `<circle cx="${60 - sw + 8}" cy="76" r="3" fill="${c.accent}" ${ink(1.2)}/>`;
+      break;
+    case 'leather':
+      s += `<path d="M55 60 L57 ${waist} L63 ${waist} L65 60 Q60 63 55 60 Z" fill="${c.inner}" ${ink(1.6)}/>`;
+      s += `<path d="M48 61 L56 60 L52 84 Z M72 61 L64 60 L68 84 Z" fill="${lt}" ${ink(1.6)}/>`;
+      s += `<path d="M66 70 L70 ${waist - 4}" stroke="#c9ccd2" stroke-width="1.6"/><path d="M44 80 q4 -2 8 0 M68 92 q4 -2 8 0" stroke="${lt}" stroke-width="1.4" fill="none"/>`;
+      break;
+    case 'puffer':
+      for (let y = 74; y < waist - 2; y += 12) s += `<path d="M${60 - sw} ${y} Q60 ${y + 4} ${60 + sw} ${y}" stroke="${dk}" stroke-width="1.6" fill="none"/>`;
+      s += `<path d="M50 50 h20 v12 q-10 4 -20 0 Z" fill="${col}" ${ink()}/><path d="M60 52 V${waist}" stroke="${dk}" stroke-width="1.6"/>`;
+      break;
+    case 'tee':
+      s += `<path d="M53 59 Q60 66 67 59" stroke="${dk}" stroke-width="2.5" fill="none"/>`;
+      s += `<path d="M53 86 L60 76 L67 86 L64 84 L60 92 L56 84 Z" fill="${c.accent}" ${ink(1.2)}/><path d="M50 98 h20" stroke="${c.accent}" stroke-width="2.4"/>`;
+      break;
+    case 'track':
+      s += `<path d="M52 52 h16 v10 q-8 3 -16 0 Z" fill="${col}" ${ink()}/><path d="M60 54 V${waist}" stroke="#c9ccd2" stroke-width="1.8"/>`;
+      s += `<path d="M${60 - sw + 3} 70 L${60 - ww} ${waist - 2} M${60 + sw - 3} 70 L${60 + ww} ${waist - 2}" stroke="${c.accent}" stroke-width="2.2" opacity=".9"/>`;
+      break;
+    case 'blazer':
+      s += `<path d="M55 60 L58 ${waist} L62 ${waist} L65 60 Q60 63 55 60 Z" fill="${c.inner}" ${ink(1.6)}/>`;
+      s += `<path d="M49 61 L56 60 L57 92 Z M71 61 L64 60 L63 92 Z" fill="${lt}" ${ink(1.6)}/>`;
+      s += `<circle cx="60" cy="100" r="1.8" fill="${INK}"/><path d="M${60 - sw + 6} 86 h7" stroke="${c.accent}" stroke-width="2.4"/>`;
+      break;
+  }
+  return s;
+}
+
+function arms(c, pose) {
+  const col = c.topColor;
+  const dk = shade(col, 0.66);
+  const short = c.top === 'tee';
+  const skin = c.skin;
+  const skinSh = shade(skin, 0.8);
+  const { sw } = W[c.gender];
+  const L = 60 - sw;
+  const R = 60 + sw;
+  let s = '';
+  if (pose === 'aim') {
+    s += `<path d="M${R - 2} 66 Q96 70 104 62 L106 70 Q96 80 ${R - 2} 78 Z" fill="${short ? skin : col}" ${ink()}/><path d="M${L + 2} 66 Q50 80 70 78 L72 70 Q56 70 48 64 Z" fill="${short ? skinSh : dk}" ${ink()}/>`;
+    if (short) s += `<path d="M${R - 2} 66 Q86 66 88 72 L86 80 Q82 78 ${R - 2} 78 Z" fill="${col}" ${ink(1.8)}/>`;
+    s += `<path d="M58 72 L120 52" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><path d="M58 72 L120 52" stroke="#3a3d42" stroke-width="3.5"/><path d="M86 63 L120 52" stroke="#55585e" stroke-width="3"/>`;
+    s += `<circle cx="104" cy="64" r="5" fill="${skin}" ${ink(1.8)}/><circle cx="72" cy="74" r="5" fill="${skin}" ${ink(1.8)}/>`;
+    return s;
+  }
+  // manches
+  s += `<path d="M${L} 64 Q${L - 8} 92 ${L - 6} 120 L${L + 2} 120 Q${L + 2} 96 ${L + 6} 72 Z" fill="${short ? skin : col}" ${ink()}/>`;
+  s += `<path d="M${R} 64 Q${R + 8} 92 ${R + 6} 120 L${R - 2} 120 Q${R - 2} 96 ${R - 6} 72 Z" fill="${short ? skinSh : dk}" ${ink()}/>`;
+  if (short) {
+    s += `<path d="M${L} 64 Q${L - 6} 76 ${L - 7} 86 L${L + 3} 88 L${L + 6} 72 Z" fill="${col}" ${ink(1.8)}/>`;
+    s += `<path d="M${R} 64 Q${R + 6} 76 ${R + 7} 86 L${R - 3} 88 L${R - 6} 72 Z" fill="${dk}" ${ink(1.8)}/>`;
+  } else {
+    // poignets côtelés + bandes du survêtement
+    s += `<path d="M${L - 6} 114 h8 v6 h-8 Z M${R - 2} 114 h8 v6 h-8 Z" fill="${dk}" ${ink(1.4)}/>`;
+    if (c.top === 'track') s += `<path d="M${L - 1} 70 Q${L - 6} 92 ${L - 4} 112 M${R + 1} 70 Q${R + 6} 92 ${R + 4} 112" stroke="${c.accent}" stroke-width="2.2" fill="none"/>`;
+  }
+  s += `<circle cx="${L - 2}" cy="123" r="5.2" fill="${skin}" ${ink(1.8)}/><circle cx="${R + 2}" cy="123" r="5.2" fill="${skinSh}" ${ink(1.8)}/>`;
+  return s;
+}
+
+function accessoriesNeck(c) {
+  let s = '';
+  if (c.acc?.includes('chain')) s += `<path d="M52 61 Q60 78 68 61" stroke="${INK}" stroke-width="3.6" fill="none"/><path d="M52 61 Q60 78 68 61" stroke="#e8c04a" stroke-width="2" fill="none"/><circle cx="60" cy="72" r="2.6" fill="#e8c04a" ${ink(1.2)}/>`;
+  if (c.acc?.includes('headphones-neck')) s += `<path d="M45 62 Q60 76 75 62" stroke="${INK}" stroke-width="5" fill="none"/><path d="M45 62 Q60 76 75 62" stroke="#3a3a40" stroke-width="2.6" fill="none"/><ellipse cx="45" cy="62" rx="5" ry="6" fill="#2a2a2e" ${ink(1.6)}/><ellipse cx="75" cy="62" rx="5" ry="6" fill="#2a2a2e" ${ink(1.6)}/><circle cx="45" cy="62" r="2" fill="#e0b23a"/><circle cx="75" cy="62" r="2" fill="#e0b23a"/>`;
+  return s;
+}
+
+function accessoriesHead(c) {
+  let s = '';
+  const a = c.acc ?? [];
+  if (a.includes('sunglasses')) s += `<path d="M46 32 h12 q1 7 -5 8 q-6 0 -7 -8 Z M62 32 h12 q-1 8 -7 8 q-6 -1 -5 -8 Z" fill="#141416" ${ink(1.6)}/><path d="M58 33 h4" stroke="${INK}" stroke-width="1.8"/><path d="M49 34 l3 -1 M65 34 l3 -1" stroke="#ffffff" stroke-width="1.2" opacity=".7"/>`;
+  if (a.includes('glasses')) s += `<circle cx="53" cy="36" r="5" fill="none" stroke="${INK}" stroke-width="1.8"/><circle cx="67" cy="36" r="5" fill="none" stroke="${INK}" stroke-width="1.8"/><path d="M58 36 h4" stroke="${INK}" stroke-width="1.6"/>`;
+  if (a.includes('earrings')) s += `<circle cx="43.5" cy="44" r="1.9" fill="#e8c04a" ${ink(1)}/><circle cx="76.5" cy="44" r="1.9" fill="#e8c04a" ${ink(1)}/>`;
+  if (a.includes('beanie')) s += `<path d="M42 32 Q40 7 60 7 Q80 7 78 32 Z" fill="${c.hat}" ${ink()}/><path d="M41 25 h38 v8 h-38 Z" fill="${shade(c.hat, 0.75)}" ${ink(1.8)}/><path d="M48 14 v10 M54 11 v13 M60 10 v14 M66 11 v13 M72 14 v10" stroke="${shade(c.hat, 0.7)}" stroke-width="1.2"/>`;
+  if (a.includes('cap')) s += `<path d="M43 30 Q42 11 60 10 Q78 11 77 30 Z" fill="${c.hat}" ${ink()}/><path d="M42 29 Q60 35 82 28 Q88 31 82 35 Q60 41 42 33 Z" fill="${shade(c.hat, 0.78)}" ${ink()}/><circle cx="60" cy="11" r="2" fill="${shade(c.hat, 0.7)}"/><path d="M56 18 l4 -3 l4 3 l-2 5 h-4 Z" fill="#e0b23a" opacity=".9"/>`;
+  if (a.includes('cap-back')) s += `<path d="M43 30 Q42 11 60 10 Q78 11 77 30 Z" fill="${c.hat}" ${ink()}/><path d="M44 29 Q60 33 76 29" stroke="${INK}" stroke-width="2" fill="none"/><path d="M53 27 h14 v4 h-14 Z" fill="${shade(c.hat, 0.7)}" ${ink(1.4)}/>`;
+  if (a.includes('headphones')) s += `<path d="M42 38 Q40 8 60 8 Q80 8 78 38" stroke="${INK}" stroke-width="6" fill="none"/><path d="M42 38 Q40 8 60 8 Q80 8 78 38" stroke="${c.hat ?? '#2a2a2e'}" stroke-width="3.4" fill="none"/><rect x="37" y="31" width="9" height="15" rx="4" fill="${c.hat ?? '#2a2a2e'}" ${ink(1.8)}/><rect x="74" y="31" width="9" height="15" rx="4" fill="${c.hat ?? '#2a2a2e'}" ${ink(1.8)}/>`;
+  return s;
+}
+
+/** SVG complet d'un personnage (style BD, tenues modernes). */
 export function characterSVG(id, { pose = 'idle', title = '' } = {}) {
   const c = getCharacter(id);
   const skin = c.skin;
   const skinSh = shade(skin, 0.8);
-  const o = c.outfit;
-  const oSh = shade(o, 0.68);
-  const o2 = c.outfit2;
+  const covered = c.acc?.some((a) => a === 'beanie' || a === 'cap' || a === 'cap-back');
   let s = '';
   s += `<ellipse cx="60" cy="194" rx="30" ry="6" fill="${INK}" opacity=".3"/>`;
   s += hairBack(c);
-  // jambes / robe
-  if (c.gender === 'm') {
-    s += `<path d="M46 118 L44 178 L57 178 L60 128 L63 178 L76 178 L74 118 Z" fill="${shade(o2, 0.85)}" ${ink()}/><path d="M60 128 L63 178 L76 178 L74 118 Z" fill="${shade(o2, 0.62)}"/>`;
-    s += `<path d="M42 176 h16 v14 q-10 3 -20 0 Z M62 176 h16 l4 14 q-10 3 -20 0 Z" fill="#3b2617" ${ink()}/>`;
-  } else {
-    s += `<path d="M64 186 h12 l3 6 q-8 2 -15 0 Z M44 186 h12 v6 q-8 2 -14 0 Z" fill="#3b2617" ${ink()}/>`;
-    s += `<path d="M46 104 Q36 150 32 186 Q60 194 88 186 Q84 150 74 104 Z" fill="${o}" ${ink()}/><path d="M62 106 Q74 150 80 188 Q86 187 88 186 Q84 150 74 104 Z" fill="${oSh}"/>`;
-    s += `<path d="M48 120 Q42 152 40 182 Q60 188 80 182 Q78 152 72 120 Z" fill="${o2}" opacity=".9" ${ink(1.8)}/>`;
-  }
-  // buste
-  const torso = c.gender === 'm' ? 'M40 64 Q38 100 44 124 L76 124 Q82 100 80 64 Q70 58 60 58 Q50 58 40 64 Z' : 'M42 64 Q40 90 46 108 L74 108 Q80 90 78 64 Q70 58 60 58 Q50 58 42 64 Z';
+  s += legs(c);
+  s += shoes(c);
   s += `<path d="M54 50 h12 v12 h-12 Z" fill="${skinSh}" ${ink()}/>`;
-  s += `<path d="${torso}" fill="${o}" ${ink()}/><path d="M62 59 Q72 60 80 64 Q82 100 76 ${c.gender === 'm' ? 124 : 108} L66 ${c.gender === 'm' ? 124 : 108} Z" fill="${oSh}"/>`;
-  s += `<path d="M52 60 L60 74 L68 60" fill="${shade(o, 1.2)}" ${ink(1.8)}/>`;
-  if (c.gender === 'm') s += `<path d="M42 106 H78 V112 H42 Z" fill="#4a2f1a" ${ink(1.8)}/><rect x="56" y="105" width="8" height="8" fill="#e0b84c" ${ink(1.4)}/>`;
-  else s += `<path d="M44 98 H76 L74 106 H46 Z" fill="${o2}" ${ink(1.8)}/>`;
-  if (c.apron) s += `<path d="M46 76 h28 l2 70 h-32 Z" fill="#7a4a28" ${ink()}/><path d="M64 76 h10 l2 70 h-10 Z" fill="#5a3418"/><path d="M50 76 l-6 -14 M70 76 l6 -14" stroke="${INK}" stroke-width="2"/>`;
-  if (c.cape) s += `<path d="M38 64 Q30 120 34 140 L42 132 Q40 100 44 66 Z M82 64 Q90 120 86 140 L78 132 Q80 100 76 66 Z" fill="${o2}" ${ink()}/>`;
-  if (c.shawl) s += `<path d="M40 62 Q60 90 80 62 Q84 72 78 80 Q60 96 42 80 Q36 72 40 62 Z" fill="${o2}" ${ink()}/><path d="M48 84 l-2 8 M56 88 l-1 8 M64 88 l1 8 M72 84 l2 8" stroke="${INK}" stroke-width="1.6"/>`;
-  // bras
-  if (pose === 'aim') {
-    s += `<path d="M78 66 Q96 70 104 62 L106 70 Q96 80 78 78 Z" fill="${o}" ${ink()}/><path d="M42 66 Q50 80 70 78 L72 70 Q56 70 48 64 Z" fill="${oSh}" ${ink()}/>`;
-    s += `<path d="M58 72 L120 52" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><path d="M58 72 L120 52" stroke="#6b4426" stroke-width="3.5"/><path d="M86 63 L120 52" stroke="#55585e" stroke-width="3"/>`;
-    s += `<circle cx="104" cy="64" r="5" fill="${skin}" ${ink(1.8)}/><circle cx="72" cy="74" r="5" fill="${skin}" ${ink(1.8)}/>`;
-  } else {
-    s += `<path d="M40 64 Q32 92 34 120 L42 120 Q42 96 46 72 Z" fill="${o}" ${ink()}/><path d="M80 64 Q88 92 86 120 L78 120 Q78 96 74 72 Z" fill="${oSh}" ${ink()}/>`;
-    s += `<circle cx="38" cy="123" r="5.2" fill="${skin}" ${ink(1.8)}/><circle cx="82" cy="123" r="5.2" fill="${skinSh}" ${ink(1.8)}/>`;
-  }
+  s += top(c);
+  s += accessoriesNeck(c);
+  s += arms(c, pose);
   // tête
   s += `<ellipse cx="60" cy="36" rx="16" ry="19" fill="${skin}" ${ink()}/><path d="M66 18 Q78 26 76 40 Q74 52 64 55 Q72 44 70 30 Z" fill="${skinSh}" opacity=".7"/>`;
   s += `<ellipse cx="43.5" cy="38" rx="3" ry="4.5" fill="${skin}" ${ink(1.8)}/><ellipse cx="76.5" cy="38" rx="3" ry="4.5" fill="${skinSh}" ${ink(1.8)}/>`;
   s += face(c);
   s += beard(c);
-  s += hairFront(c);
+  if (covered) s += `<path d="M44 30 q-1 8 1 12 M76 30 q1 8 -1 12" stroke="${c.hair}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+  else s += hairFront(c);
+  s += accessoriesHead(c);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" class="character" role="img" aria-label="${title || c.name}">${s}</svg>`;
 }
