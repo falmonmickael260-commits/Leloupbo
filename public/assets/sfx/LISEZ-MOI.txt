@@ -1,0 +1,11 @@
+Bruitages enregistrés (optionnel)
+=================================
+
+Un fichier déposé ici remplace automatiquement le bruitage synthétisé correspondant :
+
+  fusil.mp3      tir du Chasseur (joué au flash du coup de feu)
+  recharge.mp3   recharge du fusil à pompe (quand le Chasseur épaule, 0,65 s avant le tir)
+  jour.mp3       lever du jour (oiseaux, cloche…)
+  meute.mp3      meute de loups au coucher du soleil
+
+Format MP3, sans blanc au début. Utiliser uniquement des sons libres de droits.

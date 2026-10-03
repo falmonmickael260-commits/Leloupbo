@@ -379,6 +379,8 @@ board.addEventListener('sfx', (e) => {
   const st = client.view?.status;
   if (e.detail === 'dusk' && st === 'running') sfx.howlPack();
   else if (e.detail === 'shot' && st && st !== 'lobby') sfx.gunshot();
+  else if (e.detail === 'rack' && st && st !== 'lobby') sfx.shotgunRack();
+  else if (e.detail === 'dawn' && st === 'running') sfx.dawn();
 });
 // Étiquette personnelle : seul l'auteur la voit (le serveur ne l'envoie qu'à lui).
 const TAG_PRESETS = ['❤️ Mon ami(e)', '🐺 Suspect', '🔥 À surveiller', '✅ Confiance', '🔮 Voyante ?', '🤔 Bizarre', '🛡️ Protégé', '🤐 Trop calme'];

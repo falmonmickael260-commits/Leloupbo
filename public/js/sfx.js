@@ -57,6 +57,7 @@ function noiseBuffer(c, seconds, brown = false) {
 export function unlock() {
   const c = audio();
   if (c && c.state !== 'running') c.resume?.().catch(() => {});
+  preloadRecorded();
 }
 
 function ready() {
@@ -126,6 +127,7 @@ function howl(c, out, t0, { base, peak, dur, pan, level }) {
 
 /** Meute de loups au loin (coucher du soleil → nuit). */
 export function howlPack(volume = 0.55) {
+  if (playRecorded('meute', volume)) return;
   const c = ready();
   if (!c) return;
   const t = c.currentTime + 0.05;
@@ -159,56 +161,235 @@ export function howlPack(volume = 0.55) {
   for (const v of voices) howl(c, out, t + v.at + Math.random() * 0.25, { ...v, peak: v.peak * (0.97 + Math.random() * 0.06) });
 }
 
-/** Tir du Chasseur : claquement + détonation grave + écho. */
-export function gunshot(volume = 0.9) {
+/** Échos sur les façades du village : répétitions retardées, de plus en plus sourdes. */
+function echoes(c, input, out, taps = [[0.16, 0.38, 2600], [0.37, 0.24, 1800], [0.68, 0.13, 1200], [1.05, 0.07, 900]]) {
+  for (const [delay, gain, cut] of taps) {
+    const d = c.createDelay(2);
+    d.delayTime.value = delay;
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = cut;
+    const g = c.createGain();
+    g.gain.value = gain;
+    input.connect(d).connect(lp).connect(g).connect(out);
+  }
+}
+
+/** Saturation légère : donne du « punch » à la détonation. */
+function drive(c, amount = 2.5) {
+  const ws = c.createWaveShaper();
+  const n = 1024;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(x * amount) / Math.tanh(amount);
+  }
+  ws.curve = curve;
+  return ws;
+}
+
+/** Tir du Chasseur : claquement sec, détonation grave saturée, coup sourd, échos sur les maisons. */
+export function gunshot(volume = 0.95) {
+  if (playRecorded('fusil', volume)) return;
   const c = ready();
   if (!c) return;
   const t = c.currentTime + 0.005;
   const out = c.createGain();
   out.gain.value = volume;
   out.connect(master);
+  const bus = c.createGain(); // tout ce qui part en écho
+  bus.connect(out);
 
-  // Claquement (aigus très brefs).
+  // 1. Claquement supersonique (quelques millisecondes, très aigu).
   const crack = c.createBufferSource();
-  crack.buffer = noiseBuffer(c, 0.25);
+  crack.buffer = noiseBuffer(c, 0.05);
   const hp = c.createBiquadFilter();
   hp.type = 'highpass';
-  hp.frequency.value = 1800;
+  hp.frequency.value = 2500;
   const cg = c.createGain();
-  cg.gain.setValueAtTime(1, t);
-  cg.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-  crack.connect(hp).connect(cg).connect(out);
+  cg.gain.setValueAtTime(1.4, t);
+  cg.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+  crack.connect(hp).connect(cg).connect(bus);
   crack.start(t);
-  crack.stop(t + 0.25);
 
-  // Corps de la détonation (bruit grave).
+  // 2. Détonation : bruit filtré qui s'assombrit très vite, saturé.
   const body = c.createBufferSource();
-  body.buffer = noiseBuffer(c, 0.8);
+  body.buffer = noiseBuffer(c, 1.2);
   const lp = c.createBiquadFilter();
   lp.type = 'lowpass';
-  lp.frequency.setValueAtTime(3200, t);
-  lp.frequency.exponentialRampToValueAtTime(260, t + 0.35);
+  lp.Q.value = 1.2;
+  lp.frequency.setValueAtTime(5000, t);
+  lp.frequency.exponentialRampToValueAtTime(900, t + 0.06);
+  lp.frequency.exponentialRampToValueAtTime(180, t + 0.6);
   const bg = c.createGain();
-  bg.gain.setValueAtTime(1.1, t);
-  bg.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
-  body.connect(lp).connect(bg).connect(out);
+  bg.gain.setValueAtTime(0.0001, t);
+  bg.gain.exponentialRampToValueAtTime(1.5, t + 0.004);
+  bg.gain.exponentialRampToValueAtTime(0.25, t + 0.12);
+  bg.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+  body.connect(lp).connect(drive(c, 3)).connect(bg).connect(bus);
   body.start(t);
-  body.stop(t + 0.8);
 
-  // Coup sourd dans la poitrine.
+  // 3. Coup sourd dans la poitrine.
   const thump = c.createOscillator();
   thump.type = 'sine';
-  thump.frequency.setValueAtTime(120, t);
-  thump.frequency.exponentialRampToValueAtTime(38, t + 0.25);
+  thump.frequency.setValueAtTime(140, t);
+  thump.frequency.exponentialRampToValueAtTime(34, t + 0.3);
   const tg = c.createGain();
-  tg.gain.setValueAtTime(0.9, t);
-  tg.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+  tg.gain.setValueAtTime(1.1, t);
+  tg.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
   thump.connect(tg).connect(out);
   thump.start(t);
-  thump.stop(t + 0.35);
+  thump.stop(t + 0.4);
 
-  // Écho dans le village.
+  // 4. Échos sur les façades + longue queue de réverbération.
+  echoes(c, bus, out);
   const send = c.createGain();
-  send.gain.value = 0.45;
-  bg.connect(send).connect(reverb);
+  send.gain.value = 0.55;
+  bus.connect(send).connect(reverb);
+}
+
+/** Recharge du fusil à pompe (« tchk… tchk ») quand le Chasseur épaule. */
+export function shotgunRack(volume = 1.1) {
+  if (playRecorded('recharge', volume)) return;
+  const c = ready();
+  if (!c) return;
+  const t0 = c.currentTime + 0.02;
+  const out = c.createGain();
+  out.gain.value = volume;
+  out.connect(master);
+  const click = (t, freq, ring) => {
+    const n = c.createBufferSource();
+    n.buffer = noiseBuffer(c, 0.12);
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = freq;
+    bp.Q.value = 2.5;
+    const g = c.createGain();
+    g.gain.setValueAtTime(1.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    n.connect(bp).connect(g).connect(out);
+    n.start(t);
+    // tintement métallique
+    const o = c.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = ring;
+    const og = c.createGain();
+    og.gain.setValueAtTime(0.18, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    o.connect(og).connect(out);
+    o.start(t);
+    o.stop(t + 0.1);
+  };
+  click(t0, 2400, 1850); // la pompe recule
+  click(t0 + 0.17, 1700, 1320); // la pompe revient : cartouche en place
+  const send = c.createGain();
+  send.gain.value = 0.2;
+  out.connect(send).connect(reverb);
+}
+
+/** Lever du jour : oiseaux qui chantent et cloche au loin. */
+export function dawn(volume = 0.85) {
+  if (playRecorded('jour', volume)) return;
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime + 0.05;
+  const out = c.createGain();
+  out.gain.value = volume;
+  out.connect(master);
+  const wet = c.createGain();
+  wet.gain.value = 0.35;
+  out.connect(wet).connect(reverb);
+
+  // Cloche lointaine (synthèse par partiels inharmoniques), deux coups.
+  const bell = (tb) => {
+    for (const [ratio, amp, dec] of [[1, 0.5, 3.2], [2.0, 0.28, 2.2], [2.4, 0.2, 1.8], [3.0, 0.14, 1.4], [4.2, 0.08, 1.0], [5.4, 0.05, 0.7]]) {
+      const o = c.createOscillator();
+      o.frequency.value = 392 * ratio;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, tb);
+      g.gain.exponentialRampToValueAtTime(amp * 0.35, tb + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, tb + dec);
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2200;
+      o.connect(g).connect(lp).connect(out);
+      o.start(tb);
+      o.stop(tb + dec + 0.1);
+    }
+  };
+  bell(t + 0.2);
+  bell(t + 2.0);
+
+  // Oiseaux : gazouillis (balayages rapides de fréquence), à gauche et à droite.
+  const chirp = (tc, f0, f1, dur, pan, level) => {
+    const o = c.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f0, tc);
+    o.frequency.exponentialRampToValueAtTime(f1, tc + dur);
+    const vib = c.createOscillator();
+    const vg = c.createGain();
+    vib.frequency.value = 30 + Math.random() * 25;
+    vg.gain.value = f0 * 0.04;
+    vib.connect(vg).connect(o.frequency);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, tc);
+    g.gain.exponentialRampToValueAtTime(level, tc + dur * 0.25);
+    g.gain.exponentialRampToValueAtTime(0.0001, tc + dur);
+    const p = c.createStereoPanner ? c.createStereoPanner() : null;
+    if (p) p.pan.value = pan;
+    o.connect(g);
+    (p ? g.connect(p) : g).connect(out);
+    for (const x of [o, vib]) {
+      x.start(tc);
+      x.stop(tc + dur + 0.05);
+    }
+  };
+  const birds = [
+    { pan: -0.6, base: 3400, start: 0.4 },
+    { pan: 0.5, base: 4200, start: 1.1 },
+    { pan: -0.1, base: 2800, start: 2.3 },
+  ];
+  for (const b of birds) {
+    let tc = t + b.start;
+    for (let phrase = 0; phrase < 3; phrase++) {
+      const notes = 3 + Math.floor(Math.random() * 4);
+      for (let k = 0; k < notes; k++) {
+        const up = Math.random() < 0.6;
+        const f0 = b.base * (0.85 + Math.random() * 0.3);
+        chirp(tc, f0, up ? f0 * 1.35 : f0 * 0.7, 0.06 + Math.random() * 0.06, b.pan, 0.09);
+        tc += 0.08 + Math.random() * 0.06;
+      }
+      tc += 0.5 + Math.random() * 0.7;
+    }
+  }
+}
+
+// ------------------------------------------------------------------ enregistrements fournis
+// Un vrai enregistrement déposé dans public/assets/sfx/<nom>.mp3 remplace le bruitage
+// synthétisé correspondant (fusil, recharge, jour, meute). Préchargé pour rester synchronisé.
+const recorded = new Map();
+export function preloadRecorded() {
+  const c = audio();
+  if (!c) return;
+  for (const name of ['fusil', 'recharge', 'jour', 'meute']) {
+    if (recorded.has(name)) continue;
+    recorded.set(name, null);
+    fetch(`/assets/sfx/${name}.mp3`)
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .then((b) => b && new Promise((res, rej) => c.decodeAudioData(b, res, rej)))
+      .then((buf) => buf && recorded.set(name, buf))
+      .catch(() => {});
+  }
+}
+function playRecorded(name, volume) {
+  const buf = recorded.get(name);
+  const c = buf && ready();
+  if (!c) return false;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const g = c.createGain();
+  g.gain.value = volume;
+  src.connect(g).connect(master);
+  src.start();
+  return true;
 }

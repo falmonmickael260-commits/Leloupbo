@@ -45,6 +45,8 @@ export class Board extends EventTarget {
     // Le jour bascule vers la nuit : la meute hurle au loin pendant le coucher du soleil.
     this.daynight.onSegment = (from, to) => {
       if (from === 'day' && to === 'sunset') this.dispatchEvent(new CustomEvent('sfx', { detail: 'dusk' }));
+      // La nuit s'achève : oiseaux et cloche au lever du soleil.
+      if (from === 'night' && to === 'dawn') this.dispatchEvent(new CustomEvent('sfx', { detail: 'dawn' }));
     };
     this.loadLights();
     this.ro = new ResizeObserver(() => this.fit());
@@ -309,6 +311,8 @@ export class Board extends EventTarget {
     const a = this.center(shooterId);
     const b = this.center(targetId);
     if (!a || !b) return;
+    // Il épaule : recharge du fusil à pompe, puis le coup part.
+    this.dispatchEvent(new CustomEvent('sfx', { detail: 'rack' }));
     await wait(650);
     // Le coup part : bruitage au moment exact du flash, avant le projectile.
     this.dispatchEvent(new CustomEvent('sfx', { detail: 'shot' }));
