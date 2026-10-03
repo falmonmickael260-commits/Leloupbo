@@ -212,29 +212,3 @@ export function gunshot(volume = 0.9) {
   send.gain.value = 0.45;
   bg.connect(send).connect(reverb);
 }
-
-/** Extraits audio enregistrés (voix du narrateur…), chargés une fois. Fichier absent → rien. */
-const clips = new Map();
-export async function playClip(url, volume = 1) {
-  const c = ready();
-  if (!c) return;
-  try {
-    if (!clips.has(url)) {
-      clips.set(
-        url,
-        fetch(url)
-          .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('absent'))))
-          .then((b) => new Promise((res, rej) => c.decodeAudioData(b, res, rej))),
-      );
-    }
-    const buf = await clips.get(url);
-    const src = c.createBufferSource();
-    src.buffer = buf;
-    const g = c.createGain();
-    g.gain.value = volume;
-    src.connect(g).connect(master);
-    src.start();
-  } catch {
-    /* pas d'enregistrement fourni : le texte s'affiche seul */
-  }
-}

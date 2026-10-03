@@ -841,8 +841,6 @@ function onTransitions(v, prev) {
   } else if (prev && prev.phase.seq !== ph.seq) {
     const line = PHASE_LINES[ph.id];
     const urgent = { urgent: true };
-    // Voix enregistrée du narrateur (public/assets/voice/village-endort.mp3, si fournie).
-    if (ph.id === 'NIGHT_START') sfx.playClip('/assets/voice/village-endort.mp3');
     if (line) narrator.say(line[0], line[1], urgent);
     else if (NIGHT_PHASES.has(ph.id) && ph.id !== 'NIGHT_RESOLUTION') narrator.say(`${ph.label}…`, 'night', urgent);
     else if (ph.id === 'PLAYER_SPEECH') narrator.say(`${numName(v, ph.speakerId)} a la parole`, 'info', urgent);
