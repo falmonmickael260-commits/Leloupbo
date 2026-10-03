@@ -17,14 +17,16 @@
 
     <!-- Accueil -->
     <section id="screen-home" class="screen">
-      <div class="panel home-panel">
-        <h1 class="logo">Le Village<br />des Blackops</h1>
-        <p class="tagline">Loup-Garou en ligne · jusqu’à 18 joueurs</p>
-        <label class="field">Ton pseudo <input id="name" maxlength="20" placeholder="Ton pseudo" autocomplete="nickname" /></label>
-        <button id="btn-create" class="btn btn-gold big">Créer une partie</button>
-        <div class="or"><span>ou</span></div>
-        <label class="field">Code de la partie <input id="join-code" maxlength="5" placeholder="ABCDE" class="code-input" /></label>
-        <button id="btn-join" class="btn big">Rejoindre</button>
+      <div class="home">
+        <img class="home-logo" src="/assets/logo.webp" alt="Le Village des Blackops" />
+        <div class="home-panel lux">
+          <label class="lux-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.6 4.2-7 8.5-7s7.7 2.4 8.5 7z"/></svg><input id="name" maxlength="20" placeholder="TON PSEUDO" aria-label="Ton pseudo" autocomplete="nickname" /></label>
+          <button id="btn-create" class="lux-btn gold"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><circle cx="16.5" cy="9" r="2.8"/><path d="M2.5 19.5c.6-3.6 3.2-5.6 6.5-5.6s5.9 2 6.5 5.6zM14.5 14.2c3.6-.6 6.4 1.2 7 5.3h-4.4"/></svg>Créer une partie</button>
+          <div class="lux-or"><span>ou</span></div>
+          <label class="lux-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="12" r="4.2" fill="none" stroke-width="2.6"/><path d="M11.5 12h10M18 12v4M21.5 12v3" fill="none" stroke-width="2.6"/></svg><input id="join-code" maxlength="5" placeholder="CODE DE LA PARTIE" aria-label="Code de la partie" class="code-input" autocomplete="off" /></label>
+          <button id="btn-join" class="lux-btn dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>Rejoindre</button>
+        </div>
+        <p class="home-tag">Loup-Garou en ligne · jusqu’à 18 joueurs</p>
       </div>
     </section>
 

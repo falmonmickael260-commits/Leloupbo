@@ -923,6 +923,7 @@ async function maybeReveal(v) {
 function show(screen) {
   for (const s of ['home', 'lobby', 'game']) $(`screen-${s}`).classList.toggle('active', s === screen);
   document.body.classList.toggle('in-game', screen === 'game');
+  document.body.classList.toggle('at-home', screen === 'home');
   board.fit();
 }
 
@@ -931,6 +932,8 @@ function render() {
   const v = client.view;
   if (!v) {
     show('home');
+    // Accueil : le village de nuit, lumières allumées (ambiance de la maquette).
+    board.setSky('night', false);
     board.update(null);
     return;
   }

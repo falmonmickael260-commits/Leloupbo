@@ -509,3 +509,34 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 .reveal-caption b { color: #ffd552; font-size: 1.25em; }
 @keyframes glowPulse { from { transform: scale(0.96); } to { transform: scale(1.06); } }
 @keyframes revealFlash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ============ Accueil « noir et or » ============ */
+.home { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 18px 16px 24px; box-sizing: border-box; }
+.home-logo { width: min(560px, 92vw); height: auto; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 22px rgba(255, 190, 70, 0.25)); margin-bottom: -6px; pointer-events: none; user-select: none; }
+.lux { position: relative; width: min(440px, 92vw); padding: 26px 30px 24px; border-radius: 10px; background: linear-gradient(180deg, rgba(22, 20, 26, 0.96), rgba(9, 8, 11, 0.97)); border: 2px solid #b8893a; box-shadow: 0 0 0 1px #3d2c10, inset 0 0 0 4px rgba(10, 9, 12, 0.9), inset 0 0 0 5px rgba(201, 154, 59, 0.55), 0 18px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 180, 60, 0.12); }
+.lux::before, .lux::after { content: ''; position: absolute; left: 50%; width: 64px; height: 10px; transform: translateX(-50%); background: linear-gradient(90deg, transparent, #e2b450, transparent); }
+.lux::before { top: -6px; }
+.lux::after { bottom: -6px; }
+.lux-field { display: flex; align-items: center; gap: 12px; height: 50px; padding: 0 14px; margin: 0 0 14px; border-radius: 6px; background: #08070a; border: 1.5px solid #6e5524; box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8); }
+.lux-field:focus-within { border-color: #e2b450; box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 0 3px rgba(226, 180, 80, 0.18); }
+.lux-field svg { width: 22px; height: 22px; flex: none; fill: #b9b2a6; stroke: #b9b2a6; }
+.lux-field input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: #f3ead6; font: 700 16px/1 var(--font-ui); letter-spacing: 0.5px; }
+.lux-field input::placeholder { color: #8f887c; font-weight: 600; letter-spacing: 0.6px; }
+.lux-field .code-input { letter-spacing: 4px; text-align: left; font-size: 17px; text-transform: uppercase; }
+.lux-btn { width: 100%; height: 54px; display: flex; align-items: center; justify-content: center; gap: 12px; border-radius: 6px; font: 900 18px/1 var(--font-ui); letter-spacing: 0.6px; text-transform: uppercase; cursor: pointer; transition: transform 0.08s, filter 0.15s; }
+.lux-btn svg { width: 22px; height: 22px; }
+.lux-btn:active { transform: translateY(1px) scale(0.99); }
+.lux-btn.gold { color: #1a1206; border: 1.5px solid #7a5718; background: linear-gradient(180deg, #ffe79a 0%, #f2c75c 38%, #d39b34 70%, #b07a22 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 4px 14px rgba(230, 170, 60, 0.35); }
+.lux-btn.gold svg { fill: #1a1206; }
+.lux-btn.gold:hover { filter: brightness(1.06); }
+.lux-btn.dark { color: #f3ead6; border: 1.5px solid #6e5524; background: linear-gradient(180deg, #3a3a3f 0%, #232327 55%, #151518 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.5); }
+.lux-btn.dark svg { fill: #f3ead6; }
+.lux-btn.dark:hover { filter: brightness(1.15); }
+.lux-or { display: flex; align-items: center; gap: 12px; margin: 14px 0; color: #c9c1b2; font: 700 13px var(--font-ui); text-transform: lowercase; }
+.lux-or::before, .lux-or::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #8a6a2a); }
+.lux-or::after { background: linear-gradient(90deg, #8a6a2a, transparent); }
+.home-tag { margin: 14px 0 0; color: #d8c9a6; font: 700 13px var(--font-ui); letter-spacing: 0.6px; text-shadow: 0 1px 4px #000; }
+
+/* Accueil : le décor passe en arrière-plan (flou + assombri) pour laisser briller le logo. */
+body.at-home .board .stage { filter: blur(3px) brightness(0.62) saturate(1.1); transition: filter 0.6s; }
+body.at-home .board::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 32%, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.25) 55%, rgba(0, 0, 0, 0.6)); }
