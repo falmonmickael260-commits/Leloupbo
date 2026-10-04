@@ -66,7 +66,7 @@ export function defaultSettings(): GameSettings {
     whiteWolfSeerResult: 'LOUP',
     witchCanSelfSave: true,
     witchBothPotionsSameNight: true,
-    witchNoPoisonFirstNight: false,
+    witchNoPoisonFirstNight: true,
     salvateurCanSelfProtect: true,
     salvateurSameTargetTwice: false,
     salvateurBlocksWhiteWolf: false,

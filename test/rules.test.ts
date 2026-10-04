@@ -166,30 +166,50 @@ describe('Nuit', () => {
     rejects(() => e.updateSettings(host.id, { roles: { werewolf: 1, black_wolf: 2 } }, T0), 'BAD_SETTINGS');
   });
 
-  it('Sorcière : dès la 1re nuit, réanimer, empoisonner ou les deux', () => {
-    // Empoisonner sans réanimer
-    let g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager', 'villager']);
+  it('Sorcière : 1re nuit seulement réanimer ; ensuite réanimer, empoisonner ou les deux', () => {
+    const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager', 'villager']);
     g.until('WEREWOLF_PHASE');
     g.act(0, 'wolf_vote', [2]);
+    assert.deepEqual(g.view(1).prompt!.options!.map((o) => o.id), ['none', 'save']);
+    rejects(() => g.act(1, 'witch', [3], 'kill'), 'BAD_OPTION');
+    g.act(1, 'witch', [], 'none');
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [3]);
+    // Nuit 2 : l'une, l'autre, ou les deux.
     assert.deepEqual(g.view(1).prompt!.options!.map((o) => o.id), ['none', 'save', 'kill', 'save_kill']);
-    g.act(1, 'witch', [3], 'kill');
+    g.act(1, 'witch', [4], 'kill');
     g.until('SUNRISE');
-    assert.equal(g.alive(2), false);
     assert.equal(g.alive(3), false);
+    assert.equal(g.alive(4), false);
     assert.deepEqual(g.view(1).me.roleState, { potionVie: true, potionMort: false });
-    // Réanimer ET empoisonner la même nuit
-    g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager', 'villager']);
+  });
+
+  it('Sorcière : réanimer ET empoisonner la même nuit (à partir de la nuit 2)', () => {
+    const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager', 'villager', 'villager']);
     g.until('WEREWOLF_PHASE');
     g.act(0, 'wolf_vote', [2]);
-    g.act(1, 'witch', [3], 'save_kill');
+    g.act(1, 'witch', [], 'none');
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [3]);
+    g.act(1, 'witch', [4], 'save_kill');
     g.until('SUNRISE');
-    assert.equal(g.alive(2), true);
-    assert.equal(g.alive(3), false);
+    assert.equal(g.alive(3), true);
+    assert.equal(g.alive(4), false);
     assert.deepEqual(g.view(1).me.roleState, { potionVie: false, potionMort: false });
   });
 
-  it('Sorcière (option « pas de poison la 1re nuit ») : informée de la victime, potions uniques', () => {
-    const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager'], { witchNoPoisonFirstNight: true });
+  it('Sorcière (option de l’hôte) : une seule potion par nuit', () => {
+    const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager', 'villager', 'villager'], { witchBothPotionsSameNight: false });
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [2]);
+    g.act(1, 'witch', [], 'none');
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [3]);
+    assert.deepEqual(g.view(1).prompt!.options!.map((o) => o.id), ['none', 'save', 'kill']);
+  });
+
+  it('Sorcière : informée de la victime, potions uniques', () => {
+    const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager']);
     g.until('WEREWOLF_PHASE');
     g.act(0, 'wolf_vote', [2]);
     assert.equal(g.phase, 'WITCH_PHASE');

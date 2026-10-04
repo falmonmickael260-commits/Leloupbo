@@ -770,3 +770,4 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .night-log { margin: 12px 0 4px; text-align: left; }
 .night-log summary { cursor: pointer; font: 800 14px var(--font-ui); color: #e2b450; }
 .night-log ul { margin: 8px 0 0; padding-left: 18px; max-height: 32vh; overflow-y: auto; font: 600 13px/1.45 var(--font-ui); }
+.btn.btn-danger { background: linear-gradient(180deg, #7a1f1f, #4a0f0f); color: #ffe9e0; border-color: #b8893a; }

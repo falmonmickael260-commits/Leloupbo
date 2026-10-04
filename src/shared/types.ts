@@ -93,7 +93,7 @@ export interface GameSettings {
   whiteWolfSeerResult: SeerResult;
   witchCanSelfSave: boolean;
   witchBothPotionsSameNight: boolean;
-  /** Règle maison : potion de mort interdite la première nuit (désactivée par défaut). */
+  /** Potion de mort interdite la première nuit (activé par défaut). */
   witchNoPoisonFirstNight: boolean;
   salvateurCanSelfProtect: boolean;
   salvateurSameTargetTwice: boolean;

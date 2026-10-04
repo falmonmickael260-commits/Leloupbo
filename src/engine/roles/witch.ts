@@ -7,7 +7,7 @@ registerRole({
   name: 'Sorcière',
   emoji: '🧪',
   team: 'village',
-  description: 'Elle possède une potion de vie et une potion de mort, utilisables une seule fois chacune. La même nuit, elle peut réanimer, empoisonner, ou les deux.',
+  description: 'Elle possède une potion de vie et une potion de mort, utilisables une seule fois chacune. 1re nuit : elle peut seulement réanimer. Ensuite, chaque nuit, elle peut réanimer, empoisonner, ou les deux.',
   unique: true,
   distributable: true,
   seerResult: () => 'CIVIL',
@@ -58,7 +58,7 @@ registerNightStep({
     return {
       action: 'witch',
       title: '🧪 Vos potions',
-      description: s0(ctx) ? 'Première nuit : la potion de mort est interdite.' : 'Réanimez, empoisonnez, ou les deux. Chaque potion ne sert qu’une fois.',
+      description: s0(ctx) ? 'Première nuit : la potion de mort est interdite.' : (ctx.state.settings.witchBothPotionsSameNight ? 'Réanimez, empoisonnez, ou les deux.' : 'Réanimez OU empoisonnez.') + ' Chaque potion ne sert qu’une fois.',
       targets: canKill ? alivePlayers(ctx.state).filter((p) => p.id !== actor.id).map((p) => p.id) : [],
       minTargets: 0,
       maxTargets: canKill ? 1 : 0,

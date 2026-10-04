@@ -347,6 +347,7 @@ function renderLobby(v) {
     ${check('wolvesWinAtParity', '🐺 Victoire des Loups dès que le village ne peut plus gagner')}
     ${check('witchCanSelfSave', 'Sorcière peut se sauver')}
     ${check('witchNoPoisonFirstNight', 'Sorcière : pas de poison la 1re nuit')}
+    ${check('witchBothPotionsSameNight', 'Sorcière : les 2 potions la même nuit')}
     ${check('salvateurCanSelfProtect', 'Salvateur peut se protéger')}
     ${check('cupidWinsWithLovers', 'Cupidon gagne avec un couple mixte')}
     ${check('endVoteWhenAllVoted', 'Clore le vote quand tous ont voté')}
@@ -821,20 +822,23 @@ function renderAction(v) {
     ui.promptKey = key;
     ui.selected = [];
     ui.witchSave = false;
+    ui.witchPoison = false;
   }
   let html = '';
   if (p.action === 'witch') {
     const ids = (p.options ?? []).map((o) => o.id);
     const victim = p.info?.victimName;
     html += `<h3>🧪 ${victim ? `Les loups ont attaqué <b>${esc(victim)}</b>` : 'Personne n’a été attaqué'}</h3>`;
-    if (ui.witchSave) {
+    if (ui.witchPoison) {
+      html += `<p>☠️ <b>Touche le joueur à empoisonner.</b></p><div class="row"><button class="btn" data-witch="poison-cancel">Annuler</button></div>`;
+    } else if (ui.witchSave) {
       html += `<p>💚 ${esc(victim)} sera sauvé(e). ☠️ Touche un joueur pour l’empoisonner aussi, ou termine.</p>
         <div class="row"><button class="btn btn-gold" data-witch="save">Terminer</button></div>`;
     } else {
       const btns = [];
       if (ids.includes('save')) btns.push(`<button class="btn btn-gold" data-witch="${ids.includes('save_kill') ? 'save-then' : 'save'}">💚 Sauver ${esc(victim)}</button>`);
+      if (ids.includes('kill')) btns.push('<button class="btn btn-danger" data-witch="poison-pick">☠️ Empoisonner</button>');
       btns.push('<button class="btn" data-witch="none">Ne rien faire</button>');
-      if (ids.includes('kill')) html += '<p>☠️ Pour empoisonner quelqu’un, touche son personnage.</p>';
       html += `<div class="row">${btns.join('')}</div>`;
     }
   } else if (p.action === 'thief') {
@@ -870,6 +874,10 @@ function renderAction(v) {
         const w = b.dataset.witch;
         if (w === 'save-then') {
           ui.witchSave = true;
+          return render();
+        }
+        if (w === 'poison-pick' || w === 'poison-cancel') {
+          ui.witchPoison = w === 'poison-pick';
           return render();
         }
         safe(client.command('witch', [], w));
