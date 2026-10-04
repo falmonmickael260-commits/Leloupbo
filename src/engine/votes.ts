@@ -18,11 +18,22 @@ export function voteTargets(state: GameState, voterId: string): string[] {
     .map((p) => p.id);
 }
 
+/** Ex æquo d'un revote : ils ne votent pas (le village tranche entre eux). */
+export function isRunoffCandidate(state: GameState, playerId: string): boolean {
+  return state.ballot?.kind === 'day' && state.runoff?.stage === 'voting' && state.runoff.candidates.includes(playerId);
+}
+
+/** Joueurs appelés à voter : les vivants, sauf les ex æquo lors d'un revote. */
+export function voters(state: GameState) {
+  return alivePlayers(state).filter((p) => !isRunoffCandidate(state, p.id));
+}
+
 export function castVote(ctx: Ctx, voterId: string, targets: unknown): void {
   const s = ctx.state;
   if (!s.ballot) fail('NO_VOTE', 'Aucun vote en cours.');
   const voter = getPlayer(s, voterId);
   if (!voter || !voter.alive) fail('FORBIDDEN', 'Seuls les joueurs vivants votent.');
+  if (isRunoffCandidate(s, voterId)) fail('FORBIDDEN', 'Tu es à égalité : tu ne votes pas.');
   if (!Array.isArray(targets) || targets.length !== 1 || typeof targets[0] !== 'string') fail('BAD_TARGET', 'Vote invalide.');
   const target = targets[0] as string;
   if (!voteTargets(s, voterId).includes(target)) fail('BAD_TARGET', 'Cible non autorisée.');
@@ -31,14 +42,14 @@ export function castVote(ctx: Ctx, voterId: string, targets: unknown): void {
 
 export function allVoted(state: GameState): boolean {
   if (!state.ballot) return false;
-  return alivePlayers(state).every((p) => state.ballot!.ballots[p.id]);
+  return voters(state).every((p) => state.ballot!.ballots[p.id]);
 }
 
 /** Bulletins valides : votant et cible toujours vivants. */
 export function validBallots(state: GameState): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [voter, target] of Object.entries(state.ballot?.ballots ?? {})) {
-    if (getPlayer(state, voter)?.alive && getPlayer(state, target)?.alive) out[voter] = target;
+    if (getPlayer(state, voter)?.alive && getPlayer(state, target)?.alive && !isRunoffCandidate(state, voter)) out[voter] = target;
   }
   return out;
 }

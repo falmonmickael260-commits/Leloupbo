@@ -8,7 +8,7 @@ import { fail } from './errors.ts';
 import { currentNightStep, finishPhase, isActiveNightStep, runPipeline, setCaptain } from './flow.ts';
 import { validateTargets } from './roles/index.ts';
 import { alivePlayers, announce, getPlayer, playerName, type Ctx } from './state.ts';
-import { allVoted, castVote, voteTargets } from './votes.ts';
+import { allVoted, castVote, isRunoffCandidate, voteTargets } from './votes.ts';
 
 /** Le client ne peut envoyer qu'un objet simple et borné. */
 export function sanitizeCommand(raw: unknown): ClientCommand {
@@ -69,6 +69,7 @@ export function promptFor(ctx: Ctx, playerId: string): ActionPrompt | null {
     case 'VOTING':
     case 'CAPTAIN_ELECTION': {
       if (!p.alive || !s.ballot) return null;
+      if (isRunoffCandidate(s, p.id)) return null; // ex æquo : il ne vote pas au revote
       const mine = s.ballot.ballots[p.id];
       const captain = s.ballot.kind === 'captain';
       return {

@@ -247,6 +247,8 @@ export interface MeView {
   roleState: Record<string, unknown> | null;
   /** Infecté par le Loup Noir (connu de lui seul et de la meute). */
   infected: boolean;
+  /** Ex æquo pendant le revote : il ne vote pas (info publique, annoncée au village). */
+  runoffCandidate: boolean;
 }
 
 export interface VoteView {

@@ -804,6 +804,7 @@ function renderAction(v) {
       else if (v.phase.id === 'PLAYER_SPEECH') msg = `🎙️ ${esc(numName(v, v.phase.speakerId))} a la parole. Écoute bien…`;
       else if (v.phase.id === 'DEATH_LAST_WORD') msg = `💀 Dernière parole de ${esc(nameOf(v, v.phase.speakerId))}.`;
       else if (v.phase.id === 'FREE_DISCUSSION') msg = '🗣️ Discussion libre : tout le monde peut parler !';
+      else if (v.phase.id === 'VOTING' && v.me.runoffCandidate) msg = '⚖️ Tu es à égalité : le village vote entre vous. Tu ne votes pas.';
     }
     el.innerHTML = msg ? `<p class="quiet">${msg}</p>` : '';
     return;

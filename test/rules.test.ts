@@ -350,12 +350,19 @@ describe('Jour', () => {
     // Revote limité aux ex æquo (jamais pour soi-même), sans discussion libre.
     assert.equal(g.phase, 'VOTING');
     assert.deepEqual(g.view(0).prompt!.targets.sort(), [g.ids[2], g.ids[3]].sort());
-    assert.deepEqual(g.view(2).prompt!.targets, [g.ids[3]]);
     assert.match(g.view(0).prompt!.title, /Revote/);
     rejects(() => g.act(0, 'vote', [4]), 'BAD_TARGET');
-    for (const i of [0, 1, 4, 2]) g.act(i, 'vote', [3]);
-    g.act(3, 'vote', [2]);
-    assert.equal(g.phase, 'VOTE_RESULT'); // résultat du revote (qui a voté pour qui)
+    // Les ex æquo ne votent pas au revote.
+    for (const i of [2, 3]) {
+      assert.equal(g.view(i).prompt, null);
+      assert.equal(g.view(i).me.runoffCandidate, true);
+      rejects(() => g.act(i, 'vote', [i === 2 ? 3 : 2]));
+    }
+    assert.equal(g.view(0).me.runoffCandidate, false);
+    g.act(0, 'vote', [3]);
+    g.act(1, 'vote', [3]);
+    g.act(4, 'vote', [2]);
+    assert.equal(g.phase, 'VOTE_RESULT'); // tous les votants ont voté : résultat du revote
     g.skip();
     assert.equal(g.phase, 'DEATH_LAST_WORD');
     assert.equal(g.alive(3), false);
@@ -369,7 +376,7 @@ describe('Jour', () => {
     g.skip(); // parole P2
     g.act(2, 'finish');
     g.act(3, 'finish');
-    for (const [i, t] of [[0, 2], [1, 2], [4, 3], [2, 3]]) g.act(i, 'vote', [t]);
+    for (const [i, t] of [[0, 2], [4, 3]]) g.act(i, 'vote', [t]); // P1 s'abstient
     g.skip();
     assert.equal(g.phase, 'VOTE_RESULT');
     assert.ok(g.announcements().some((a) => a.includes('Nouvelle égalité')));

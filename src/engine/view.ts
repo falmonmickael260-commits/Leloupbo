@@ -6,6 +6,7 @@
  * des autres, données internes de phase (dont le caractère "simulé" d'une étape),
  * messages privés des autres, jetons de session.
  */
+import { isRunoffCandidate } from './votes.ts';
 import type { ChatChannel, MeView, PhaseView, PlayerView, PublicPlayer } from '../shared/types.ts';
 import { canRead, canWrite } from './chat.ts';
 import { promptFor } from './commands.ts';
@@ -65,6 +66,7 @@ function meView(ctx: Ctx, playerId: string): MeView {
     pack,
     roleState: def?.selfInfo?.(ctx, p) ?? null,
     infected: !!p.infected,
+    runoffCandidate: isRunoffCandidate(s, p.id),
   };
 }
 
