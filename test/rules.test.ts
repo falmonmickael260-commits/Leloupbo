@@ -749,15 +749,21 @@ describe('Loup Noir', () => {
     assert.ok(g.privateLog(2).some((m) => m === `🔮 P4 : LOUP`));
   });
 
-  it('la meute unanime attend le choix du Loup Noir (il peut voter puis INFECTER)', () => {
-    const g = night1();
-    g.act(1, 'wolf_vote', [4]);
-    g.act(0, 'wolf_vote', [4]); // le Loup Noir touche la victime sans avoir encore choisi
-    assert.equal(g.phase, 'WEREWOLF_PHASE', 'la nuit ne doit pas se fermer avant son choix');
-    assert.equal((g.view(0).prompt!.info as any).blackWolf.mode, null);
-    g.cmd(0, { action: 'wolf_vote', targets: [], option: 'infect' });
-    assert.notEqual(g.phase, 'WEREWOLF_PHASE');
-    assert.equal(g.engine.state.players[4].infected, true);
+  it('meute d’accord : fin après un délai FIXE de 5 s, identique pour TUER et INFECTER', () => {
+    const ends: number[] = [];
+    for (const mode of ['kill', 'infect'] as const) {
+      const g = night1();
+      g.act(1, 'wolf_vote', [4]);
+      g.act(0, 'wolf_vote', [4]); // le Loup Noir touche la victime avant de choisir
+      assert.equal(g.phase, 'WEREWOLF_PHASE', 'il a encore le temps de choisir');
+      g.cmd(0, { action: 'wolf_vote', targets: [], option: mode });
+      assert.equal(g.phase, 'WEREWOLF_PHASE', 'pas de fin immédiate : la durée ne doit rien révéler');
+      ends.push(g.engine.state.phase.endsAt! - g.now);
+      g.skip();
+      assert.notEqual(g.phase, 'WEREWOLF_PHASE');
+      assert.equal(!!g.engine.state.players[4].infected, mode === 'infect');
+    }
+    assert.deepEqual(ends, [5000, 5000]);
   });
 
   it('sans choix du Loup Noir : TUER à la fin du temps', () => {

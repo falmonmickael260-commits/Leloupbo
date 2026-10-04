@@ -18,11 +18,23 @@ registerRole({
 
 export const WOLVES_STEP = 'werewolves';
 type WolvesData = { votes: Record<string, string>; target: string | null; mode?: 'kill' | 'infect' };
+/**
+ * Loup Noir en jeu (infection disponible) : quand la meute est d'accord, la nuit se termine après
+ * ce délai FIXE, quel que soit son choix. La durée de la phase ne trahit donc jamais une infection,
+ * et il a le temps d'appuyer sur INFECTER même après avoir touché la victime.
+ */
+export const BLACK_WOLF_GRACE_MS = 5000;
 const data = (ctx: Parameters<typeof stepData>[0]) => stepData<WolvesData>(ctx, WOLVES_STEP, () => ({ votes: {}, target: null }));
 
 /** Loup Noir vivant qui n'a pas encore utilisé son infection. */
 function infector(ctx: Ctx): PlayerState | undefined {
   return alivePlayers(ctx.state).find((p) => p.role === 'black_wolf' && !!p.roleData.infect);
+}
+
+function unanimous(pack: PlayerState[], votes: Record<string, string>): boolean {
+  if (pack.length === 0) return false;
+  const chosen = pack.map((w) => votes[w.id]);
+  return chosen.every((t) => t && t === chosen[0]);
 }
 
 registerNightStep({
@@ -66,16 +78,16 @@ registerNightStep({
     }
     const [target] = validateTargets(cmd.targets, p.targets, 1, 1);
     d.votes[actor.id] = target;
+    if (infector(ctx) && unanimous(this.actors(ctx), d.votes)) {
+      const ph = ctx.state.phase;
+      const end = ctx.now + BLACK_WOLF_GRACE_MS;
+      if (ph.endsAt === null || ph.endsAt > end) ph.endsAt = end;
+    }
   },
   isComplete(ctx) {
-    const pack = this.actors(ctx);
-    const d = data(ctx);
-    if (pack.length === 0) return false;
-    // Le Loup Noir qui peut encore infecter doit avoir choisi TUER ou INFECTER :
-    // sinon la meute unanime fermerait la nuit avant qu'il ait pu choisir.
-    if (infector(ctx) && !d.mode) return false;
-    const chosen = pack.map((w) => d.votes[w.id]);
-    return chosen.every((t) => t && t === chosen[0]);
+    // Avec un Loup Noir qui peut infecter : fin au délai fixe (voir BLACK_WOLF_GRACE_MS), jamais avant.
+    if (infector(ctx)) return false;
+    return unanimous(this.actors(ctx), data(ctx).votes);
   },
   onEnd(ctx) {
     const d = data(ctx);
