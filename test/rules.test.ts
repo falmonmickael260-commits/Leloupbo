@@ -719,7 +719,7 @@ describe('Fin anticipée', () => {
     assert.equal(g.engine.state.dayNumber, 1); // pas besoin d'attendre une journée de plus
   });
 
-  it('pas de fin anticipée si la Sorcière garde sa potion de mort ou si le Chasseur vit', () => {
+  it('2 Loups contre un Chasseur seul (ou une Sorcière seule) : fin immédiate, il ne peut en tuer qu’un', () => {
     for (const special of ['witch', 'hunter']) {
       const g = setup(['werewolf', 'werewolf', special, 'villager'], { wolvesWinAtParity: true });
       g.until('WEREWOLF_PHASE');
@@ -729,9 +729,21 @@ describe('Fin anticipée', () => {
         g.until('WITCH_PHASE');
         g.act(2, 'witch', [], 'none');
       }
-      g.until('SUNRISE');
-      assert.equal(g.engine.state.status, 'running', special);
+      g.until('GAME_OVER');
+      assert.equal(g.engine.state.winner!.camp, 'wolves', special);
     }
+  });
+
+  it('pas de fin anticipée si le village peut encore tuer tous les loups (Chasseur + Sorcière contre 2 Loups)', () => {
+    const g = setup(['werewolf', 'werewolf', 'hunter', 'witch', 'villager'], { wolvesWinAtParity: true });
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [4]);
+    g.act(1, 'wolf_vote', [4]);
+    g.until('WITCH_PHASE');
+    g.act(3, 'witch', [], 'none');
+    g.until('SUNRISE');
+    assert.equal(g.alive(4), false);
+    assert.equal(g.engine.state.status, 'running');
   });
 });
 
