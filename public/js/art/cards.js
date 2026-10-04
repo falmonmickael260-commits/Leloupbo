@@ -71,7 +71,7 @@ const fit = (name) => (name.length > 9 ? `textLength="${Math.min(220, name.lengt
  * Un rôle sans image garde sa carte dessinée.
  */
 /** Version des images de cartes : à changer quand on remplace les fichiers (force le rechargement). */
-const CARDS_V = '5';
+const CARDS_V = '6';
 const CARD_IMAGES = new Set(['werewolf', 'black_wolf', 'white_wolf', 'seer', 'witch', 'cupid', 'thief', 'hunter', 'salvateur', 'villager', 'loup', 'civil']);
 // Préchargement : la carte est prête au moment de sa révélation.
 if (typeof Image !== 'undefined') for (const r of [...CARD_IMAGES, 'dos']) new Image().src = `/assets/cartes/${r}.webp?v=${CARDS_V}`;
