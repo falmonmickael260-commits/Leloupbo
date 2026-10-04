@@ -265,7 +265,8 @@ export class SupabaseBackend implements Backend {
     private readonly secret: string,
     private readonly fetchImpl: typeof fetch = fetch,
   ) {
-    this.url = url.replace(/\/+$/, '');
+    // Adresse du projet, même si elle a été copiée avec « /rest/v1/ » à la fin.
+    this.url = url.trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
     this.label = `Supabase (${new URL(this.url).host})`;
   }
 

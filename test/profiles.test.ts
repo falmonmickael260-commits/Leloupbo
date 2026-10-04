@@ -94,10 +94,11 @@ describe('Profils de la plateforme', () => {
     assert.equal(headers.apikey, 'sb_secret_test');
     assert.equal(headers.Authorization, undefined);
     assert.equal(calls[0].url, 'https://demo.supabase.co/rest/v1/platform_players');
-    const fresh = new ProfileStore(new SupabaseBackend('https://demo.supabase.co', 'eyJhbGciOi.test', fake));
+    const fresh = new ProfileStore(new SupabaseBackend('https://demo.supabase.co/rest/v1/', 'eyJhbGciOi.test', fake));
     const info = await fresh.info(p);
     assert.equal(info.stats.wins, 1);
     assert.equal((calls.at(-1)!.init.headers as Record<string, string>).Authorization, 'Bearer eyJhbGciOi.test');
+    assert.ok(calls.at(-1)!.url.startsWith('https://demo.supabase.co/rest/v1/platform_game_results?'), 'adresse copiée avec /rest/v1/ acceptée');
   });
 
   it('API HTTP + partie : le profil est rattaché sans jamais être envoyé aux autres joueurs', { timeout: 15_000 }, async () => {
