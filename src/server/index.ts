@@ -21,11 +21,12 @@ http.listen(PORT, () => {
   console.log(`🐺 Le Village des Blackops — http://localhost:${PORT}  (${restored} partie(s) restaurée(s), données : ${DATA_DIR})`);
 });
 
-function shutdown() {
+async function shutdown() {
   console.log('Arrêt du serveur…');
-  manager.stop();
+  setTimeout(() => process.exit(0), 5000).unref();
+  manager.stop(); // déconnecte les joueurs : plus aucune action non sauvegardée
+  await store.flush(); // dernières sauvegardes écrites sur le volume
   http.close(() => process.exit(0));
-  setTimeout(() => process.exit(0), 3000).unref();
 }
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on('SIGINT', () => void shutdown());
+process.on('SIGTERM', () => void shutdown());

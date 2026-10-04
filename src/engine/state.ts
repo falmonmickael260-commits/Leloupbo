@@ -121,6 +121,10 @@ export interface GameState {
   runoff?: { candidates: string[]; stage: 'pending' | 'speech' | 'voting' } | null;
   /** Résultats de la partie déjà enregistrés dans les profils (une seule fois). */
   resultsRecorded?: boolean;
+  /** Journal des nuits (SECRET pendant la partie, montré à tous à la fin) : qui a fait quoi. */
+  nightLog?: string[];
+  /** Journal des nuits de la partie précédente (consultable depuis le lobby). */
+  lastNightLog?: string[];
 }
 
 /** Contexte d'exécution d'une opération du moteur. */
@@ -160,6 +164,17 @@ export function announce(ctx: Ctx, kind: Announcement['kind'], text: string): vo
   const list = ctx.state.announcements;
   list.push({ id: nextId(ctx, 'a'), at: ctx.now, kind, text });
   if (list.length > MAX_LOG) list.splice(0, list.length - MAX_LOG);
+}
+
+/** « Nom (Rôle) » pour le journal des nuits. */
+export const who = (state: GameState, id: string | null | undefined, roleName: (role: RoleId | null) => string): string => {
+  const p = getPlayer(state, id);
+  return p ? `${p.name} (${roleName(p.role)}${p.infected ? ', infecté' : ''})` : '?';
+};
+
+/** Ajoute une ligne au journal des nuits (révélé seulement en fin de partie). */
+export function logNight(ctx: Ctx, text: string): void {
+  (ctx.state.nightLog ??= []).push(`Nuit ${ctx.state.nightNumber} : ${text}`);
 }
 
 export function tell(ctx: Ctx, playerId: string, kind: PrivateMessage['kind'], text: string): void {

@@ -283,4 +283,8 @@ export interface PlayerView {
   myTags: Record<string, string>;
   /** Rôles révélés uniquement en fin de partie. */
   finalRoles: { id: string; role: RoleId; roleName: string; loverId: string | null; infected?: boolean }[] | null;
+  /** Journal des nuits : seulement en fin de partie. */
+  nightLog: string[] | null;
+  /** Journal des nuits de la partie précédente (lobby). */
+  lastNightLog: string[] | null;
 }

@@ -129,5 +129,7 @@ export function buildView(ctx: Ctx, playerId: string): PlayerView {
     finalRoles: reveal
       ? s.players.map((p) => ({ id: p.id, role: p.role ?? 'villager', roleName: getRole(p.role)?.name ?? '?', loverId: p.loverId, infected: !!p.infected }))
       : null,
+    nightLog: reveal ? [...(s.nightLog ?? [])] : null,
+    lastNightLog: s.status === 'lobby' && s.lastNightLog?.length && s.settings.revealRolesOnGameOver ? [...s.lastNightLog] : null,
   };
 }

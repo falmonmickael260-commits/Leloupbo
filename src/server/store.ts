@@ -8,6 +8,8 @@ import type { GameState } from '../engine/state.ts';
 
 export interface GameStore {
   save(state: GameState): Promise<void>;
+  /** Attend la fin des écritures en cours (arrêt du serveur). */
+  flush?(): Promise<void>;
   loadAll(): Promise<GameState[]>;
   delete(code: string): Promise<void>;
 }
@@ -30,6 +32,10 @@ export class FileGameStore implements GameStore {
   private chains = new Map<string, Promise<void>>();
 
   constructor(private readonly dir: string) {}
+
+  async flush(): Promise<void> {
+    await Promise.allSettled([...this.chains.values()]);
+  }
 
   private file(code: string) {
     return path.join(this.dir, `${code.replace(/[^A-Z0-9]/gi, '')}.json`);

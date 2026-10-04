@@ -266,6 +266,12 @@ function audioIcons(a) {
 }
 
 function renderLobby(v) {
+  // Partie précédente : ce qui s'est passé chaque nuit (ouvert à la demande).
+  const logKey = (v.lastNightLog ?? []).join('\n');
+  if ($('last-log').dataset.key !== logKey) {
+    $('last-log').dataset.key = logKey;
+    $('last-log').innerHTML = v.lastNightLog?.length ? `<details class="night-log"><summary>🌙 Partie précédente : ce qui s’est passé chaque nuit</summary><ul>${v.lastNightLog.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>` : '';
+  }
   const isHost = v.me.isHost;
   document.querySelectorAll('.host-only').forEach((el) => (el.style.display = isHost ? '' : 'none'));
   document.querySelector('.host-hint').textContent = isHost
@@ -1082,7 +1088,8 @@ function renderGameOver(v) {
       return `<div class="final-item ${w.has(r.id) ? 'win' : ''} ${pl?.alive ? '' : 'dead'}"><div class="mini">${cardSVG(r.role, r.roleName)}</div>${w.has(r.id) ? '🏆 ' : ''}${esc(pl?.name)}${r.loverId ? ' ❤️' : ''}${r.infected ? ' 🖤' : ''}${pl?.alive ? '' : ' 💀'}</div>`;
     })
     .join('');
-  el.innerHTML = `<h2>${esc(v.winner.title)}</h2><div class="final-grid">${items}</div>
+  const log = v.nightLog?.length ? `<details class="night-log"><summary>🌙 Ce qui s’est passé chaque nuit</summary><ul>${v.nightLog.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>` : '';
+  el.innerHTML = `<h2>${esc(v.winner.title)}</h2><div class="final-grid">${items}</div>${log}
     <p class="back-lobby">🔄 Retour au lobby dans <b id="go-count"></b>… <span class="muted">(même groupe, même code)</span></p>
     <div class="row" style="justify-content:center"><button class="btn" id="btn-quit-end">Quitter</button></div>`;
   $('btn-quit-end').onclick = () => {

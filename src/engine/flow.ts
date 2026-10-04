@@ -15,9 +15,9 @@ import { isNightPhase, kill, resolveNightEffects } from './deaths.ts';
 import { returnToLobby } from './lobby.ts';
 import { enterPhase } from './phase.ts';
 import { shuffle } from './rng.ts';
-import { getNightStep, nightSteps, type NightStep } from './roles/index.ts';
+import { getNightStep, getRole, nightSteps, type NightStep } from './roles/index.ts';
 import { buildSpeechOrder } from './speech.ts';
-import { alivePlayers, announce, formatNames, getPlayer, playerName, type Ctx } from './state.ts';
+import { alivePlayers, announce, formatNames, getPlayer, logNight, playerName, who, type Ctx } from './state.ts';
 import { countCaptainVote, countDayVote, validBallots } from './votes.ts';
 import { checkWin } from './win.ts';
 
@@ -77,10 +77,19 @@ function resolveNight(ctx: Ctx): void {
   const s = ctx.state;
   enterPhase(ctx, 'NIGHT_RESOLUTION', null);
   const before = new Set(alivePlayers(s).map((p) => p.id));
+  // Journal des nuits (révélé en fin de partie) : ce que chacun a fait.
+  const W = (id: string) => who(s, id, (r) => getRole(r)?.name ?? '?');
+  for (const e of s.night?.effects ?? []) {
+    if (e.type === 'attack') logNight(ctx, `${e.source === 'wolves' ? '🐺 Les Loups attaquent' : '🐺 Le Loup Blanc attaque'} ${W(e.target)}.`);
+    if (e.type === 'protect') logNight(ctx, `🛡️ Le Salvateur protège ${W(e.target)}.`);
+    if (e.type === 'save') logNight(ctx, `🧪 La Sorcière sauve ${W(e.target)} (potion de vie).`);
+    if (e.type === 'kill') logNight(ctx, `☠️ La Sorcière empoisonne ${W(e.target)}.`);
+  }
   // Ordre mélangé : l'ordre d'annonce ne révèle pas la cause des morts.
   for (const d of shuffle(resolveNightEffects(ctx), ctx.rng)) kill(ctx, d.target, d.cause);
   const died = s.players.filter((p) => before.has(p.id) && !p.alive).map((p) => p.id);
   const all = [...new Set([...(s.night?.extraDeaths ?? []), ...died])];
+  logNight(ctx, all.length ? `→ ${all.map((id) => playerName(s, id)).join(', ')} ${all.length > 1 ? 'meurent' : 'meurt'}.` : '→ Personne ne meurt.');
 
   s.dayNumber = s.nightNumber;
   s.pipelineNext = 'DAY';

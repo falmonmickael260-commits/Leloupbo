@@ -182,6 +182,7 @@ export function startGame(ctx: Ctx, playerId: string): void {
   s.extraCards = shuffled.slice(n);
   s.composition = composition;
   s.status = 'running';
+  s.nightLog = [];
   for (const p of players) {
     const def = requireRole(p.role!);
     tell(ctx, p.id, 'role', `🎴 Votre rôle : ${def.emoji} ${def.name}. ${def.description}`);
@@ -231,6 +232,8 @@ export function returnToLobby(ctx: Ctx): void {
     ...fresh,
     previousRoles,
     resultsRecorded: false,
+    lastNightLog: s.nightLog ?? [],
+    nightLog: [],
     createdAt: s.createdAt,
     hostId: s.hostId,
     settings: s.settings,

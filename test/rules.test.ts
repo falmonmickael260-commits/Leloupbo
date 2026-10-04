@@ -143,6 +143,23 @@ describe('Nuit', () => {
     assert.equal(g.phase, 'DEATH_LAST_WORD');
   });
 
+  it('journal des nuits : secret pendant la partie, complet à la fin et dans le lobby', () => {
+    const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager']);
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [2]);
+    g.until('WITCH_PHASE');
+    g.cmd(1, { action: 'witch', option: 'save' });
+    g.until('SUNRISE');
+    assert.deepEqual(g.engine.state.nightLog, [
+      'Nuit 1 : 🐺 Les Loups attaquent P2 (Simple Villageois).',
+      'Nuit 1 : 🧪 La Sorcière sauve P2 (Simple Villageois) (potion de vie).',
+      'Nuit 1 : → Personne ne meurt.',
+    ]);
+    for (let i = 0; i < 5; i++) assert.equal(g.view(i).nightLog, null, 'secret pendant la partie');
+    g.engine.state.status = 'finished';
+    assert.equal(g.view(3).nightLog!.length, 3);
+  });
+
   it('un seul Loup Noir par partie', () => {
     const e = GameEngine.create('TEST', T0, seededRng(1));
     const host = e.join('H', 'h', T0);

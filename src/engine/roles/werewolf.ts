@@ -1,4 +1,4 @@
-import { alivePlayers, formatNames, playerName, tell, type Ctx, type PlayerState } from '../state.ts';
+import { alivePlayers, formatNames, logNight, playerName, tell, type Ctx, type PlayerState } from '../state.ts';
 import { fail } from '../errors.ts';
 import { tally } from '../tally.ts';
 import { shuffle } from '../rng.ts';
@@ -91,11 +91,13 @@ registerNightStep({
     if (d.target && black && d.mode === 'infect') {
       // INFECTION : la victime ne meurt pas, garde son rôle et rejoint secrètement la meute.
       const victim = ctx.state.players.find((p) => p.id === d.target)!;
+      logNight(ctx, `🖤 Le Loup Noir ${black.name} INFECTE ${victim.name} au lieu de le tuer.`);
       victim.infected = true;
       black.roleData.infect = false; // une seule fois dans toute la partie
       for (const w of pack) tell(ctx, w.id, 'wolves', `🖤 Le Loup Noir a infecté ${victim.name} : il rejoint secrètement la meute.`);
       tell(ctx, victim.id, 'infected', '🖤 Tu as été infecté par le Loup Noir. Tu gardes ton rôle et tes pouvoirs, mais tu joues désormais secrètement pour les Loups : dès la nuit prochaine, tu te réveilles avec la meute.');
     } else {
+      if (!d.target) logNight(ctx, '🐺 Les Loups ne désignent aucune victime.');
       if (d.target) ctx.state.night!.effects.push({ type: 'attack', target: d.target, source: 'wolves' });
       for (const w of pack) {
         tell(ctx, w.id, 'wolves', d.target ? `🐺 La meute a choisi de dévorer ${playerName(ctx.state, d.target)}.` : '🐺 La meute n’a désigné aucune victime cette nuit.');

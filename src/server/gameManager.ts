@@ -135,6 +135,9 @@ export class GameManager {
   }
 
   stop(): void {
+    // Plus aucune action acceptée : sinon elles seraient appliquées en mémoire sans être sauvegardées
+    // (et perdues au redémarrage, ex. une potion de la Sorcière « rendue »).
+    this.io.disconnectSockets(true);
     this.stopped = true;
     if (this.housekeeping) clearInterval(this.housekeeping);
     if (this.sfuTimer) clearInterval(this.sfuTimer);
