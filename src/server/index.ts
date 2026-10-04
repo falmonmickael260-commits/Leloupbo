@@ -5,12 +5,16 @@
 import path from 'node:path';
 import { createApp } from './app.ts';
 import { FileGameStore } from './store.ts';
+import { profileStoreFromEnv } from '../platform/profiles.ts';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const DATA_DIR = process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data/games');
 
 const store = new FileGameStore(DATA_DIR);
-const { http, manager } = createApp(store);
+// Profils de la plateforme : Supabase si configuré (SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY), sinon fichier local.
+const profiles = profileStoreFromEnv(process.env.PROFILES_DIR ?? path.join(DATA_DIR, 'profiles'));
+console.log(`👤 Profils joueurs : ${profiles.label}`);
+const { http, manager } = createApp(store, { profiles });
 
 const restored = await manager.restore();
 http.listen(PORT, () => {

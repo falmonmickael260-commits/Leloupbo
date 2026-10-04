@@ -20,15 +20,60 @@
       <div class="home">
         <img class="home-logo" src="/assets/logo.webp?v=2" alt="Le Village des Blackops" />
         <div class="home-panel lux">
-          <label class="lux-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.6 4.2-7 8.5-7s7.7 2.4 8.5 7z"/></svg><input id="name" maxlength="20" placeholder="TON PSEUDO" aria-label="Ton pseudo" autocomplete="nickname" /></label>
-          <button id="btn-create" class="lux-btn gold"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><circle cx="16.5" cy="9" r="2.8"/><path d="M2.5 19.5c.6-3.6 3.2-5.6 6.5-5.6s5.9 2 6.5 5.6zM14.5 14.2c3.6-.6 6.4 1.2 7 5.3h-4.4"/></svg>Créer une partie</button>
-          <div class="lux-or"><span>ou</span></div>
-          <label class="lux-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="12" r="4.2" fill="none" stroke-width="2.6"/><path d="M11.5 12h10M18 12v4M21.5 12v3" fill="none" stroke-width="2.6"/></svg><input id="join-code" maxlength="5" placeholder="CODE DE LA PARTIE" aria-label="Code de la partie" class="code-input" autocomplete="off" /></label>
-          <button id="btn-join" class="lux-btn dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>Rejoindre</button>
+          <!-- 1re visite (ou « Ajouter un joueur ») : juste un pseudo, aucun compte -->
+          <div id="hv-new" class="hv" hidden>
+            <h2 class="hv-title">Bienvenue !</h2>
+            <p class="hv-sub">Choisis ton pseudo</p>
+            <form id="new-form" class="hv-form">
+              <label class="lux-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.6 4.2-7 8.5-7s7.7 2.4 8.5 7z"/></svg><input id="new-name" maxlength="20" placeholder="PSEUDO" aria-label="Pseudo" autocomplete="nickname" /></label>
+              <button id="btn-new" type="submit" class="lux-btn gold">Continuer</button>
+            </form>
+            <button id="btn-guest" class="lux-link">Jouer en invité</button>
+            <button id="btn-new-cancel" class="lux-link" hidden>Annuler</button>
+            <p class="hv-note">Ton profil et tes statistiques sont gardés sur cet appareil, sans compte ni e-mail.</p>
+          </div>
+
+          <!-- Plusieurs joueurs sur cet appareil -->
+          <div id="hv-who" class="hv" hidden>
+            <h2 class="hv-title">Qui joue ?</h2>
+            <ul id="who-list" class="who-list"></ul>
+            <button id="btn-add-player" class="lux-btn dark">＋ Ajouter un joueur</button>
+            <button id="btn-guest2" class="lux-link">Jouer en invité</button>
+          </div>
+
+          <!-- Joueur reconnu (ou invité) : on joue -->
+          <div id="hv-play" class="hv" hidden>
+            <div class="hello">
+              <h2 id="hello-title" class="hv-title"></h2>
+              <div id="hello-stats" class="hello-stats"></div>
+              <div class="hello-links">
+                <button id="btn-stats" class="lux-link">📊 Mes statistiques</button>
+                <button id="btn-rename" class="lux-link">✏️ Pseudo</button>
+                <button id="btn-switch" class="lux-link">👥 Changer de joueur</button>
+              </div>
+            </div>
+            <div id="guest-box" class="guest-box" hidden>
+              <label class="lux-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.6 4.2-7 8.5-7s7.7 2.4 8.5 7z"/></svg><input id="name" maxlength="20" placeholder="TON PSEUDO" aria-label="Ton pseudo" autocomplete="nickname" /></label>
+            </div>
+            <button id="btn-create" class="lux-btn gold"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><circle cx="16.5" cy="9" r="2.8"/><path d="M2.5 19.5c.6-3.6 3.2-5.6 6.5-5.6s5.9 2 6.5 5.6zM14.5 14.2c3.6-.6 6.4 1.2 7 5.3h-4.4"/></svg>Créer une partie</button>
+            <div class="lux-or"><span>ou</span></div>
+            <label class="lux-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="12" r="4.2" fill="none" stroke-width="2.6"/><path d="M11.5 12h10M18 12v4M21.5 12v3" fill="none" stroke-width="2.6"/></svg><input id="join-code" maxlength="5" placeholder="CODE DE LA PARTIE" aria-label="Code de la partie" class="code-input" autocomplete="off" /></label>
+            <button id="btn-join" class="lux-btn dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>Rejoindre</button>
+            <button id="btn-make-profile" class="lux-link" hidden>Créer mon profil pour garder mes statistiques</button>
+          </div>
         </div>
         <p class="home-tag">Loup-Garou en ligne · jusqu’à 18 joueurs</p>
       </div>
     </section>
+
+    <div id="stats-modal" class="stats-modal" hidden>
+      <div class="stats-card lux">
+        <button id="stats-close" class="stats-close" aria-label="Fermer">✕</button>
+        <h2 id="stats-title" class="hv-title"></h2>
+        <div id="stats-body"></div>
+        <p class="hv-note">Profil gardé sur cet appareil : si les données du navigateur sont effacées ou si tu changes d’appareil, il ne pourra pas être retrouvé.</p>
+      </div>
+    </div>
 
     <!-- Lobby -->
     <section id="screen-lobby" class="screen">

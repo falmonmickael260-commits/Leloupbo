@@ -230,6 +230,7 @@ export function returnToLobby(ctx: Ctx): void {
   Object.assign(s, {
     ...fresh,
     previousRoles,
+    resultsRecorded: false,
     createdAt: s.createdAt,
     hostId: s.hostId,
     settings: s.settings,

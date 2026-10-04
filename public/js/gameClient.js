@@ -94,14 +94,15 @@ export class GameClient extends EventTarget {
     });
   }
 
-  async create(name) {
-    const r = await this.request('game:create', { name });
+  /** `profile` : identifiants du profil de la plateforme ({ id, key }) ou null pour un invité. */
+  async create(name, profile = null) {
+    const r = await this.request('game:create', profile ? { name, profile } : { name });
     this.#save({ code: r.code, token: r.token, playerId: r.playerId });
     return r;
   }
 
-  async join(code, name) {
-    const r = await this.request('game:join', { code, name });
+  async join(code, name, profile = null) {
+    const r = await this.request('game:join', profile ? { code, name, profile } : { code, name });
     this.#save({ code: r.code, token: r.token, playerId: r.playerId });
     return r;
   }

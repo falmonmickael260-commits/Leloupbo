@@ -20,6 +20,8 @@ import { iceServersFromEnv, type IceServer } from './ice.ts';
 import { RateLimiter } from './rateLimit.ts';
 import { LiveKitBridge, missingSfuVars, sfuConfigFromEnv, type SfuConfig } from './voiceSfu.ts';
 import type { GameStore } from './store.ts';
+import { memoryProfileStore, type ProfileStore } from '../platform/profiles.ts';
+import { gameResults } from './results.ts';
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -66,6 +68,8 @@ export interface ManagerOptions {
   sfu?: SfuConfig | null;
   /** Contrôle périodique de LiveKit (désactivable dans les tests). */
   sfuHealthCheck?: boolean;
+  /** Profils de la plateforme (statistiques). Par défaut : en mémoire. */
+  profiles?: ProfileStore;
 }
 
 export class GameManager {
@@ -80,6 +84,7 @@ export class GameManager {
   private readonly iceServers: IceServer[] = iceServersFromEnv();
   readonly sfu: LiveKitBridge | null;
   private sfuTimer?: NodeJS.Timeout;
+  readonly profiles: ProfileStore;
 
   constructor(
     private readonly io: IO,
@@ -89,6 +94,7 @@ export class GameManager {
     this.now = opts.now ?? Date.now;
     this.rng = opts.rng ?? cryptoRng;
     this.botDelay = opts.botDelay ?? [900, 2500];
+    this.profiles = opts.profiles ?? memoryProfileStore();
     const sfuCfg = opts.sfu === undefined ? sfuConfigFromEnv() : opts.sfu;
     this.sfu = sfuCfg ? new LiveKitBridge(sfuCfg) : null;
     if (this.sfu) console.log(`🎙️ Voix : serveur audio LiveKit (${sfuCfg!.url})`);
@@ -145,21 +151,44 @@ export class GameManager {
     }
   }
 
-  createGame(name: unknown): { room: GameRoom; session: SessionInfo } {
+  createGame(name: unknown, profileId: string | null = null): { room: GameRoom; session: SessionInfo } {
     const now = this.now();
     const code = this.newCode();
     const room = new GameRoom(GameEngine.create(code, now, this.rng), now);
     const token = randomBytes(24).toString('base64url');
     const p = room.engine.join(name, hashToken(token), now);
+    this.linkProfile(room, p.id, profileId);
     this.rooms.set(code, room);
     return { room, session: { code, playerId: p.id, token } };
   }
 
-  joinGame(rawCode: unknown, name: unknown): { room: GameRoom; session: SessionInfo } {
+  joinGame(rawCode: unknown, name: unknown, profileId: string | null = null): { room: GameRoom; session: SessionInfo } {
     const room = this.findRoom(rawCode);
     const token = randomBytes(24).toString('base64url');
     const p = room.engine.join(name, hashToken(token), this.now());
+    this.linkProfile(room, p.id, profileId);
     return { room, session: { code: room.code, playerId: p.id, token } };
+  }
+
+  /**
+   * Rattache le joueur à son profil de plateforme (identifiant interne, jamais envoyé aux
+   * navigateurs). Un même profil ne compte qu'une fois par partie.
+   */
+  private linkProfile(room: GameRoom, playerId: string, profileId: string | null): void {
+    if (!profileId) return;
+    const players = room.engine.state.players;
+    if (players.some((x) => x.profileId === profileId && !x.abandoned)) return;
+    const p = players.find((x) => x.id === playerId);
+    if (p) p.profileId = profileId;
+  }
+
+  /** Fin de partie : le serveur enregistre lui-même le résultat de chaque joueur ayant un profil. */
+  private recordResults(room: GameRoom): void {
+    const s = room.engine.state;
+    if (s.status !== 'finished' || s.resultsRecorded) return;
+    s.resultsRecorded = true;
+    const rows = gameResults(s);
+    if (rows.length) this.profiles.recordGame(s.code, rows).catch((e) => console.error('[profils] échec enregistrement', s.code, e));
   }
 
   private findRoom(rawCode: unknown): GameRoom {
@@ -174,6 +203,7 @@ export class GameManager {
   private afterChange(room: GameRoom): void {
     if (this.stopped) return;
     const now = this.now();
+    this.recordResults(room);
     this.broadcast(room, now);
     this.schedule(room, now);
     this.scheduleBots(room);
@@ -334,21 +364,24 @@ export class GameManager {
   }
 
   private bind(socket: Sock): void {
-    socket.on('game:create', (p, ack) =>
+    // Le profil (facultatif) est vérifié avant d'entrer : clé invalide → joueur invité.
+    socket.on('game:create', async (p, ack) => {
+      const profileId = await this.profiles.verifyOptional(p?.profile);
       this.run(socket, ack, () => {
-        const { room, session } = this.createGame(p?.name);
+        const { room, session } = this.createGame(p?.name, profileId);
         this.attach(socket, room, session.playerId);
         return session;
-      }, 'session'),
-    );
+      }, 'session');
+    });
 
-    socket.on('game:join', (p, ack) =>
+    socket.on('game:join', async (p, ack) => {
+      const profileId = await this.profiles.verifyOptional(p?.profile);
       this.run(socket, ack, () => {
-        const { room, session } = this.joinGame(p?.code, p?.name);
+        const { room, session } = this.joinGame(p?.code, p?.name, profileId);
         this.attach(socket, room, session.playerId);
         return session;
-      }, 'session'),
-    );
+      }, 'session');
+    });
 
     // Reconnexion : le jeton (secret) identifie le joueur, l'état complet est renvoyé.
     socket.on('session:resume', (p, ack) =>

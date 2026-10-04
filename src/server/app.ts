@@ -9,6 +9,7 @@ import type { ClientToServerEvents, ServerToClientEvents } from '../shared/proto
 import { GameManager, type ManagerOptions } from './gameManager.ts';
 import type { GameStore } from './store.ts';
 import { missingSfuVars } from './voiceSfu.ts';
+import { profileRouter } from '../platform/http.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.resolve(here, '../../public');
@@ -16,14 +17,18 @@ export const PUBLIC_DIR = path.resolve(here, '../../public');
 export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: HttpServer; manager: GameManager; io: Server } {
   const app = express();
   app.disable('x-powered-by');
+  // Derrière le proxy de l'hébergeur : la vraie adresse IP sert au limiteur des profils.
+  app.set('trust proxy', 1);
   app.get('/health', (_req, res) => {
     const voice = manager.sfu ? { mode: 'livekit', livekit: manager.sfu.health } : { mode: 'pair-à-pair', manquant: missingSfuVars() };
-    res.json({ ok: true, games: manager.rooms.size, uptime: process.uptime(), droppedSignals: manager.droppedSignals, voice });
+    res.json({ ok: true, games: manager.rooms.size, uptime: process.uptime(), droppedSignals: manager.droppedSignals, voice, profils: manager.profiles.label });
   });
   app.get('/api/roles', (_req, res) => {
     res.json(allRoles().map(roleInfo));
   });
   app.use(compression());
+  // Profils de la plateforme : le gestionnaire est créé plus bas, le routeur le lit à la demande.
+  app.use('/api/profiles', (req, res, next) => profiles(req, res, next));
   // Client LiveKit (chargé à la demande par le navigateur, seulement si le serveur audio est configuré).
   app.get('/vendor/livekit-client.umd.js', (_req, res) => {
     res.sendFile(path.resolve(here, '../../node_modules/livekit-client/dist/livekit-client.umd.js'), { maxAge: '1d' });
@@ -50,5 +55,6 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
     serveClient: true,
   });
   const manager = new GameManager(io, store, opts);
+  const profiles = profileRouter(manager.profiles);
   return { http, manager, io };
 }

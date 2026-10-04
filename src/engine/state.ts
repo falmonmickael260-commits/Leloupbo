@@ -41,6 +41,8 @@ export interface PlayerState {
   deathCause: DeathCause | null;
   abandoned: boolean;
   loverId: string | null;
+  /** Profil de la plateforme (UUID interne, jamais envoyé aux navigateurs). Absent = invité ou bot. */
+  profileId?: string;
   /** Infecté par le Loup Noir : joue secrètement pour les Loups (garde son rôle et ses pouvoirs). */
   infected?: boolean;
   /** Données persistantes propres au rôle (potions, dernière protection…). */
@@ -117,6 +119,8 @@ export interface GameState {
   previousRoles?: Record<string, RoleId>;
   /** Égalité au vote du jour : les ex æquo reprennent la parole puis le village revote entre eux. */
   runoff?: { candidates: string[]; stage: 'pending' | 'speech' | 'voting' } | null;
+  /** Résultats de la partie déjà enregistrés dans les profils (une seule fois). */
+  resultsRecorded?: boolean;
 }
 
 /** Contexte d'exécution d'une opération du moteur. */

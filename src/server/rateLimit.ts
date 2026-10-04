@@ -7,6 +7,9 @@ const LIMITS: Record<string, { capacity: number; refillPerSec: number }> = {
   voice: { capacity: 30, refillPerSec: 1 },
   // Signalisation WebRTC : rafales normales quand beaucoup de joueurs rejoignent l'audio en même temps.
   signal: { capacity: 2000, refillPerSec: 400 },
+  // Profils de la plateforme (par adresse IP) : création rare, lecture des statistiques plus fréquente.
+  profileCreate: { capacity: 10, refillPerSec: 0.05 },
+  profile: { capacity: 60, refillPerSec: 2 },
 };
 
 export class RateLimiter {

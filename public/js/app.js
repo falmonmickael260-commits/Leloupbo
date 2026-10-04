@@ -10,6 +10,7 @@ import { cardBackSVG, cardSVG, seerCardSVG } from './art/cards.js';
 import { Board, playerNumbers, wait } from './board/board.js';
 import { Narrator, revealCard } from './board/overlays.js';
 import { GameClient } from './gameClient.js';
+import { profiles } from './platform/profiles.js';
 import { Voice } from './voiceManager.js';
 import { MAPS } from './maps.js';
 import * as sfx from './sfx.js';
@@ -60,15 +61,161 @@ function toast(msg) {
 }
 const safe = (p) => Promise.resolve(p).catch((e) => toast(e.message));
 
-// ================================================================== ACCUEIL
+// ================================================================== ACCUEIL (profils de la plateforme)
 $('name').value = localStorage.getItem('blackops:name') || '';
 $('join-code').value = params.get('code') || '';
+let addingPlayer = false;
+
+/** Pseudo utilisé en partie : celui du profil, ou celui saisi en invité. */
 const myName = () => {
+  const active = profiles.active();
+  if (active) return active.name;
   const n = $('name').value.trim();
   localStorage.setItem('blackops:name', n);
   if (!n) throw new Error('Choisis un pseudo.');
   return n;
 };
+
+const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+const statsLine = (st) => `<div><b>${st.games}</b><span>${st.games > 1 ? 'parties' : 'partie'}</span></div><div><b>${st.wins}</b><span>${st.wins > 1 ? 'victoires' : 'victoire'}</span></div><div><b>${st.losses}</b><span>${st.losses > 1 ? 'défaites' : 'défaite'}</span></div>`;
+
+/** Affiche le bon écran : 1re visite, « Qui joue ? », ou « Bonjour X 👋 ». */
+function renderHome() {
+  const list = profiles.list();
+  const active = profiles.active();
+  const guest = profiles.isGuest();
+  const view = addingPlayer || (!list.length && !guest) ? 'new' : !active && !guest ? 'who' : 'play';
+  for (const v of ['new', 'who', 'play']) $(`hv-${v}`).hidden = v !== view;
+  if (view === 'new') {
+    $('btn-new-cancel').hidden = !list.length && !addingPlayer;
+    $('btn-guest').hidden = addingPlayer;
+    setTimeout(() => $('new-name').focus(), 50);
+  }
+  if (view === 'who') {
+    $('who-list').innerHTML = list
+      .map((p) => `<li><button class="who-item" data-profile="${esc(p.id)}"><span class="who-ico">👤</span><span class="who-name">${esc(p.name)}</span><span class="who-games">${plural(p.games, 'partie')}</span></button></li>`)
+      .join('');
+    // Nombre de parties à jour (serveur), sans bloquer l'affichage.
+    for (const p of list) profiles.stats(p.id).then(() => !$('hv-who').hidden && refreshWhoCounts()).catch(() => {});
+  }
+  if (view === 'play') {
+    $('guest-box').hidden = !guest;
+    $('btn-make-profile').hidden = !guest;
+    for (const id of ['btn-stats', 'btn-rename']) $(id).hidden = guest;
+    $('btn-switch').textContent = guest ? '👥 Choisir un joueur' : '👥 Changer de joueur';
+    $('btn-switch').hidden = guest && !list.length;
+    if (guest) {
+      $('hello-title').textContent = 'Tu joues en invité';
+      $('hello-stats').innerHTML = '<p class="hv-note">Tes parties ne sont pas enregistrées.</p>';
+    } else {
+      $('hello-title').textContent = `Bonjour ${active.name} 👋`;
+      $('hello-stats').innerHTML = statsLine({ games: active.games, wins: 0, losses: 0 }).replace(/<b>0<\/b>/g, '<b>…</b>');
+      profiles
+        .stats(active.id)
+        .then((st) => {
+          if (profiles.active()?.id !== active.id) return;
+          $('hello-title').textContent = `Bonjour ${profiles.active().name} 👋`;
+          $('hello-stats').innerHTML = statsLine(st);
+        })
+        .catch((e) => {
+          $('hello-stats').innerHTML = `<p class="hv-note">${e.code === 'NO_PROFILE' ? 'Ce profil est introuvable sur le serveur : tes prochaines parties ne seront pas comptées. Crée un nouveau profil.' : 'Statistiques indisponibles pour le moment.'}</p>`;
+        });
+    }
+  }
+}
+function refreshWhoCounts() {
+  for (const p of profiles.list()) {
+    const el = document.querySelector(`[data-profile="${CSS.escape(p.id)}"]`);
+    if (el) {
+      el.querySelector('.who-name').textContent = p.name;
+      el.querySelector('.who-games').textContent = plural(p.games, 'partie');
+    }
+  }
+}
+
+$('new-form').onsubmit = (e) => {
+  e.preventDefault();
+  const name = $('new-name').value.trim();
+  if (!name) return toast('Choisis un pseudo.');
+  $('btn-new').disabled = true;
+  safe(
+    profiles
+      .create(name)
+      .then((p) => {
+        addingPlayer = false;
+        $('new-name').value = '';
+        if (!p.saved) toast('Ce navigateur ne garde pas les données : ton profil sera oublié à la fermeture.');
+        renderHome();
+      })
+      .finally(() => ($('btn-new').disabled = false)),
+  );
+};
+$('btn-guest').onclick = $('btn-guest2').onclick = () => {
+  profiles.playAsGuest();
+  renderHome();
+};
+$('btn-new-cancel').onclick = () => {
+  addingPlayer = false;
+  renderHome();
+};
+$('btn-add-player').onclick = $('btn-make-profile').onclick = () => {
+  addingPlayer = true;
+  renderHome();
+};
+$('who-list').onclick = (e) => {
+  const b = e.target.closest('[data-profile]');
+  if (!b) return;
+  profiles.select(b.dataset.profile);
+  renderHome();
+};
+$('btn-switch').onclick = () => {
+  profiles.signOut();
+  renderHome();
+};
+$('btn-rename').onclick = () => {
+  const active = profiles.active();
+  if (!active) return;
+  const name = prompt('Nouveau pseudo :', active.name);
+  if (name === null || !name.trim() || name.trim() === active.name) return;
+  safe(profiles.rename(active.id, name.trim()).then(renderHome));
+};
+
+// Statistiques détaillées (lues sur le serveur : jamais calculées ni modifiables par le navigateur).
+let roleNames = null;
+$('btn-stats').onclick = () => {
+  const active = profiles.active();
+  if (!active) return;
+  $('stats-title').textContent = active.name;
+  $('stats-body').innerHTML = '<p class="hv-note">Chargement…</p>';
+  $('stats-modal').hidden = false;
+  const names = roleNames ? Promise.resolve(roleNames) : fetch('/api/roles').then((r) => r.json()).then((list) => (roleNames = Object.fromEntries(list.map((r) => [r.id, `${r.emoji} ${r.name}`]))));
+  safe(
+    Promise.all([profiles.stats(active.id), names.catch(() => ({}))]).then(([st, rn]) => {
+      const lg = st.byGame['loup-garou'];
+      const camp = (c) => st.byCamp[`loup-garou:${c}`] ?? { games: 0, wins: 0 };
+      const rows = Object.entries(st.byRole)
+        .filter(([k]) => k.startsWith('loup-garou:'))
+        .map(([k, c]) => ({ id: k.slice(11), ...c }))
+        .sort((x, y) => y.games - x.games);
+      const pct = (w, g) => (g ? `${Math.round((w / g) * 100)} %` : '—');
+      $('stats-body').innerHTML = `
+        <div class="hello-stats">${statsLine(st)}</div>
+        <div class="stats-grid">
+          <div><span>Éliminations</span><b>${st.eliminations}</b></div>
+          <div><span>Taux de victoire</span><b>${pct(st.wins, st.games)}</b></div>
+          <div><span>🐺 Victoires en Loup</span><b>${camp('loup').wins} / ${camp('loup').games}</b></div>
+          <div><span>🏡 Victoires en Civil</span><b>${camp('civil').wins} / ${camp('civil').games}</b></div>
+        </div>
+        ${lg ? '' : '<p class="hv-note">Aucune partie terminée pour l’instant.</p>'}
+        ${rows.length ? `<h3 class="stats-h">Par rôle</h3><ul class="stats-roles">${rows.map((r) => `<li><span>${esc(rn[r.id] ?? r.id)}</span><span>${plural(r.games, 'partie')} · ${plural(r.wins, 'victoire')}</span></li>`).join('')}</ul>` : ''}
+        ${Object.keys(st.byGame).length > 1 ? `<h3 class="stats-h">Par jeu</h3><ul class="stats-roles">${Object.entries(st.byGame).map(([g, c]) => `<li><span>${esc(g)}</span><span>${plural(c.games, 'partie')} · ${plural(c.wins, 'victoire')}</span></li>`).join('')}</ul>` : ''}`;
+    }),
+  );
+};
+$('stats-close').onclick = () => ($('stats-modal').hidden = true);
+$('stats-modal').onclick = (e) => e.target === $('stats-modal') && ($('stats-modal').hidden = true);
+renderHome();
+
 /**
  * Débloque le son du navigateur pendant le clic (geste exigé par iPhone / Android)
  * et demande l'accès au micro tout de suite, pour que la voix soit prête.
@@ -93,11 +240,11 @@ function primeAudio() {
 }
 $('btn-create').onclick = () => {
   primeAudio();
-  safe(Promise.resolve().then(() => client.create(myName())));
+  safe(Promise.resolve().then(() => client.create(myName(), profiles.credentials())));
 };
 $('btn-join').onclick = () => {
   primeAudio();
-  safe(Promise.resolve().then(() => client.join($('join-code').value.trim().toUpperCase(), myName())));
+  safe(Promise.resolve().then(() => client.join($('join-code').value.trim().toUpperCase(), myName(), profiles.credentials())));
 };
 
 // ================================================================== LOBBY
@@ -1048,6 +1195,8 @@ let firstView = true;
 function render() {
   const v = client.view;
   if (!v) {
+    // Retour à l'accueil (fin de partie quittée) : statistiques rafraîchies.
+    if (!$('screen-home').classList.contains('active')) renderHome();
     show('home');
     // Accueil : le village de nuit, lumières allumées (ambiance de la maquette).
     board.setSky('night', false);
