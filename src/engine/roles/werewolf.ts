@@ -50,7 +50,8 @@ registerNightStep({
       // Loup Noir (pouvoir disponible) : choix TUER / INFECTER, visible de toute la meute.
       options: infector(ctx)?.id === actor.id ? [{ id: 'kill', label: '🐺 TUER' }, { id: 'infect', label: '🖤 INFECTER' }] : undefined,
       info: {
-        blackWolf: infector(ctx) ? { id: infector(ctx)!.id, name: infector(ctx)!.name, mode: d.mode ?? 'kill' } : null,
+        // mode null : le Loup Noir n'a pas encore choisi (TUER par défaut à la fin du temps).
+        blackWolf: infector(ctx) ? { id: infector(ctx)!.id, name: infector(ctx)!.name, mode: d.mode ?? null } : null,
         packVotes: pack.map((w) => ({ wolfId: w.id, wolfName: w.name, targetId: d.votes[w.id] ?? null, targetName: d.votes[w.id] ? playerName(ctx.state, d.votes[w.id]) : null })),
       },
     };
@@ -68,9 +69,12 @@ registerNightStep({
   },
   isComplete(ctx) {
     const pack = this.actors(ctx);
-    const votes = data(ctx).votes;
+    const d = data(ctx);
     if (pack.length === 0) return false;
-    const chosen = pack.map((w) => votes[w.id]);
+    // Le Loup Noir qui peut encore infecter doit avoir choisi TUER ou INFECTER :
+    // sinon la meute unanime fermerait la nuit avant qu'il ait pu choisir.
+    if (infector(ctx) && !d.mode) return false;
+    const chosen = pack.map((w) => d.votes[w.id]);
     return chosen.every((t) => t && t === chosen[0]);
   },
   onEnd(ctx) {

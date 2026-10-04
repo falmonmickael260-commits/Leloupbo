@@ -848,7 +848,7 @@ function renderAction(v) {
         // Loup Noir : TUER ou INFECTER (une seule fois dans la partie).
         html += `<div class="row black-wolf">${p.options
           .map((o) => `<button class="btn ${bw?.mode === o.id ? 'btn-gold' : ''}" data-bw="${esc(o.id)}">${esc(o.label)}</button>`)
-          .join('')}</div><p class="hint">🖤 Infection : la victime ne meurt pas et rejoint secrètement la meute. Une seule fois dans la partie.</p>`;
+          .join('')}</div><p class="hint">${bw?.mode ? '' : '<b>Choisis TUER ou INFECTER</b> (sinon : TUER à la fin du temps). '}🖤 Infection : la victime ne meurt pas et rejoint secrètement la meute. Une seule fois dans la partie.</p>`;
       } else if (bw?.mode === 'infect') html += `<p class="wolf-votes">🖤 ${esc(bw.name)} (Loup Noir) veut <b>INFECTER</b> la victime.</p>`;
     }
     if (p.minTargets === 0) html += `<div class="row"><button class="btn" id="btn-pass">${p.action === 'hunter_shot' ? 'Ne pas tirer' : 'Passer'}</button></div>`;

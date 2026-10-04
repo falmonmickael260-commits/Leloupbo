@@ -34,7 +34,9 @@ export function decideBotCommand(view: PlayerView, rng: Rng): ClientCommand | nu
     case 'wolf_vote': {
       const votes = (prompt.info?.packVotes as { targetId: string | null }[]) ?? [];
       const first = votes.find((v) => v.targetId && prompt.targets.includes(v.targetId))?.targetId;
-      return { action: 'wolf_vote', targets: [first ?? shuffle(pool, rng)[0]] };
+      // Bot Loup Noir : il tue (il garde son infection).
+      const kill = prompt.options?.some((o) => o.id === 'kill') ? { option: 'kill' } : {};
+      return { action: 'wolf_vote', targets: [first ?? shuffle(pool, rng)[0]], ...kill };
     }
     case 'witch': {
       const opts = prompt.options?.map((o) => o.id) ?? ['none'];
