@@ -20,6 +20,8 @@ export interface RoleDefinition {
   wolfPack?: boolean;
   /** Réponse renvoyée à la Voyante. */
   seerResult(settings: GameSettings): SeerResult;
+  /** Pas de dernière parole à sa mort (règle de la partie, ex. la Voyante). */
+  noLastWord?: boolean;
   /** Données de rôle initiales (ex. potions). */
   initRoleData?(): Record<string, unknown>;
   /** Informations privées exposées au joueur sur son propre rôle (ex. potions restantes). */

@@ -127,6 +127,28 @@ describe('Nuit', () => {
     }
   });
 
+  it('Voyante : pas de dernière parole à sa mort (les autres rôles en ont une)', () => {
+    const g = setup(['werewolf', 'seer', 'villager', 'villager', 'villager', 'villager']);
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [1]);
+    g.until('SUNRISE');
+    assert.equal(g.alive(1), false);
+    for (let i = 0; i < 20 && g.phase !== 'VOTING'; i++) {
+      assert.notEqual(g.phase, 'DEATH_LAST_WORD', 'la Voyante ne doit pas avoir de dernière parole');
+      g.skip();
+    }
+    // Un villageois éliminé au vote garde sa dernière parole.
+    for (const i of [0, 2, 3, 4, 5]) g.act(i, 'vote', [i === 2 ? 3 : 2]);
+    g.skip();
+    assert.equal(g.phase, 'DEATH_LAST_WORD');
+  });
+
+  it('un seul Loup Noir par partie', () => {
+    const e = GameEngine.create('TEST', T0, seededRng(1));
+    const host = e.join('H', 'h', T0);
+    rejects(() => e.updateSettings(host.id, { roles: { werewolf: 1, black_wolf: 2 } }, T0), 'BAD_SETTINGS');
+  });
+
   it('Sorcière : informée de la victime, pas de potion de mort la 1re nuit, potions uniques', () => {
     const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager']);
     g.until('WEREWOLF_PHASE');

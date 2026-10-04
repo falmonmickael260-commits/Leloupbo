@@ -28,13 +28,13 @@ export function kill(ctx: Ctx, playerId: string, cause: DeathCause): string[] {
   p.deathCause = cause;
   const queue = ctx.state.deathQueue;
 
-  if (cause !== 'abandon') queue.push({ kind: 'last_word', playerId: p.id });
+  if (cause !== 'abandon' && !getRole(p.role)?.noLastWord) queue.push({ kind: 'last_word', playerId: p.id });
   getRole(p.role)?.onDeath?.(ctx, p, cause);
   if (ctx.state.captainId === p.id) {
     ctx.state.captainId = null;
     queue.push({ kind: 'captain_succession', playerId: p.id });
   }
-  tell(ctx, p.id, 'death', '💀 Vous êtes mort. Vous rejoignez le chat des morts après votre dernière parole.');
+  tell(ctx, p.id, 'death', getRole(p.role)?.noLastWord ? '💀 Vous êtes mort. Pas de dernière parole pour votre rôle : vous rejoignez le chat des morts.' : '💀 Vous êtes mort. Vous rejoignez le chat des morts après votre dernière parole.');
 
   // Amoureux : si l'un meurt, l'autre meurt de chagrin.
   const lover = getPlayer(ctx.state, p.loverId);

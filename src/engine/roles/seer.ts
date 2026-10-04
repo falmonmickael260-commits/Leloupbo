@@ -6,10 +6,12 @@ registerRole({
   name: 'Voyante',
   emoji: '🔮',
   team: 'village',
-  description: 'Chaque nuit, elle sonde un joueur et apprend s’il est LOUP ou CIVIL.',
+  description: 'Chaque nuit, elle sonde un joueur et apprend s’il est LOUP ou CIVIL. Pas de dernière parole à sa mort.',
   unique: true,
   distributable: true,
   seerResult: () => 'CIVIL',
+  // Règle de la partie : la Voyante n'a pas de dernière parole quand elle meurt.
+  noLastWord: true,
 });
 
 const STEP = 'seer';
