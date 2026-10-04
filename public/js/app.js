@@ -346,6 +346,7 @@ function renderLobby(v) {
     ${check('captainEnabled', '👑 Élection du Capitaine')}
     ${check('wolvesWinAtParity', '🐺 Victoire des Loups dès que le village ne peut plus gagner')}
     ${check('witchCanSelfSave', 'Sorcière peut se sauver')}
+    ${check('witchNoPoisonFirstNight', 'Sorcière : pas de poison la 1re nuit')}
     ${check('salvateurCanSelfProtect', 'Salvateur peut se protéger')}
     ${check('cupidWinsWithLovers', 'Cupidon gagne avec un couple mixte')}
     ${check('endVoteWhenAllVoted', 'Clore le vote quand tous ont voté')}

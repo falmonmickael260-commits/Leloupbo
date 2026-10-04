@@ -7,7 +7,7 @@ registerRole({
   name: 'Sorcière',
   emoji: '🧪',
   team: 'village',
-  description: 'Elle possède une potion de vie et une potion de mort, utilisables une seule fois chacune. Pas de potion de mort la première nuit.',
+  description: 'Elle possède une potion de vie et une potion de mort, utilisables une seule fois chacune. La même nuit, elle peut réanimer, empoisonner, ou les deux.',
   unique: true,
   distributable: true,
   seerResult: () => 'CIVIL',
@@ -24,10 +24,12 @@ function capabilities(ctx: Parameters<typeof stepData>[0], witchId: string) {
   const d = data(ctx);
   const s = ctx.state.settings;
   const canSave = !!witch.roleData.life && !!d.victim && (s.witchCanSelfSave || d.victim !== witch.id);
-  // Règle : potion de mort interdite la première nuit.
-  const canKill = !!witch.roleData.death && ctx.state.nightNumber > 1;
+  // Option de l'hôte : potion de mort interdite la première nuit.
+  const canKill = !!witch.roleData.death && !(s.witchNoPoisonFirstNight && ctx.state.nightNumber === 1);
   return { canSave, canKill };
 }
+
+const s0 = (ctx: Parameters<typeof stepData>[0]) => ctx.state.settings.witchNoPoisonFirstNight && ctx.state.nightNumber === 1;
 
 registerNightStep({
   id: STEP,
@@ -56,7 +58,7 @@ registerNightStep({
     return {
       action: 'witch',
       title: '🧪 Vos potions',
-      description: ctx.state.nightNumber === 1 ? 'Première nuit : la potion de mort est interdite.' : 'Choisissez une option. Chaque potion ne sert qu’une fois.',
+      description: s0(ctx) ? 'Première nuit : la potion de mort est interdite.' : 'Réanimez, empoisonnez, ou les deux. Chaque potion ne sert qu’une fois.',
       targets: canKill ? alivePlayers(ctx.state).filter((p) => p.id !== actor.id).map((p) => p.id) : [],
       minTargets: 0,
       maxTargets: canKill ? 1 : 0,
