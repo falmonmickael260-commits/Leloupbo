@@ -110,6 +110,15 @@ export function runPipeline(ctx: Ctx): void {
   const s = ctx.state;
   const d = s.settings.durations;
   while (s.deathQueue.length > 0) {
+    // Partie gagnée : fin immédiate (pas de dernière parole ni de discussion), sauf un tir du
+    // Chasseur en attente, qui peut encore changer le vainqueur.
+    if (checkWin(ctx)) {
+      if (!s.deathQueue.some((t) => t.kind === 'hunter_shot')) {
+        s.deathQueue.length = 0;
+        break;
+      }
+      s.deathQueue = s.deathQueue.filter((t) => t.kind === 'hunter_shot');
+    }
     const task = s.deathQueue.shift()!;
     const p = getPlayer(s, task.playerId);
     if (!p || p.abandoned) {

@@ -477,7 +477,7 @@ describe('Jour', () => {
     assert.ok(g.announcements().some((a) => a.includes('Personne n’est éliminé')));
   });
 
-  it('Chasseur : tire à sa mort et la victime a aussi sa dernière parole', () => {
+  it('Chasseur : dernière parole, tir à sa mort ; s’il abat le dernier loup, fin immédiate', () => {
     const g = toDay();
     g.until('VOTING');
     for (const i of [0, 2, 3, 4]) g.act(i, 'vote', [1]);
@@ -490,8 +490,46 @@ describe('Jour', () => {
     rejects(() => g.act(2, 'hunter_shot', [0]), 'NOT_YOUR_TURN');
     g.act(1, 'hunter_shot', [0]);
     assert.equal(g.alive(0), false);
+    // Le village a gagné : pas de dernière parole pour le loup, la partie est finie.
+    assert.equal(g.phase, 'GAME_OVER');
+    assert.equal(g.engine.state.winner!.camp, 'village');
+  });
+
+  it('victoire au vote : fin immédiate, sans dernière parole', () => {
+    const g = setup(['werewolf', 'villager', 'villager', 'villager', 'villager']);
+    g.until('VOTING');
+    for (const i of [1, 2, 3, 4]) g.act(i, 'vote', [0]);
+    g.act(0, 'vote', [1]);
+    g.skip(); // résultat du vote
+    assert.equal(g.phase, 'GAME_OVER');
+    assert.equal(g.engine.state.winner!.camp, 'village');
+  });
+
+  it('victoire des loups la nuit : fin au lever du jour, sans dernière parole', () => {
+    const g = setup(['werewolf', 'werewolf', 'villager', 'villager', 'villager'], { wolvesWinAtParity: true });
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [2]);
+    g.act(1, 'wolf_vote', [2]);
+    g.until('SUNRISE');
+    g.skip();
+    assert.equal(g.phase, 'GAME_OVER');
+    assert.equal(g.engine.state.winner!.camp, 'wolves');
+  });
+
+  it('le dernier mort est le Chasseur : son tir peut encore changer le vainqueur', () => {
+    // 1 loup, Chasseur, 1 villageois : le Chasseur est éliminé (1 contre 1 = parité) mais tire sur le loup.
+    const g = setup(['werewolf', 'hunter', 'villager', 'villager'], { wolvesWinAtParity: true });
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [3]);
+    g.until('VOTING');
+    for (const i of [0, 2]) g.act(i, 'vote', [1]);
+    g.act(1, 'vote', [0]);
+    g.skip();
+    // Rien n'est joué (son tir compte) : il garde sa dernière parole, puis tire.
     assert.equal(g.phase, 'DEATH_LAST_WORD');
-    g.act(0, 'finish');
+    g.act(1, 'finish');
+    assert.equal(g.phase, 'HUNTER_SHOT');
+    g.act(1, 'hunter_shot', [0]);
     assert.equal(g.phase, 'GAME_OVER');
     assert.equal(g.engine.state.winner!.camp, 'village');
   });
