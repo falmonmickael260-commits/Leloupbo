@@ -807,7 +807,7 @@ describe('Loup Noir', () => {
   it('INFECTER : la victime survit, garde son rôle, rejoint secrètement la meute ; Voyante → LOUP', () => {
     const g = night1();
     g.cmd(0, { action: 'wolf_vote', targets: [g.ids[4]], option: 'infect' });
-    g.act(1, 'wolf_vote', [4]);
+    rejects(() => g.act(1, 'wolf_vote', [5]), 'LOCKED'); // choix terminé
     g.until('SUNRISE');
     const victim = g.engine.state.players[4];
     assert.equal(victim.alive, true);
@@ -866,6 +866,28 @@ describe('Loup Noir', () => {
     g.until('SUNRISE');
     assert.equal(g.engine.state.players[5].alive, false);
     assert.equal(g.engine.state.players[0].roleData.infect, true);
+  });
+
+  it('INFECTER avec 40 s restantes : le serveur valide, il ne reste que 5 s, même si le Loup Noir se déconnecte', () => {
+    const g = night1();
+    const s = g.engine.state;
+    s.phase.endsAt = g.now + 40_000;
+    g.act(1, 'wolf_vote', [5]); // l'autre loup veut une autre cible
+    g.act(0, 'wolf_vote', [4]);
+    g.cmd(0, { action: 'wolf_vote', targets: [], option: 'infect' });
+    assert.equal(s.phase.endsAt! - g.now, 5000);
+    const lock = (g.view(1).prompt!.info as any).blackWolf;
+    assert.deepEqual([lock.locked, lock.targetName], [true, 'P4']);
+    assert.equal(g.view(0).prompt!.options, undefined, 'plus de boutons après confirmation');
+    // Le Loup Noir perd sa connexion : la minuterie du serveur continue.
+    g.engine.setConnected(g.ids[0], false, g.now);
+    assert.equal(g.engine.nextDeadline(), g.now + 5000);
+    g.skip();
+    assert.notEqual(g.phase, 'WEREWOLF_PHASE');
+    assert.equal(s.players[4].infected, true, 'la cible du Loup Noir est infectée');
+    assert.equal(s.players[5].alive, true, 'pas d’attaque en plus');
+    g.until('SUNRISE');
+    assert.equal(s.players[4].alive, true);
   });
 
   it('TUER : la victime meurt normalement et le pouvoir reste disponible', () => {

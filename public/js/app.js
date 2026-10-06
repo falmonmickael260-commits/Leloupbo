@@ -856,7 +856,10 @@ function renderAction(v) {
       const votes = (p.info?.packVotes ?? []).filter((w) => w.targetName);
       if (votes.length) html += `<p class="wolf-votes">${votes.map((w) => `🐺 ${esc(w.wolfName)} → <b>${esc(w.targetName)}</b>`).join(' · ')}</p>`;
       const bw = p.info?.blackWolf;
-      if (p.options?.length) {
+      if (bw?.locked) {
+        // Infection confirmée : le serveur termine la phase dans 5 s (compte à rebours en haut).
+        html += `<div class="infect-lock">🖤 <b>INFECTION EN COURS…</b><br>${esc(bw.targetName)} va rejoindre la meute.</div>`;
+      } else if (p.options?.length) {
         // Loup Noir : TUER ou INFECTER (une seule fois dans la partie).
         html += `<div class="row black-wolf">${p.options
           .map((o) => `<button class="btn ${bw?.mode === o.id ? 'btn-gold' : ''}" data-bw="${esc(o.id)}">${esc(o.label)}</button>`)

@@ -17,7 +17,13 @@ registerRole({
 });
 
 export const WOLVES_STEP = 'werewolves';
-type WolvesData = { votes: Record<string, string>; target: string | null; mode?: 'kill' | 'infect' };
+type WolvesData = {
+  votes: Record<string, string>;
+  target: string | null;
+  mode?: 'kill' | 'infect';
+  /** Infection confirmée par le Loup Noir : cible verrouillée, fin de phase dans 5 s (serveur). */
+  infectTarget?: string;
+};
 /**
  * Loup Noir en jeu (infection disponible) : quand la meute est d'accord, la nuit se termine après
  * ce délai FIXE, quel que soit son choix. La durée de la phase ne trahit donc jamais une infection,
@@ -57,13 +63,15 @@ registerNightStep({
       minTargets: 1,
       maxTargets: 1,
       submitted: !!d.votes[actor.id],
-      canChange: true,
+      canChange: !d.infectTarget,
       current: d.votes[actor.id] ? [d.votes[actor.id]] : [],
       // Loup Noir (pouvoir disponible) : choix TUER / INFECTER, visible de toute la meute.
-      options: infector(ctx)?.id === actor.id ? [{ id: 'kill', label: '🐺 TUER' }, { id: 'infect', label: '🖤 INFECTER' }] : undefined,
+      options: infector(ctx)?.id === actor.id && !d.infectTarget ? [{ id: 'kill', label: '🐺 TUER' }, { id: 'infect', label: '🖤 INFECTER' }] : undefined,
       info: {
         // mode null : le Loup Noir n'a pas encore choisi (TUER par défaut à la fin du temps).
-        blackWolf: infector(ctx) ? { id: infector(ctx)!.id, name: infector(ctx)!.name, mode: d.mode ?? null } : null,
+        blackWolf: infector(ctx)
+          ? { id: infector(ctx)!.id, name: infector(ctx)!.name, mode: d.mode ?? null, locked: !!d.infectTarget, targetName: d.infectTarget ? playerName(ctx.state, d.infectTarget) : null }
+          : null,
         packVotes: pack.map((w) => ({ wolfId: w.id, wolfName: w.name, targetId: d.votes[w.id] ?? null, targetName: d.votes[w.id] ? playerName(ctx.state, d.votes[w.id]) : null })),
       },
     };
@@ -71,18 +79,29 @@ registerNightStep({
   handle(ctx, actor, cmd) {
     const p = this.prompt(ctx, actor)!;
     const d = data(ctx);
+    if (d.infectTarget) fail('LOCKED', 'Le Loup Noir a lancé l’infection : le choix est terminé.');
     if (cmd.option === 'kill' || cmd.option === 'infect') {
       if (infector(ctx)?.id !== actor.id) fail('BAD_OPTION', 'Seul le Loup Noir peut infecter.');
-      d.mode = cmd.option;
-      if (!Array.isArray(cmd.targets) || cmd.targets.length === 0) return; // simple changement de mode
+      d.mode = cmd.option; // sans cible : simple changement de mode (ou confirmation, voir plus bas)
     }
-    const [target] = validateTargets(cmd.targets, p.targets, 1, 1);
-    d.votes[actor.id] = target;
-    if (infector(ctx) && unanimous(this.actors(ctx), d.votes)) {
+    if (!cmd.option || (Array.isArray(cmd.targets) && cmd.targets.length > 0)) {
+      const [target] = validateTargets(cmd.targets, p.targets, 1, 1);
+      d.votes[actor.id] = target;
+    }
+    const black = infector(ctx);
+    if (!black) return;
+    const shorten = () => {
       const ph = ctx.state.phase;
       const end = ctx.now + BLACK_WOLF_GRACE_MS;
       if (ph.endsAt === null || ph.endsAt > end) ph.endsAt = end;
-    }
+    };
+    // INFECTER confirmé sur une cible : choix verrouillé, fin de la phase 5 s plus tard (minuterie
+    // du SERVEUR : elle se termine même si le Loup Noir ferme sa page). La cible ne devient infectée
+    // qu'à la fin de la phase, pour qu'elle ne rejoigne pas la meute (écran, micro) en pleine discussion.
+    if (actor.id === black.id && d.mode === 'infect' && d.votes[black.id]) {
+      d.infectTarget = d.votes[black.id];
+      shorten();
+    } else if (unanimous(this.actors(ctx), d.votes)) shorten(); // meute d'accord (TUER) : même délai
   },
   isComplete(ctx) {
     // Avec un Loup Noir qui peut infecter : fin au délai fixe (voir BLACK_WOLF_GRACE_MS), jamais avant.
@@ -100,6 +119,11 @@ registerNightStep({
     const { leaders } = tally(valid);
     d.target = leaders.length ? shuffle(leaders, ctx.rng)[0] : null;
     const black = infector(ctx);
+    // Infection verrouillée : c'est la cible du Loup Noir, quel que soit le vote des autres.
+    if (black && d.infectTarget && ctx.state.players.find((p) => p.id === d.infectTarget && p.alive && !isWolfPack(p))) {
+      d.target = d.infectTarget;
+      d.mode = 'infect';
+    }
     if (d.target && black && d.mode === 'infect') {
       // INFECTION : la victime ne meurt pas, garde son rôle et rejoint secrètement la meute.
       const victim = ctx.state.players.find((p) => p.id === d.target)!;
