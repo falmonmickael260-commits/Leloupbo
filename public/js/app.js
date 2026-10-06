@@ -597,8 +597,8 @@ board.addEventListener('pick', (e) => {
   if (p.action === 'witch') {
     const ids = (p.options ?? []).map((o) => o.id);
     const option = ui.witchSave && ids.includes('save_kill') ? 'save_kill' : 'kill';
-    if (!ids.includes(option)) return;
-    safe(client.command('witch', [id], option));
+    if (!ids.includes(option)) return toast(ids.includes('save') && !ids.includes('kill') ? '☠️ Pas de potion de mort cette nuit (1re nuit).' : '☠️ Potion de mort indisponible.');
+    witchCommand([id], option);
     return;
   }
   // Une seule cible (vote, loups, Voyante, Salvateur, Chasseur…) : on touche, c'est validé.
@@ -778,6 +778,22 @@ const TAP_HINTS = {
   cupid: '💘 Touche les deux joueurs à unir',
 };
 
+/** Sorcière : confirmation de ce que le SERVEUR a validé (ou erreur bien visible). */
+function witchCommand(targets, option) {
+  const v = client.view;
+  const target = targets[0] ? nameOf(v, targets[0]) : null;
+  const victim = v?.prompt?.info?.victimName;
+  client
+    .command('witch', targets, option)
+    .then(() => {
+      const msgs = [];
+      if (option === 'save' || option === 'save_kill') msgs.push(`💚 ${victim} est sauvé(e)`);
+      if (target) msgs.push(`☠️ ${target} est empoisonné(e) : mort(e) au lever du jour`);
+      toast(msgs.length ? `${msgs.join(' · ')} ✔` : '🧪 Aucune potion utilisée ✔');
+    })
+    .catch((e) => toast(`⚠️ Potion NON utilisée : ${e.message}`));
+}
+
 function renderAction(v) {
   const el = $('action');
   const p = v.prompt;
@@ -883,7 +899,7 @@ function renderAction(v) {
           ui.witchPoison = w === 'poison-pick';
           return render();
         }
-        safe(client.command('witch', [], w));
+        witchCommand([], w);
       }),
   );
   const th = $('btn-thief');

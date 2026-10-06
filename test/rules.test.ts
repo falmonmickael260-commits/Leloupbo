@@ -911,3 +911,78 @@ describe('Loup Noir', () => {
   });
 });
 
+
+describe('Sorcière — poison (le serveur est la seule source de vérité)', () => {
+  const allow = { witchNoPoisonFirstNight: false };
+  function witchNight(roles: RoleId[], victim: number) {
+    const g = setup(roles, allow);
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [victim]);
+    g.until('WITCH_PHASE');
+    return g;
+  }
+
+  it('TEST 1 et 5 : la cible meurt réellement, la potion est consommée pour toujours (même après redémarrage)', () => {
+    const g = witchNight(['werewolf', 'witch', 'villager', 'villager', 'villager', 'villager'], 2);
+    g.act(1, 'witch', [3], 'kill');
+    assert.equal(g.engine.state.players[1].roleData.death, false, 'potion consommée dès la validation');
+    rejects(() => g.act(1, 'witch', [4], 'kill')); // impossible de rejouer
+    g.until('SUNRISE');
+    assert.equal(g.alive(3), false);
+    assert.ok(g.view(5).players.find((p) => p.id === g.ids[3])!.alive === false, 'mort visible par tous');
+    // Redémarrage du serveur : état rechargé depuis la sauvegarde → potion toujours utilisée.
+    const restored = new GameEngine(JSON.parse(JSON.stringify(g.engine.state)), seededRng(3));
+    assert.equal(restored.state.players[1].roleData.death, false);
+    assert.equal(restored.state.players[3].alive, false);
+  });
+
+  it('TEST 2 et 4 : Sorcière ou cible déconnectée juste après le poison → la mort est quand même appliquée', () => {
+    const g = witchNight(['werewolf', 'witch', 'villager', 'villager', 'villager', 'villager'], 2);
+    g.act(1, 'witch', [3], 'kill');
+    g.engine.setConnected(g.ids[1], false, g.now); // la Sorcière perd sa connexion
+    g.engine.setConnected(g.ids[3], false, g.now); // la cible aussi
+    g.until('SUNRISE');
+    assert.equal(g.alive(3), false);
+    g.engine.setConnected(g.ids[3], true, g.now); // la cible revient
+    const v = g.view(3);
+    assert.equal(v.me.alive, false, 'reconnue comme MORTE à son retour');
+    assert.equal(v.voice.canSpeak, false);
+  });
+
+  it('TEST 3 : poison + attaque des Loups + Salvateur + potion de vie la même nuit : rien n’est écrasé', () => {
+    const g = setup(['werewolf', 'witch', 'salvateur', 'villager', 'villager', 'villager', 'villager'], allow);
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [3]);
+    g.until('SALVATION_PHASE');
+    g.act(2, 'protect', [4]); // le Salvateur protège P4… que la Sorcière empoisonne
+    g.until('WITCH_PHASE');
+    g.act(1, 'witch', [4], 'save_kill'); // sauve P3 (victime des Loups) ET empoisonne P4
+    g.until('SUNRISE');
+    assert.equal(g.alive(3), true, 'sauvé par la potion de vie');
+    assert.equal(g.alive(4), false, 'le Salvateur ne protège pas du poison');
+    assert.ok(g.engine.state.nightLog!.some((l) => l.includes('empoisonne P4')));
+  });
+
+  it('TEST 14 : la Sorcière empoisonne le Chasseur → il tire', () => {
+    const g = witchNight(['werewolf', 'witch', 'hunter', 'villager', 'villager', 'villager', 'villager'], 3);
+    g.act(1, 'witch', [2], 'kill');
+    g.until('HUNTER_SHOT');
+    assert.equal(g.alive(2), false);
+    g.act(2, 'hunter_shot', [0]);
+    assert.equal(g.alive(0), false);
+  });
+
+  it('TEST 15 : la Sorcière empoisonne un amoureux → son partenaire meurt de chagrin', () => {
+    const g = setup(['werewolf', 'witch', 'cupid', 'villager', 'villager', 'villager', 'villager'], allow);
+    g.until('CUPID_PHASE');
+    g.act(2, 'cupid', [3, 4]);
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [5]);
+    g.until('WITCH_PHASE');
+    g.act(1, 'witch', [3], 'kill');
+    g.until('SUNRISE');
+    assert.equal(g.alive(3), false);
+    assert.equal(g.alive(4), false, 'mort de chagrin');
+    assert.ok(g.announcements().some((a) => a.includes('P3') && a.includes('P4')));
+  });
+});
