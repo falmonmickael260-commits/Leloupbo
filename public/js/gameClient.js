@@ -33,12 +33,18 @@ export class GameClient extends EventTarget {
     });
     this.socket.on('connect', () => {
       this.#setStatus('connected');
-      // Reconnexion automatique : on reprend la session enregistrée.
-      if (this.session) this.resume().catch(() => {});
+      // Reconnexion automatique : on reprend la session enregistrée (le serveur renvoie l'état complet).
+      if (this.session) this.#resumeWithRetry();
     });
-    this.socket.on('disconnect', () => this.#setStatus('disconnected'));
+    this.#watchWake();
+    this.socket.on('disconnect', () => {
+      // Vue périmée tant que le serveur n'a pas renvoyé l'état actuel (voix coupée en attendant).
+      this.stale = true;
+      this.#setStatus('disconnected');
+    });
     this.socket.io.on('reconnect_attempt', () => this.#setStatus('reconnecting'));
     this.socket.on('view', (v) => {
+      this.stale = false;
       this.clockOffset = v.serverNow - Date.now();
       this.view = v;
       this.dispatchEvent(new CustomEvent('view', { detail: v }));
@@ -48,6 +54,38 @@ export class GameClient extends EventTarget {
       this.view = null;
       this.dispatchEvent(new CustomEvent('kicked', { detail: reason }));
     });
+  }
+
+  /** Reprise de session : réessaie tant que l'échec est passager (réseau lent, serveur qui redémarre). */
+  #resumeWithRetry(attempt = 0) {
+    this.resume().catch((e) => {
+      if (['NO_SESSION', 'NO_GAME', 'ABANDONED'].includes(e?.code) || !this.session) return;
+      if (this.socket.connected && attempt < 10) setTimeout(() => this.#resumeWithRetry(attempt + 1), 1500);
+    });
+  }
+
+  /**
+   * Retour rapide après une coupure : téléphone qui se rallume, onglet remis au premier plan,
+   * réseau retrouvé (Wi-Fi ↔ 4G/5G). Sans attendre les délais de reconnexion automatiques.
+   * Après une longue mise en arrière-plan, la connexion peut être « morte » sans le savoir :
+   * on en ouvre une neuve et le serveur renvoie l'état complet de la partie.
+   */
+  #watchWake() {
+    if (typeof document === 'undefined') return;
+    let hiddenAt = 0;
+    const wake = (force) => {
+      if (!this.socket.connected) this.socket.connect();
+      else if (force && this.session) {
+        this.stale = true;
+        this.socket.disconnect().connect();
+      }
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') hiddenAt = Date.now();
+      else wake(hiddenAt > 0 && Date.now() - hiddenAt > 15_000);
+    });
+    window.addEventListener('online', () => wake(true));
+    window.addEventListener('pageshow', (e) => e.persisted && wake(true));
   }
 
   // ---------------------------------------------------------------- session

@@ -67,18 +67,39 @@ interface Perm {
   canSubscribe: boolean;
 }
 
+/** Sous-ensemble de l'API serveur LiveKit utilisé ici (remplaçable dans les tests). */
+export interface RoomApi {
+  listRooms(): Promise<unknown>;
+  listParticipants(room: string): Promise<{ identity: string; permission?: { canPublish?: boolean; canSubscribe?: boolean } }[]>;
+  updateParticipant(room: string, identity: string, opts: { permission: { canPublish: boolean; canSubscribe: boolean; canPublishData: boolean } }): Promise<unknown>;
+  removeParticipant(room: string, identity: string): Promise<unknown>;
+  deleteRoom(room: string): Promise<unknown>;
+}
+
+/** Durée de validité d'un accès audio : courte, un vieux jeton ne doit jamais rouvrir l'écoute. */
+export const VOICE_TOKEN_TTL_S = 10 * 60;
+
+/**
+ * Sécurité du canal des Loups : le serveur ne se fie à AUCUNE mémoire de ce qu'il a accordé.
+ * Il relit la liste RÉELLE des participants LiveKit (et leurs droits effectifs) et corrige tout
+ * écart : à chaque changement d'état, puis chaque seconde pendant la phase des Loups.
+ * Couvre les reconnexions, les vieux jetons, plusieurs onglets, un client modifié…
+ */
 export class LiveKitBridge {
-  private readonly rooms: RoomServiceClient;
-  /** Dernières permissions appliquées, par partie puis par joueur. */
-  private readonly applied = new Map<string, Map<string, string>>();
+  private readonly rooms: RoomApi;
   private readonly pending = new Map<string, NodeJS.Timeout>();
   private readonly retries = new Map<string, number>();
+  private readonly running = new Set<string>();
+  private readonly lastEnforced = new Map<string, number>();
   /** Dernier contrôle du serveur audio : null = pas encore vérifié. */
   health: { ok: boolean | null; error?: string; checkedAt?: string } = { ok: null };
 
-  constructor(private readonly cfg: SfuConfig) {
+  constructor(
+    private readonly cfg: SfuConfig,
+    rooms?: RoomApi,
+  ) {
     const host = cfg.url.replace(/^ws(s?):\/\//, 'http$1://');
-    this.rooms = new RoomServiceClient(host, cfg.apiKey, cfg.apiSecret);
+    this.rooms = rooms ?? (new RoomServiceClient(host, cfg.apiKey, cfg.apiSecret) as unknown as RoomApi);
   }
 
   /**
@@ -108,17 +129,21 @@ export class LiveKitBridge {
     return `blackops-${code}`;
   }
 
-  /** Droits LiveKit d'un joueur pour la phase en cours (voir l'en-tête : stabilité + confidentialité). */
+  /**
+   * Droits LiveKit d'un joueur, calculés UNIQUEMENT à partir de l'état du serveur (rôle, camp,
+   * infection, vivant/mort, phase). canSubscribe = false pendant la phase des Loups pour tout
+   * joueur qui n'est pas dans la meute vivante : il ne reçoit alors AUCUN flux audio.
+   */
   permissionsFor(engine: GameEngine, playerId: string): Perm {
     const ch = voiceChannel(engine.state);
     const privateChannel = ch.mode === 'wolves';
     return { canPublish: true, canSubscribe: !privateChannel || ch.listeners.includes(playerId) };
   }
 
-  /** Jeton d'accès LiveKit (valable 4 h) avec les permissions actuelles du joueur. */
+  /** Jeton d'accès LiveKit (10 min) : identité = joueur authentifié par sa session, droits actuels. */
   async token(engine: GameEngine, playerId: string, name: string): Promise<{ url: string; token: string }> {
     const perm = this.permissionsFor(engine, playerId);
-    const at = new AccessToken(this.cfg.apiKey, this.cfg.apiSecret, { identity: playerId, name, ttl: 4 * 3600 });
+    const at = new AccessToken(this.cfg.apiKey, this.cfg.apiSecret, { identity: playerId, name, ttl: VOICE_TOKEN_TTL_S });
     at.addGrant({
       roomJoin: true,
       room: this.roomName(engine.state.code),
@@ -127,65 +152,81 @@ export class LiveKitBridge {
       canPublishData: false,
       canUpdateOwnMetadata: false,
     });
-    // L'état « appliqué » d'un nouvel arrivant est celui de son jeton.
-    this.remember(engine.state.code, playerId, perm);
+    // Contrôle rapproché : le joueur va arriver dans la salle audio d'un instant à l'autre.
+    this.lastEnforced.delete(engine.state.code);
     return { url: this.cfg.url, token: await at.toJwt() };
   }
 
-  private remember(code: string, playerId: string, perm: Perm): void {
-    let m = this.applied.get(code);
-    if (!m) this.applied.set(code, (m = new Map()));
-    m.set(playerId, `${perm.canPublish}|${perm.canSubscribe}`);
-  }
-
-  /**
-   * Applique les permissions de la phase en cours à tous les participants
-   * connectés à LiveKit. Appelé après chaque changement d'état ; n'appelle
-   * l'API que pour les joueurs dont les droits ont réellement changé.
-   */
+  /** Après chaque changement d'état : contrôle complet (regroupé si plusieurs transitions d'affilée). */
   sync(engine: GameEngine): void {
     const code = engine.state.code;
     clearTimeout(this.pending.get(code));
-    // Regroupe les changements très rapprochés (plusieurs transitions d'affilée).
     this.pending.set(
       code,
       setTimeout(() => {
         this.pending.delete(code);
-        this.flush(engine).then(
-          () => this.retries.delete(code),
-          (e) => {
-            // Échec (réseau…) : on réessaie, sinon un joueur pourrait rester sourd toute une phase.
-            const n = (this.retries.get(code) ?? 0) + 1;
-            this.retries.set(code, n);
-            console.warn(`[livekit] synchronisation des permissions (essai ${n}) :`, e?.message ?? e);
-            if (n <= 8) setTimeout(() => this.sync(engine), Math.min(10_000, 500 * 2 ** n)).unref?.();
-          },
-        );
+        void this.enforceNow(engine);
       }, 40),
     );
   }
 
-  private async flush(engine: GameEngine): Promise<void> {
+  /**
+   * Appelé chaque seconde par le serveur : contrôle toutes les secondes pendant la phase des
+   * Loups (canal privé), toutes les 10 s sinon (ou tout de suite après un nouveau jeton).
+   */
+  enforce(engine: GameEngine, now = Date.now()): void {
     const code = engine.state.code;
-    const known = this.applied.get(code);
-    if (!known || known.size === 0) return;
-    const room = this.roomName(code);
+    const every = voiceChannel(engine.state).mode === 'wolves' ? 1000 : 10_000;
+    if (now - (this.lastEnforced.get(code) ?? 0) < every) return;
+    void this.enforceNow(engine, now);
+  }
+
+  /** Compare les droits RÉELS de chaque participant LiveKit aux droits dus, et corrige. */
+  async enforceNow(engine: GameEngine, now = Date.now()): Promise<void> {
+    const code = engine.state.code;
+    if (this.running.has(code)) return;
+    this.running.add(code);
+    this.lastEnforced.set(code, now);
+    try {
+      await this.reconcile(engine);
+      this.retries.delete(code);
+    } catch (e) {
+      const n = (this.retries.get(code) ?? 0) + 1;
+      this.retries.set(code, n);
+      console.warn(`[livekit] contrôle des droits audio (essai ${n}) :`, (e as Error)?.message ?? e);
+      this.lastEnforced.delete(code); // nouvel essai à la prochaine seconde
+    } finally {
+      this.running.delete(code);
+    }
+  }
+
+  private async reconcile(engine: GameEngine): Promise<void> {
+    const room = this.roomName(engine.state.code);
+    let participants: Awaited<ReturnType<RoomApi['listParticipants']>>;
+    try {
+      participants = await this.rooms.listParticipants(room);
+    } catch (e) {
+      if (/not found|does not exist|404/i.test(String((e as Error)?.message ?? e))) return; // personne en audio
+      throw e;
+    }
     const failures: unknown[] = [];
     await Promise.all(
-      [...known.keys()].map(async (playerId) => {
-        const perm = this.permissionsFor(engine, playerId);
-        const key = `${perm.canPublish}|${perm.canSubscribe}`;
-        if (known.get(playerId) === key) return;
+      participants.map(async (part) => {
+        const player = engine.state.players.find((p) => p.id === part.identity);
         try {
-          await this.rooms.updateParticipant(room, playerId, {
+          // Connexion audio qui ne correspond à aucun joueur actif de la partie : expulsée.
+          if (!player || player.abandoned || player.isBot) {
+            await this.rooms.removeParticipant(room, part.identity);
+            return;
+          }
+          const perm = this.permissionsFor(engine, player.id);
+          const actual = part.permission ?? {};
+          if (actual.canSubscribe === perm.canSubscribe && actual.canPublish === perm.canPublish) return;
+          await this.rooms.updateParticipant(room, part.identity, {
             permission: { canPublish: perm.canPublish, canSubscribe: perm.canSubscribe, canPublishData: false },
           });
-          known.set(playerId, key);
         } catch (e) {
-          // Joueur pas (encore / plus) dans la salle audio : son prochain jeton portera les bons droits.
-          const msg = String((e as Error)?.message ?? e);
-          if (/not found|does not exist|404/i.test(msg)) known.delete(playerId);
-          else failures.push(e); // les autres joueurs sont quand même mis à jour
+          if (!/not found|does not exist|404/i.test(String((e as Error)?.message ?? e))) failures.push(e); // parti entre-temps : rien à faire
         }
       }),
     );
@@ -195,8 +236,8 @@ export class LiveKitBridge {
   forget(code: string): void {
     clearTimeout(this.pending.get(code));
     this.pending.delete(code);
-    this.applied.delete(code);
     this.retries.delete(code);
+    this.lastEnforced.delete(code);
     this.rooms.deleteRoom(this.roomName(code)).catch(() => {});
   }
 }

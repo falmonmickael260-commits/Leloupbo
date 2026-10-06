@@ -34,6 +34,11 @@ export class VoiceSFU extends EventTarget {
     this.audioEls = new Map();
     this.talking = new Set();
     this.onView = () => this.applyPermissions();
+    // Connexion au jeu perdue : l'état connu peut être périmé (la phase a pu changer) → personne
+    // n'est audible jusqu'au prochain état envoyé par le serveur.
+    client.addEventListener('status', (e) => {
+      if (e.detail !== 'connected') this.applyPermissions();
+    });
   }
 
   async start(join) {
@@ -145,6 +150,8 @@ export class VoiceSFU extends EventTarget {
     if (old?.lkTrack === track) return;
     old?.remove();
     const el = track.attach();
+    // Muet par défaut : audible seulement si le serveur m'autorise à entendre ce joueur (hearFrom).
+    el.muted = !!this.client.stale || !this.client.view?.voice?.hearFrom?.includes(identity);
     el.lkTrack = track;
     el.setAttribute('playsinline', '');
     el.autoplay = true;
@@ -243,9 +250,18 @@ export class VoiceSFU extends EventTarget {
   }
 
   applyPermissions() {
-    const v = this.client.view?.voice;
+    const v = this.client.stale ? null : this.client.view?.voice;
     const room = this.room;
-    if (!v || !room || !this.active) return;
+    // État de la partie inconnu ou périmé (reconnexion en cours) : on n'entend personne.
+    if (!v) {
+      for (const el of this.audioEls.values()) el.muted = true;
+      if (room && this.active && this.micOn) {
+        this.micOn = false; // et mon micro reste fermé
+        this.#syncMic();
+      }
+      return;
+    }
+    if (!room || !this.active) return;
     // Micro ouvert seulement quand le serveur donne la parole ; la piste, elle, reste publiée.
     const allowed = !!this.micTrack && v.canSpeak && !this.selfMuted;
     this.micOn = allowed;

@@ -78,7 +78,8 @@ export function defaultSettings(): GameSettings {
     autoWolves: true,
     map: DEFAULT_MAP,
     simulateInactiveSteps: false,
-    abandonTimeoutMs: 3 * 60 * S,
+    // Joueur absent (téléphone en veille, réseau coupé…) gardé dans la partie 10 min avant d'être considéré parti.
+    abandonTimeoutMs: 10 * 60 * S,
     maxDays: 40,
   };
 }

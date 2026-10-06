@@ -205,3 +205,76 @@ describe('Voix — serveur audio LiveKit', () => {
     Object.assign(console, quiet);
   });
 });
+
+describe('Voix — sécurité du canal des Loups (serveur = seule source de vérité)', () => {
+  /** Faux serveur LiveKit : participants réellement connectés et leurs droits effectifs. */
+  function fakeLiveKit(participants: { identity: string; permission: { canPublish: boolean; canSubscribe: boolean } }[]) {
+    const calls: string[] = [];
+    const api = {
+      listRooms: async () => [],
+      listParticipants: async () => participants.map((p) => ({ ...p, permission: { ...p.permission } })),
+      updateParticipant: async (_room: string, identity: string, o: { permission: { canPublish: boolean; canSubscribe: boolean } }) => {
+        calls.push(`update ${identity} sub=${o.permission.canSubscribe}`);
+        const p = participants.find((x) => x.identity === identity)!;
+        p.permission = { canPublish: o.permission.canPublish, canSubscribe: o.permission.canSubscribe };
+      },
+      removeParticipant: async (_room: string, identity: string) => {
+        calls.push(`remove ${identity}`);
+        participants.splice(participants.findIndex((x) => x.identity === identity), 1);
+      },
+      deleteRoom: async () => undefined,
+    };
+    return { api, calls, participants };
+  }
+
+  it('Civil reconnecté avec un vieux droit d’écoute, intrus, joueur parti : corrigés pendant la phase des Loups', async () => {
+    const { LiveKitBridge } = await import('../src/server/voiceSfu.ts');
+    const { setup } = await import('./helpers.ts');
+    const g = setup(['werewolf', 'werewolf', 'villager', 'villager', 'villager']);
+    g.engine.state.players[4].abandoned = true;
+    const lk = fakeLiveKit([
+      { identity: g.ids[0], permission: { canPublish: true, canSubscribe: true } }, // loup : OK
+      { identity: g.ids[2], permission: { canPublish: true, canSubscribe: true } }, // civil revenu avec un jeton du jour
+      { identity: 'intrus', permission: { canPublish: true, canSubscribe: true } }, // identité inconnue
+      { identity: g.ids[4], permission: { canPublish: true, canSubscribe: true } }, // joueur qui a quitté la partie
+    ]);
+    const bridge = new LiveKitBridge({ url: 'ws://x', apiKey: 'devkey', apiSecret: 'secret-de-test-assez-long-pour-hs256' }, lk.api);
+    g.until('WEREWOLF_PHASE');
+    await bridge.enforceNow(g.engine);
+    assert.deepEqual(lk.calls.sort(), [`remove ${g.ids[4]}`, 'remove intrus', `update ${g.ids[2]} sub=false`].sort());
+    assert.equal(lk.participants.find((p) => p.identity === g.ids[0])!.permission.canSubscribe, true);
+    // Contrôle suivant : plus rien à corriger.
+    lk.calls.length = 0;
+    await bridge.enforceNow(g.engine);
+    assert.deepEqual(lk.calls, []);
+    // Un civil qui revient en pleine phase des Loups reçoit un jeton SANS droit d'écoute.
+    const { token } = await bridge.token(g.engine, g.ids[3], 'P3');
+    const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+    assert.equal(claims.video.canSubscribe, false);
+    assert.ok(claims.exp - claims.nbf <= 10 * 60 + 5, 'jeton audio de 10 min maximum');
+    // Le contrôle est fait chaque seconde pendant la phase des Loups.
+    lk.participants.find((p) => p.identity === g.ids[2])!.permission.canSubscribe = true; // client modifié / vieux jeton
+    bridge.enforce(g.engine, Date.now() + 1500);
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(lk.participants.find((p) => p.identity === g.ids[2])!.permission.canSubscribe, false);
+  });
+
+  it('droits recalculés depuis l’état du serveur : loup mort, civil infecté, rôle « déclaré » par le client ignoré', async () => {
+    const { LiveKitBridge } = await import('../src/server/voiceSfu.ts');
+    const { setup } = await import('./helpers.ts');
+    const g = setup(['black_wolf', 'werewolf', 'villager', 'villager', 'villager', 'villager', 'villager', 'villager', 'villager']);
+    const bridge = new LiveKitBridge({ url: 'ws://x', apiKey: 'devkey', apiSecret: 'secret-de-test-assez-long-pour-hs256' }, fakeLiveKit([]).api);
+    g.until('WEREWOLF_PHASE');
+    assert.equal(bridge.permissionsFor(g.engine, g.ids[2]).canSubscribe, false, 'civil : aucun son des Loups');
+    // Infection du civil P2 : il rejoint le canal des Loups à la nuit suivante (décidé par le serveur).
+    g.cmd(0, { action: 'wolf_vote', targets: [g.ids[2]], option: 'infect' });
+    g.until('VOTING');
+    for (let i = 0; i < 9; i++) g.act(i, 'vote', [i === 1 ? 3 : 1]); // le loup P1 est éliminé
+    g.until('WEREWOLF_PHASE');
+    assert.equal(bridge.permissionsFor(g.engine, g.ids[2]).canSubscribe, true, 'infecté : canal des Loups');
+    assert.equal(bridge.permissionsFor(g.engine, g.ids[1]).canSubscribe, false, 'loup mort : plus d’accès');
+    assert.equal(bridge.permissionsFor(g.engine, g.ids[3]).canSubscribe, false, 'civil');
+    // Un client ne peut rien « déclarer » : le rôle vient uniquement de l'état du serveur.
+    assert.throws(() => g.cmd(3, { action: 'wolf_vote', targets: [g.ids[4]] }));
+  });
+});
