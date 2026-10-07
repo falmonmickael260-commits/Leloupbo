@@ -548,7 +548,7 @@ setInterval(renderGameOverCount, 250);
 // ================================================================== PLATEAU
 // Bruitages synchronisés avec les animations du plateau.
 // ================================================================== RETOURS VISUELS / TACTILES
-initJuice($('board'));
+initJuice();
 // Mort d'un joueur : léger tremblement + voile sombre ; ma propre mort fait aussi vibrer le téléphone.
 board.addEventListener('death', () => impact('medium'));
 

@@ -1,11 +1,8 @@
 /**
- * Retours visuels (« juice ») : tremblement du plateau, voile coloré. Aucune vibration du téléphone.
- * Purement décoratif : ne touche jamais à l'état du jeu ni à la position réelle des pions.
- *
- * - Tremblement par « trauma » qui décroît (doux pour un petit événement, net pour un gros),
- *   appliqué à un conteneur VISUEL, jamais au plateau lui-même (dont l'échelle est calculée à part).
- * - Trois niveaux d'importance pour que tout le jeu reste proportionné.
- * - Option « Animations réduites » (et réglage du téléphone respecté).
+ * Retours visuels (« juice ») : un voile de couleur bref (mort, tir, victoire).
+ * Purement décoratif : ne touche jamais à l'état du jeu ni à la position du plateau.
+ * L'écran ne tremble plus et le téléphone ne vibre jamais.
+ * Option « Animations réduites » (et réglage du téléphone respecté) : voile plus doux.
  */
 
 const KEY = 'blackops:reduceMotion';
@@ -30,54 +27,23 @@ export function setReducedMotion(on) {
   document.documentElement.classList.toggle('reduce-motion', on);
 }
 
-/** Niveaux : tremblement (trauma), couleur du voile. */
+/** Niveaux : couleur du voile (aucun tremblement de l'écran : il déréglait le plateau). */
 const TIERS = {
-  small: { trauma: 0.2, veil: null },
-  medium: { trauma: 0.45, veil: 'death' },
-  large: { trauma: 0.8, veil: 'shot' },
-  victory: { trauma: 0.3, veil: 'gold' },
+  small: { veil: null },
+  medium: { veil: 'death' },
+  large: { veil: 'shot' },
+  victory: { veil: 'gold' },
 };
 
-let target = null;
 let veilEl = null;
-let trauma = 0;
-let t = 0;
-let last = 0;
-let raf = 0;
 
-/** Élément qui tremble (un conteneur autour du plateau) et voile plein écran. */
-export function initJuice(shakeTarget) {
-  target = shakeTarget;
+/** Voile plein écran (éclat de couleur bref). L'écran, lui, ne bouge jamais. */
+export function initJuice() {
   veilEl = document.createElement('div');
   veilEl.className = 'juice-veil';
   veilEl.setAttribute('aria-hidden', 'true');
   document.body.appendChild(veilEl);
   document.documentElement.classList.toggle('reduce-motion', reducedMotion());
-}
-
-function frame(now) {
-  const dt = Math.min(0.05, (now - (last || now)) / 1000);
-  last = now;
-  trauma = Math.max(0, trauma - 1.3 * dt); // décroît : le tremblement s'arrête toujours seul
-  const shake = trauma * trauma; // doux pour les petits événements, net pour les gros
-  t += dt * 30;
-  // Sinus à fréquences différentes (et non un hasard par image, qui « grésille »).
-  const x = 10 * shake * (0.6 * Math.sin(t * 1.7) + 0.4 * Math.sin(t * 3.1));
-  const y = 7 * shake * (0.6 * Math.sin(t * 2.3) + 0.4 * Math.sin(t * 4.3));
-  const r = 0.9 * shake * Math.sin(t * 1.1);
-  // Léger zoom pendant le tremblement : les bords de l'écran ne se découvrent jamais.
-  if (target) target.style.transform = trauma > 0 ? `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) rotate(${r.toFixed(3)}deg) scale(${(1 + 0.06 * shake).toFixed(4)})` : '';
-  if (trauma > 0) raf = requestAnimationFrame(frame);
-  else {
-    raf = 0;
-    last = 0;
-  }
-}
-
-function shake(amount) {
-  if (!target || reducedMotion()) return;
-  trauma = Math.min(1, trauma + amount); // les chocs s'additionnent, sans dépasser le maximum
-  if (!raf) raf = requestAnimationFrame(frame);
 }
 
 function veil(kind) {
@@ -90,6 +56,5 @@ function veil(kind) {
 /** Un événement du jeu : un seul appel, l'importance décide de l'intensité. */
 export function impact(tier = 'small') {
   const cfg = TIERS[tier] ?? TIERS.small;
-  shake(cfg.trauma);
   veil(cfg.veil);
 }
