@@ -814,3 +814,50 @@ input[type='checkbox'] { accent-color: #e2b450; }
 @media (orientation: portrait) and (max-width: 900px) {
   .mic-btn.live small, .mic-btn.self small, .mic-btn.dead small { display: none; }
 }
+
+/* ================= Réactions 🍅 / 🌸 (sociales, sans effet sur le vote) ================= */
+.react-bar { position: absolute; right: 14px; bottom: 80px; display: flex; flex-direction: column; gap: 8px; z-index: 30; }
+.react-bar[hidden] { display: none; }
+.react-btn { position: relative; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: pointer; background: var(--lux-bg, #0d0b10); border: 1.5px solid var(--lux-line, #c99a3b); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6); font-size: 25px; line-height: 1; transition: transform 0.12s ease, opacity 0.2s; -webkit-tap-highlight-color: transparent; }
+.react-btn span { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
+.react-btn b { position: absolute; right: -4px; bottom: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; font: 900 12px/1 var(--font-ui); color: #1a1206; background: #f2c75c; border: 1.5px solid #08070a; }
+.react-btn.tomato { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 12px rgba(224, 83, 61, 0.3); }
+.react-btn.flower { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 12px rgba(255, 158, 205, 0.3); }
+.react-btn:active:not(:disabled) { transform: scale(0.88); }
+.react-btn:disabled { opacity: 0.38; cursor: default; filter: grayscale(0.7); }
+.react-btn:disabled b { background: #4a4552; color: #cfc8d6; }
+@media (orientation: portrait) and (max-width: 900px) {
+  .react-bar { right: 10px; bottom: 68px; gap: 6px; }
+  .react-btn { width: 46px; height: 46px; font-size: 22px; }
+}
+
+/* Projectile (coordonnées du plateau : grandit avec lui) */
+.react-item { position: absolute; left: 0; top: 0; width: 80px; height: 80px; margin: -40px; display: grid; place-items: center; font-size: 62px; line-height: 1; pointer-events: none; z-index: 1700; will-change: transform; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.55)); }
+.react-hit { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 1700; }
+.react-hit b { position: absolute; left: -70px; top: -70px; width: 140px; height: 140px; border-radius: 50%; animation: react-flash 0.6s ease-out both; }
+.react-hit.tomato b { background: radial-gradient(circle, rgba(255, 120, 90, 0.75), rgba(200, 30, 20, 0.35) 45%, transparent 70%); }
+.react-hit.flower b { background: radial-gradient(circle, rgba(255, 220, 240, 0.8), rgba(255, 150, 200, 0.3) 45%, transparent 70%); }
+/* Tomate : gouttes rouges projetées en étoile */
+.react-hit.tomato i { position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50% 50% 50% 10%; background: radial-gradient(circle at 35% 35%, #ff7a5c, #c41e12 70%); box-shadow: 0 0 0 2px rgba(60, 0, 0, 0.35); animation: react-drop 0.75s cubic-bezier(.2,.8,.3,1) both; }
+.react-hit.tomato i:nth-child(1) { --dx: -70px; --dy: -50px; }
+.react-hit.tomato i:nth-child(2) { --dx: 65px; --dy: -60px; width: 16px; height: 16px; }
+.react-hit.tomato i:nth-child(3) { --dx: -80px; --dy: 30px; width: 14px; height: 14px; }
+.react-hit.tomato i:nth-child(4) { --dx: 75px; --dy: 35px; }
+.react-hit.tomato i:nth-child(5) { --dx: -10px; --dy: -85px; width: 15px; height: 15px; }
+.react-hit.tomato i:nth-child(6) { --dx: 10px; --dy: 70px; width: 18px; height: 18px; }
+/* Fleur : pétales qui s'ouvrent puis retombent doucement */
+.react-hit.flower i { position: absolute; left: -16px; top: -16px; font-size: 32px; font-style: normal; line-height: 1; animation: react-petal 1s cubic-bezier(.2,.7,.3,1) both; }
+.react-hit.flower i:nth-child(1) { --dx: -60px; --dy: -40px; --r: -40deg; }
+.react-hit.flower i:nth-child(2) { --dx: 55px; --dy: -50px; --r: 35deg; }
+.react-hit.flower i:nth-child(3) { --dx: 0px; --dy: -75px; --r: 10deg; }
+.react-hit.flower i:nth-child(4) { --dx: -45px; --dy: 30px; --r: -70deg; }
+.react-hit.flower i:nth-child(5) { --dx: 50px; --dy: 25px; --r: 80deg; }
+@keyframes react-flash { 0% { transform: scale(0.2); opacity: 1; } 100% { transform: scale(1.3); opacity: 0; } }
+@keyframes react-drop { 0% { transform: translate(0, 0) scale(0.4); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 30px)) scale(1); opacity: 0; } }
+@keyframes react-petal { 0% { transform: translate(0, 0) scale(0.3) rotate(0); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 40px)) scale(0.9) rotate(var(--r)); opacity: 0; } }
+/* « 🍅 Sarah » au-dessus de celui qui parle : public, bref */
+.react-tag { position: absolute; transform: translate(-50%, -50%); z-index: 1750; pointer-events: none; white-space: nowrap; padding: 4px 14px; border-radius: 999px; font: 800 26px/1.2 var(--font-ui); color: #f6ecd6; background: rgba(8, 7, 10, 0.88); border: 1.5px solid rgba(201, 154, 59, 0.7); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55); animation: react-tag 2.2s ease-out both; }
+.react-tag.tomato { border-color: rgba(224, 83, 61, 0.8); }
+.react-tag.flower { border-color: rgba(255, 158, 205, 0.8); }
+@keyframes react-tag { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); } 12% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -110%); } }
+.reduce-motion .react-hit i { animation-duration: 0.01s; }

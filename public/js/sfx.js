@@ -541,3 +541,42 @@ export function nightDeath(volume = 0.66) {
   }
   return tb - c.currentTime;
 }
+
+/** Réaction 🍅 : petit « splotch » mouillé (bruit filtré qui tombe), discret pour ne pas couvrir la voix. */
+export function splat(volume = 0.35) {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime;
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer(c, 0.25);
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(1800, t);
+  lp.frequency.exponentialRampToValueAtTime(220, t + 0.18);
+  const g = c.createGain();
+  g.gain.setValueAtTime(volume, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  src.connect(lp).connect(g).connect(master);
+  src.start(t);
+  src.stop(t + 0.25);
+}
+
+/** Réaction 🌸 : deux notes cristallines très douces. */
+export function chime(volume = 0.12) {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime;
+  [1568, 2093].forEach((f, k) => {
+    const o = c.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = f;
+    const g = c.createGain();
+    const st = t + k * 0.09;
+    g.gain.setValueAtTime(0.0001, st);
+    g.gain.exponentialRampToValueAtTime(volume, st + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, st + 0.6);
+    o.connect(g).connect(master);
+    o.start(st);
+    o.stop(st + 0.65);
+  });
+}

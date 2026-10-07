@@ -560,6 +560,8 @@ board.addEventListener('sfx', (e) => {
     impact('large', { buzz: false }); // coup de fusil : le plateau encaisse
   }
   else if (e.detail === 'rack' && st && st !== 'lobby') sfx.shotgunRack();
+  else if (e.detail === 'splat') sfx.splat();
+  else if (e.detail === 'chime') sfx.chime();
   else if (e.detail === 'dawn' && st === 'running' && !(Date.now() < (ui.noBirdsUntil ?? 0))) sfx.dawn();
 });
 // Étiquette personnelle : seul l'auteur la voit (le serveur ne l'envoie qu'à lui).
@@ -631,6 +633,12 @@ board.addEventListener('pick', (e) => {
 });
 voice.addEventListener('talking', (e) => {
   ui.talking = e.detail;
+  // Dernier joueur entendu (cible des réactions pendant la discussion libre).
+  const heard = [...ui.talking].filter((id) => client.view?.voice.hearFrom.includes(id));
+  if (heard.length) {
+    ui.lastTalker = heard[0];
+    ui.lastTalkerAt = Date.now();
+  }
   if (client.view) board.update(client.view, ui);
   if (client.view?.status === 'lobby') document.querySelectorAll('#lobby-players li[data-pid]').forEach((li) => li.classList.toggle('talking', ui.talking.has(li.dataset.pid)));
 });
@@ -1305,6 +1313,7 @@ function render() {
     show('lobby');
     board.update(v, ui);
     renderLobby(v);
+    renderReactions(v);
     return;
   }
   show('game');
@@ -1316,11 +1325,68 @@ function render() {
   renderGameOver(v);
   renderRolesPanel(v);
   board.update(v, ui);
+  renderReactions(v);
   // Plus de flèches sur le plateau : qui a voté pour qui s'affiche seulement en bas.
   board.showVotes(null);
   renderTimer();
   $('btn-leave-game').textContent = v.status === 'finished' ? 'Quitter' : 'Quitter la partie (abandon)';
 }
+
+// ================================================================== RÉACTIONS 🍅 / 🌸
+// Purement sociales : le serveur compte (2 + 2 par tour de vote), vérifie et diffuse ;
+// ici on n'affiche que ses chiffres et on anime le fil public « 🍅 Sarah → Micka ».
+function renderReactions(v) {
+  const bar = $('react-bar');
+  const r = v.reactions;
+  const show = v.status === 'running' && v.me.alive && !!r?.targets.length;
+  bar.hidden = !show;
+  if (r) {
+    $('tomato-n').textContent = String(r.tomato);
+    $('flower-n').textContent = String(r.flower);
+    $('btn-tomato').disabled = !show || r.tomato <= 0 || !!ui.reactBusy;
+    $('btn-flower').disabled = !show || r.flower <= 0 || !!ui.reactBusy;
+  }
+  // Fil public : on anime seulement les nouvelles réactions (pas l'historique à la reconnexion).
+  const feed = r?.feed ?? [];
+  if (!ui.reactSeen) {
+    ui.reactSeen = new Set(feed.map((e) => e.id));
+    return;
+  }
+  for (const e of feed) {
+    if (ui.reactSeen.has(e.id)) continue;
+    ui.reactSeen.add(e.id);
+    if (Date.now() + client.clockOffset - e.at > 6000) continue; // trop ancienne (retour d'arrière-plan)
+    board.throwReaction(e.from, e.to, e.kind, `${nameOf(v, e.from)} → ${nameOf(v, e.to)}`);
+    if (e.to === v.me.id) toast(e.kind === 'tomato' ? `🍅 ${nameOf(v, e.from)} pense que tu mens !` : `🌸 ${nameOf(v, e.from)} croit ce que tu dis !`);
+  }
+}
+
+/** Cible : la seule personne qui a la parole, sinon celle qu'on entend parler en ce moment. */
+function reactionTarget(v) {
+  const targets = v.reactions?.targets ?? [];
+  if (targets.length === 1) return targets[0];
+  const talking = targets.filter((id) => ui.talking.has(id));
+  if (talking.length) return talking.includes(ui.lastTalker) ? ui.lastTalker : talking[0];
+  return targets.includes(ui.lastTalker) && Date.now() - (ui.lastTalkerAt ?? 0) < 4000 ? ui.lastTalker : null;
+}
+
+function sendReaction(kind) {
+  const v = client.view;
+  if (!v || ui.reactBusy) return;
+  const to = reactionTarget(v);
+  if (!to) return toast('🎙️ Personne ne parle en ce moment : attends qu’un joueur prenne la parole.');
+  ui.reactBusy = true; // un seul envoi à la fois (double clic)
+  renderReactions(v);
+  client
+    .react(kind, to)
+    .catch((e) => toast(e.message))
+    .finally(() => {
+      ui.reactBusy = false;
+      if (client.view) renderReactions(client.view);
+    });
+}
+$('btn-tomato').onclick = () => sendReaction('tomato');
+$('btn-flower').onclick = () => sendReaction('flower');
 
 /** Amoureux : animation « coup de foudre » visible uniquement par les deux amoureux. */
 function showLovers(v) {

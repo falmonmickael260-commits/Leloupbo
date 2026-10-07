@@ -2,6 +2,8 @@
 const LIMITS: Record<string, { capacity: number; refillPerSec: number }> = {
   action: { capacity: 20, refillPerSec: 6 },
   chat: { capacity: 6, refillPerSec: 1 },
+  // Réactions 🍅/🌸 (le moteur limite déjà à 2+2 par tour) : protège contre les rafales.
+  react: { capacity: 4, refillPerSec: 1 },
   session: { capacity: 8, refillPerSec: 0.5 },
   // Connexion à la voix : séparée des sessions (les téléphones se reconnectent souvent).
   voice: { capacity: 30, refillPerSec: 1 },

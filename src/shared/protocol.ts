@@ -22,6 +22,7 @@ export interface ClientToServerEvents {
   'lobby:addBot': (p: Record<string, never>, ack: (r: Ack) => void) => void;
   'lobby:avatar': (p: { avatar: string }, ack: (r: Ack) => void) => void;
   'player:tag': (p: { playerId: string; text: string }, ack: (r: Ack) => void) => void;
+  'game:react': (p: { kind: 'tomato' | 'flower'; targetId: string }, ack: (r: Ack) => void) => void;
   'player:audio': (p: { mic: boolean; speaker: boolean; connected: boolean; diag?: string }, ack: (r: Ack) => void) => void;
   'lobby:kick': (p: { playerId: string }, ack: (r: Ack) => void) => void;
   'game:start': (p: Record<string, never>, ack: (r: Ack) => void) => void;

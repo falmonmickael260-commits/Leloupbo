@@ -197,6 +197,10 @@ export class GameClient extends EventTarget {
   command(action, targets = [], option) {
     return this.request('game:command', { action, targets, option });
   }
+  /** Réaction sociale 🍅 / 🌸 vers un joueur qui a la parole. */
+  react(kind, targetId) {
+    return this.request('game:react', { kind, targetId });
+  }
   finish() {
     return this.command('finish');
   }

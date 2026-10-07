@@ -14,6 +14,7 @@ import { PHASE_LABELS, skyFor } from './phase.ts';
 import { allRoles, getRole, isWolfPack, roleInfo } from './roles/index.ts';
 import { getPlayer, type Ctx } from './state.ts';
 import { voiceFor } from './voice.ts';
+import { reactionsFor } from './reactions.ts';
 import { defaultAvatar } from '../shared/avatars.ts';
 
 const CHANNELS: ChatChannel[] = ['village', 'wolves', 'dead'];
@@ -120,6 +121,7 @@ export function buildView(ctx: Ctx, playerId: string): PlayerView {
     prompt: promptFor(ctx, playerId),
     vote,
     voice: voiceFor(s, playerId),
+    reactions: reactionsFor(s, playerId),
     chats,
     chatWrite,
     announcements: s.announcements.slice(-MAX_ANNOUNCEMENTS),

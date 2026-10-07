@@ -276,6 +276,8 @@ export interface PlayerView {
   prompt: ActionPrompt | null;
   vote: VoteView | null;
   voice: VoiceView;
+  /** Réactions sociales 🍅/🌸 : ce qu'il me reste ce tour-ci, qui je peux viser, fil récent (public). */
+  reactions: { tomato: number; flower: number; targets: string[]; feed: { id: string; kind: 'tomato' | 'flower'; from: string; to: string; at: number }[] };
   chats: Partial<Record<ChatChannel, ChatMessage[]>>;
   chatWrite: Record<ChatChannel, boolean>;
   announcements: Announcement[];

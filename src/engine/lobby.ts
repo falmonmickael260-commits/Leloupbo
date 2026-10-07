@@ -183,6 +183,7 @@ export function startGame(ctx: Ctx, playerId: string): void {
   s.composition = composition;
   s.status = 'running';
   s.nightLog = [];
+  s.reactions = null;
   for (const p of players) {
     const def = requireRole(p.role!);
     tell(ctx, p.id, 'role', `🎴 Votre rôle : ${def.emoji} ${def.name}. ${def.description}`);
@@ -235,6 +236,7 @@ export function returnToLobby(ctx: Ctx): void {
     // Gardé seulement si la partie révélait les rôles à la fin (décidé au moment où elle s'est terminée).
     lastNightLog: s.settings.revealRolesOnGameOver ? (s.nightLog ?? []) : [],
     nightLog: [],
+    reactions: null,
     createdAt: s.createdAt,
     hostId: s.hostId,
     settings: s.settings,

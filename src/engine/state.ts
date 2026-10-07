@@ -5,6 +5,7 @@
  * L'état est un objet JSON pur (aucune classe, aucune fonction) afin de
  * pouvoir être persisté puis rechargé à l'identique (reprise après redémarrage).
  */
+import type { ReactionState } from './reactions.ts';
 import type {
   AudioStatus,
   Announcement,
@@ -125,6 +126,8 @@ export interface GameState {
   nightLog?: string[];
   /** Journal des nuits de la partie précédente (consultable depuis le lobby). */
   lastNightLog?: string[];
+  /** Réactions sociales (🍅/🌸) : compteurs par joueur pour la journée + fil récent. Cosmétique. */
+  reactions?: ReactionState | null;
 }
 
 /** Contexte d'exécution d'une opération du moteur. */

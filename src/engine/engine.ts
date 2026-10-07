@@ -15,6 +15,7 @@ import { cryptoRng, type Rng } from './rng.ts';
 import './roles/index.ts';
 import { getPlayer, type Ctx, type GameState, type PlayerState } from './state.ts';
 import { buildView } from './view.ts';
+import { sendReaction, type ReactionEvent } from './reactions.ts';
 import { fail } from './errors.ts';
 import { defaultSettings } from './settings.ts';
 
@@ -75,6 +76,10 @@ export class GameEngine {
   /** Étiquette personnelle (privée) sur un joueur. */
   setTag(playerId: string, targetId: unknown, text: unknown, now: number): void {
     this.mutate(now, (ctx) => setTag(ctx, playerId, targetId, text));
+  }
+  /** Réaction sociale 🍅/🌸 vers un joueur qui a la parole (aucun effet sur la partie). */
+  react(playerId: string, kind: unknown, targetId: unknown, now: number): ReactionEvent {
+    return this.mutate(now, (ctx) => sendReaction(ctx, playerId, kind, targetId));
   }
   setAvatar(playerId: string, avatar: unknown, now: number): void {
     this.mutate(now, (ctx) => setAvatar(ctx, playerId, avatar));
