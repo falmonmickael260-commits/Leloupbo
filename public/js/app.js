@@ -14,7 +14,7 @@ import { profiles } from './platform/profiles.js';
 import { Voice } from './voiceManager.js';
 import { MAPS } from './maps.js';
 import * as sfx from './sfx.js';
-import { impact, initJuice, reducedMotion, setReducedMotion, vibrate } from './juice.js';
+import { impact, initJuice, reducedMotion, setReducedMotion } from './juice.js';
 
 const params = new URLSearchParams(location.search);
 const profile = params.get('profile') || 'default';
@@ -550,14 +550,14 @@ setInterval(renderGameOverCount, 250);
 // ================================================================== RETOURS VISUELS / TACTILES
 initJuice($('board'));
 // Mort d'un joueur : léger tremblement + voile sombre ; ma propre mort fait aussi vibrer le téléphone.
-board.addEventListener('death', () => impact('medium', { buzz: false })); // pas de vibration à la mort d'un joueur
+board.addEventListener('death', () => impact('medium'));
 
 board.addEventListener('sfx', (e) => {
   const st = client.view?.status;
   if (e.detail === 'dusk' && st === 'running') sfx.howlPack();
   else if (e.detail === 'shot' && st && st !== 'lobby') {
     sfx.gunshot();
-    impact('large', { buzz: false }); // coup de fusil : le plateau encaisse
+    impact('large'); // coup de fusil : le plateau encaisse
   }
   else if (e.detail === 'rack' && st && st !== 'lobby') sfx.shotgunRack();
   else if (e.detail === 'splat') sfx.splat();
@@ -828,10 +828,6 @@ function renderAction(v) {
   if (v.status === 'finished') return (el.innerHTML = '');
   if (v.phase.canFinish) {
     const lw = v.phase.id === 'DEATH_LAST_WORD';
-    if (ui.floorSeq !== v.phase.seq) {
-      ui.floorSeq = v.phase.seq;
-      vibrate([60, 40, 60]); // à toi de parler
-    }
     el.innerHTML = `<h3>${lw ? '💀 Ta dernière parole' : '🎙️ À toi de parler !'}</h3>
       <p>${lw ? 'Explique, accuse, défends-toi : tout le monde t’écoute.' : 'Ton micro est ouvert, les autres t’écoutent.'}</p>
       <div class="row" style="justify-content:center"><button class="btn btn-finish" id="btn-finish">FINIR</button></div>`;
@@ -870,11 +866,8 @@ function renderAction(v) {
   }
   const key = `${v.phase.seq}:${p.action}`;
   if (key !== ui.promptKey) {
-    // Nouvelle action à faire : petite vibration (utile téléphone en poche ou écran ailleurs).
     if (ui.promptKey !== undefined && !p.submitted) {
-      // Jamais de vibration la nuit : un téléphone qui vibre au réveil de la Voyante la trahit.
-      if (!NIGHT_PHASES.has(v.phase.id)) vibrate([60, 40, 60]);
-      // Éclat doré bref sur le panneau : « c'est à toi ».
+      // Nouvelle action à faire : éclat doré bref sur le panneau (« c'est à toi »).
       el.classList.remove('fresh');
       void el.offsetWidth;
       el.classList.add('fresh');
@@ -1115,7 +1108,7 @@ $('dead-form').onsubmit = (e) => {
   if (text) safe(client.chat('dead', text).then(() => ($('dead-input').value = '')));
 };
 $('btn-menu').onclick = () => $('menu').classList.toggle('open');
-const motionLabel = () => ($('btn-motion').textContent = reducedMotion() ? '✨ Animations et vibrations : réduites' : '✨ Animations et vibrations : normales');
+const motionLabel = () => ($('btn-motion').textContent = reducedMotion() ? '✨ Animations : réduites' : '✨ Animations : normales');
 motionLabel();
 $('btn-motion').onclick = () => {
   setReducedMotion(!reducedMotion());
@@ -1174,7 +1167,7 @@ function renderGameOver(v) {
   if (el.dataset.key === key) return;
   el.dataset.key = key;
   const w = new Set(v.winner.winnerIds);
-  impact('victory', { buzz: w.has(v.me.id) }); // éclat doré (vibration pour les gagnants)
+  impact('victory'); // éclat doré
   const items = (v.finalRoles ?? [])
     .map((r) => {
       const pl = v.players.find((p) => p.id === r.id);

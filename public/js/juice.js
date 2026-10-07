@@ -1,11 +1,11 @@
 /**
- * Retours visuels et tactiles (« juice ») : tremblement du plateau, voile coloré, vibration.
+ * Retours visuels (« juice ») : tremblement du plateau, voile coloré. Aucune vibration du téléphone.
  * Purement décoratif : ne touche jamais à l'état du jeu ni à la position réelle des pions.
  *
  * - Tremblement par « trauma » qui décroît (doux pour un petit événement, net pour un gros),
  *   appliqué à un conteneur VISUEL, jamais au plateau lui-même (dont l'échelle est calculée à part).
  * - Trois niveaux d'importance pour que tout le jeu reste proportionné.
- * - Option « Animations et vibrations réduites » (et réglage du téléphone respecté).
+ * - Option « Animations réduites » (et réglage du téléphone respecté).
  */
 
 const KEY = 'blackops:reduceMotion';
@@ -30,12 +30,12 @@ export function setReducedMotion(on) {
   document.documentElement.classList.toggle('reduce-motion', on);
 }
 
-/** Niveaux : tremblement (trauma), couleur du voile, vibration. */
+/** Niveaux : tremblement (trauma), couleur du voile. */
 const TIERS = {
-  small: { trauma: 0.2, veil: null, vibrate: [40] },
-  medium: { trauma: 0.45, veil: 'death', vibrate: [120] },
-  large: { trauma: 0.8, veil: 'shot', vibrate: [60, 40, 160] },
-  victory: { trauma: 0.3, veil: 'gold', vibrate: [80, 60, 80] },
+  small: { trauma: 0.2, veil: null },
+  medium: { trauma: 0.45, veil: 'death' },
+  large: { trauma: 0.8, veil: 'shot' },
+  victory: { trauma: 0.3, veil: 'gold' },
 };
 
 let target = null;
@@ -87,19 +87,9 @@ function veil(kind) {
   veilEl.className = `juice-veil on ${kind}${reducedMotion() ? ' soft' : ''}`;
 }
 
-export function vibrate(pattern) {
-  if (reducedMotion()) return;
-  try {
-    navigator.vibrate?.(pattern);
-  } catch {
-    /* non supporté (iPhone) */
-  }
-}
-
 /** Un événement du jeu : un seul appel, l'importance décide de l'intensité. */
-export function impact(tier = 'small', { buzz = true } = {}) {
+export function impact(tier = 'small') {
   const cfg = TIERS[tier] ?? TIERS.small;
   shake(cfg.trauma);
   veil(cfg.veil);
-  if (buzz) vibrate(cfg.vibrate);
 }
