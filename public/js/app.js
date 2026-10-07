@@ -864,7 +864,8 @@ function renderAction(v) {
   if (key !== ui.promptKey) {
     // Nouvelle action à faire : petite vibration (utile téléphone en poche ou écran ailleurs).
     if (ui.promptKey !== undefined && !p.submitted) {
-      vibrate([60, 40, 60]);
+      // Jamais de vibration la nuit : un téléphone qui vibre au réveil de la Voyante la trahit.
+      if (!NIGHT_PHASES.has(v.phase.id)) vibrate([60, 40, 60]);
       // Éclat doré bref sur le panneau : « c'est à toi ».
       el.classList.remove('fresh');
       void el.offsetWidth;
@@ -973,8 +974,7 @@ function openThief() {
   requestAnimationFrame(() => st.classList.add('in'));
   const flip = (slot) => {
     if (slot.classList.contains('shown')) return;
-    slot.classList.add('shown');
-    sfx.tick(4);
+    slot.classList.add('shown'); // sans bruit (nuit : le son trahirait le Voleur)
     if (st.querySelectorAll('.ts-slot.shown').length === cards.length) st.querySelector('.ts-hint').textContent = 'Choisis la carte que tu veux prendre.';
   };
   st.querySelectorAll('.ts-slot').forEach((slot) => slot.querySelector('.ts-card').addEventListener('click', () => flip(slot)));
@@ -1007,7 +1007,6 @@ function openThief() {
         const dy = m.top + m.height / 2 - (a.top + a.height / 2);
         slot.querySelector('.ts-card').animate([{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(${m.width / a.width}) rotate(8deg)` }], { duration: 750, easing: 'cubic-bezier(.6,0,.3,1)', fill: 'forwards' });
         mineEl.animate([{ transform: 'none' }, { transform: `translate(${-dx}px, ${-dy}px) scale(${a.width / m.width}) rotate(-8deg)`, opacity: 0.85 }], { duration: 750, easing: 'cubic-bezier(.6,0,.3,1)', fill: 'forwards' });
-        sfx.revealHit();
         await wait(900);
         st.querySelector('.ts-box').innerHTML = '<h2>🃏 Échange fait</h2><p class="ts-secret">Ton nouveau rôle est secret.</p>';
         await wait(1800);
@@ -1272,7 +1271,9 @@ async function maybeReveal(v) {
     .map((id) => v.roleCatalog.find((x) => x.id === id))
     .filter(Boolean)
     .map((x) => ({ id: x.id, name: x.name }));
-  await revealCard($('card-layer'), r, $('my-card'), { pool, onTick: (i, last) => (last ? sfx.revealHit() : sfx.tick(i)) });
+  // Révélation tardive la nuit (Voleur au temps écoulé, reconnexion…) : sans bruit, pour ne rien trahir.
+  const silent = NIGHT_PHASES.has(v.phase.id);
+  await revealCard($('card-layer'), r, $('my-card'), { pool, onTick: (i, last) => (silent ? null : last ? sfx.revealHit() : sfx.tick(i)) });
   ui.revealing = false;
   if (client.view) renderMe(client.view);
 }
@@ -1372,8 +1373,7 @@ function showSeerCard(name, result) {
     <div class="sf-card"><div class="sf-face back">${cardBackSVG()}</div><div class="sf-face front">${seerCardSVG(result)}</div></div></div>`;
   document.body.appendChild(el);
   setTimeout(() => {
-    el.classList.add('flipped');
-    sfx.revealHit?.();
+    el.classList.add('flipped'); // sans bruit : la nuit, un son sur un seul téléphone trahirait la Voyante
   }, 650);
   setTimeout(() => el.classList.add('out'), 3400);
   setTimeout(() => el.remove(), 3800);
