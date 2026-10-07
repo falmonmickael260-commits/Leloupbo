@@ -14,6 +14,7 @@ import { profiles } from './platform/profiles.js';
 import { Voice } from './voiceManager.js';
 import { MAPS } from './maps.js';
 import * as sfx from './sfx.js';
+import { impact, initJuice, reducedMotion, setReducedMotion, vibrate } from './juice.js';
 
 const params = new URLSearchParams(location.search);
 const profile = params.get('profile') || 'default';
@@ -544,10 +545,18 @@ setInterval(renderGameOverCount, 250);
 
 // ================================================================== PLATEAU
 // Bruitages synchronisés avec les animations du plateau.
+// ================================================================== RETOURS VISUELS / TACTILES
+initJuice($('board'));
+// Mort d'un joueur : léger tremblement + voile sombre ; ma propre mort fait aussi vibrer le téléphone.
+board.addEventListener('death', (e) => impact('medium', { buzz: e.detail === client.view?.me.id }));
+
 board.addEventListener('sfx', (e) => {
   const st = client.view?.status;
   if (e.detail === 'dusk' && st === 'running') sfx.howlPack();
-  else if (e.detail === 'shot' && st && st !== 'lobby') sfx.gunshot();
+  else if (e.detail === 'shot' && st && st !== 'lobby') {
+    sfx.gunshot();
+    impact('large', { buzz: false }); // coup de fusil : le plateau encaisse
+  }
   else if (e.detail === 'rack' && st && st !== 'lobby') sfx.shotgunRack();
   else if (e.detail === 'dawn' && st === 'running' && !(Date.now() < (ui.noBirdsUntil ?? 0))) sfx.dawn();
 });
@@ -800,6 +809,10 @@ function renderAction(v) {
   if (v.status === 'finished') return (el.innerHTML = '');
   if (v.phase.canFinish) {
     const lw = v.phase.id === 'DEATH_LAST_WORD';
+    if (ui.floorSeq !== v.phase.seq) {
+      ui.floorSeq = v.phase.seq;
+      vibrate([60, 40, 60]); // à toi de parler
+    }
     el.innerHTML = `<h3>${lw ? '💀 Ta dernière parole' : '🎙️ À toi de parler !'}</h3>
       <p>${lw ? 'Explique, accuse, défends-toi : tout le monde t’écoute.' : 'Ton micro est ouvert, les autres t’écoutent.'}</p>
       <div class="row" style="justify-content:center"><button class="btn btn-finish" id="btn-finish">FINIR</button></div>`;
@@ -835,6 +848,8 @@ function renderAction(v) {
   }
   const key = `${v.phase.seq}:${p.action}`;
   if (key !== ui.promptKey) {
+    // Nouvelle action à faire : petite vibration (utile téléphone en poche ou écran ailleurs).
+    if (ui.promptKey !== undefined && !p.submitted) vibrate([60, 40, 60]);
     ui.promptKey = key;
     ui.selected = [];
     ui.witchSave = false;
@@ -1058,6 +1073,13 @@ $('dead-form').onsubmit = (e) => {
   if (text) safe(client.chat('dead', text).then(() => ($('dead-input').value = '')));
 };
 $('btn-menu').onclick = () => $('menu').classList.toggle('open');
+const motionLabel = () => ($('btn-motion').textContent = reducedMotion() ? '✨ Animations et vibrations : réduites' : '✨ Animations et vibrations : normales');
+motionLabel();
+$('btn-motion').onclick = () => {
+  setReducedMotion(!reducedMotion());
+  motionLabel();
+  if (!reducedMotion()) impact('small');
+};
 
 // ================================================================== RÔLES DE LA PARTIE (info)
 // Composition publique de la partie : quels rôles sont en jeu et combien — jamais qui les a, ni qui est mort.
@@ -1110,6 +1132,7 @@ function renderGameOver(v) {
   if (el.dataset.key === key) return;
   el.dataset.key = key;
   const w = new Set(v.winner.winnerIds);
+  impact('victory', { buzz: w.has(v.me.id) }); // éclat doré (vibration pour les gagnants)
   const items = (v.finalRoles ?? [])
     .map((r) => {
       const pl = v.players.find((p) => p.id === r.id);

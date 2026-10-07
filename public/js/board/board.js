@@ -325,6 +325,8 @@ export class Board extends EventTarget {
         if (el.dataset.alive === '1') {
           el.classList.add('dying');
           setTimeout(() => el.classList.remove('dying'), 1600);
+          // Retour visuel au moment de la chute (tremblement, voile) : géré par l'interface.
+          this.dispatchEvent(new CustomEvent('death', { detail: p.id }));
         }
         el.classList.add('dead');
       }

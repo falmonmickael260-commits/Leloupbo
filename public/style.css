@@ -773,3 +773,14 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .btn.btn-danger { background: linear-gradient(180deg, #7a1f1f, #4a0f0f); color: #ffe9e0; border-color: #b8893a; }
 .infect-lock { margin: 8px 0 2px; padding: 10px 12px; border: 1px solid #b8893a; border-radius: 8px; background: linear-gradient(180deg, #1a0f1f, #0b070d); text-align: center; font: 700 14px/1.4 var(--font-ui); animation: infectPulse 1s ease-in-out infinite alternate; }
 @keyframes infectPulse { from { box-shadow: 0 0 0 rgba(160, 60, 200, 0); } to { box-shadow: 0 0 18px rgba(160, 60, 200, 0.55); } }
+
+/* ---------- Retours visuels (juice.js) : voile bref, jamais bloquant ---------- */
+.juice-veil { position: fixed; inset: 0; z-index: 45; pointer-events: none; opacity: 0; }
+.juice-veil.on { animation: veil 0.9s ease-out both; }
+.juice-veil.death { background: radial-gradient(ellipse at center, rgba(120, 0, 0, 0) 35%, rgba(90, 0, 0, 0.55) 100%); }
+.juice-veil.shot { background: radial-gradient(ellipse at center, rgba(255, 240, 210, 0.35) 0%, rgba(110, 0, 0, 0.5) 100%); animation-duration: 0.6s; }
+.juice-veil.gold { background: radial-gradient(ellipse at center, rgba(242, 199, 92, 0.28) 0%, rgba(242, 199, 92, 0) 70%); animation-duration: 1.4s; }
+.juice-veil.soft { animation-duration: 0.6s; }
+.juice-veil.soft.on { animation-name: veilSoft; }
+@keyframes veil { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes veilSoft { 0% { opacity: 0; } 30% { opacity: 0.45; } 100% { opacity: 0; } }
