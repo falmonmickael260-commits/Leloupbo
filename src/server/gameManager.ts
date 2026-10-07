@@ -135,9 +135,9 @@ export class GameManager {
   }
 
   stop(): void {
-    // Plus aucune action acceptée : sinon elles seraient appliquées en mémoire sans être sauvegardées
-    // (et perdues au redémarrage, ex. une potion de la Sorcière « rendue »).
-    this.io.disconnectSockets(true);
+    // Arrêt : plus aucune action acceptée (elle serait appliquée en mémoire sans être sauvegardée,
+    // donc perdue au redémarrage — ex. une potion « rendue »). Les connexions restent ouvertes :
+    // elles tombent avec le processus et les navigateurs se reconnectent tout seuls au nouveau.
     this.stopped = true;
     if (this.housekeeping) clearInterval(this.housekeeping);
     if (this.sfuTimer) clearInterval(this.sfuTimer);
@@ -335,6 +335,10 @@ export class GameManager {
   /** Exécute une opération en traduisant les erreurs métier en accusé de réception. */
   private run<T extends object>(socket: Sock, ack: unknown, op: () => T, limit = 'action'): void {
     const reply = typeof ack === 'function' ? (ack as (r: Ack<T>) => void) : () => undefined;
+    if (this.stopped) {
+      reply({ ok: false, error: 'RESTARTING', message: 'Le jeu redémarre, réessaie dans un instant.' });
+      return;
+    }
     if (!this.limiter.allow(`${socket.id}:${limit}`, limit)) {
       reply({ ok: false, error: 'RATE_LIMIT', message: 'Trop de requêtes, ralentissez.' });
       return;

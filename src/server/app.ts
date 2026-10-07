@@ -25,17 +25,18 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
     res.json({ ok: true, games: manager.rooms.size, uptime: process.uptime(), droppedSignals: manager.droppedSignals, voice, profils: manager.profiles.label });
   });
   // Bruitages enregistrés fournis (public/assets/sfx/<nom>.mp3) : liste, pour ne jamais demander un fichier absent.
+  // (Liste établie une fois au démarrage : les fichiers ne changent qu'avec un redéploiement.)
+  let sfxNames: string[] = [];
+  try {
+    sfxNames = readdirSync(path.join(PUBLIC_DIR, 'assets', 'sfx'))
+      .filter((f) => f.endsWith('.mp3'))
+      .map((f) => f.slice(0, -4));
+  } catch {
+    /* dossier absent */
+  }
   app.get('/api/sfx', (_req, res) => {
-    let names: string[] = [];
-    try {
-      names = readdirSync(path.join(PUBLIC_DIR, 'assets', 'sfx'))
-        .filter((f) => f.endsWith('.mp3'))
-        .map((f) => f.slice(0, -4));
-    } catch {
-      /* dossier absent */
-    }
     res.setHeader('Cache-Control', 'no-cache');
-    res.json(names);
+    res.json(sfxNames);
   });
   app.get('/api/roles', (_req, res) => {
     res.json(allRoles().map(roleInfo));

@@ -25,11 +25,10 @@ function capabilities(ctx: Parameters<typeof stepData>[0], witchId: string) {
   const s = ctx.state.settings;
   const canSave = !!witch.roleData.life && !!d.victim && (s.witchCanSelfSave || d.victim !== witch.id);
   // Option de l'hôte : potion de mort interdite la première nuit.
-  const canKill = !!witch.roleData.death && !(s.witchNoPoisonFirstNight && ctx.state.nightNumber === 1);
-  return { canSave, canKill };
+  const noPoisonTonight = s.witchNoPoisonFirstNight && ctx.state.nightNumber === 1;
+  const canKill = !!witch.roleData.death && !noPoisonTonight;
+  return { canSave, canKill, noPoisonTonight };
 }
-
-const s0 = (ctx: Parameters<typeof stepData>[0]) => ctx.state.settings.witchNoPoisonFirstNight && ctx.state.nightNumber === 1;
 
 registerNightStep({
   id: STEP,
@@ -50,7 +49,7 @@ registerNightStep({
   prompt(ctx, actor) {
     const d = data(ctx);
     if (d.done) return null;
-    const { canSave, canKill } = capabilities(ctx, actor.id);
+    const { canSave, canKill, noPoisonTonight } = capabilities(ctx, actor.id);
     const options = [{ id: 'none', label: 'Ne rien faire' }];
     if (canSave) options.push({ id: 'save', label: `Potion de vie : sauver ${playerName(ctx.state, d.victim)}` });
     if (canKill) options.push({ id: 'kill', label: 'Potion de mort : empoisonner (choisir une cible)' });
@@ -58,7 +57,7 @@ registerNightStep({
     return {
       action: 'witch',
       title: '🧪 Vos potions',
-      description: s0(ctx) ? 'Première nuit : la potion de mort est interdite.' : (ctx.state.settings.witchBothPotionsSameNight ? 'Réanimez, empoisonnez, ou les deux.' : 'Réanimez OU empoisonnez.') + ' Chaque potion ne sert qu’une fois.',
+      description: noPoisonTonight ? 'Première nuit : la potion de mort est interdite.' : (ctx.state.settings.witchBothPotionsSameNight ? 'Réanimez, empoisonnez, ou les deux.' : 'Réanimez OU empoisonnez.') + ' Chaque potion ne sert qu’une fois.',
       targets: canKill ? alivePlayers(ctx.state).filter((p) => p.id !== actor.id).map((p) => p.id) : [],
       minTargets: 0,
       maxTargets: canKill ? 1 : 0,

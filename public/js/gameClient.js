@@ -37,10 +37,12 @@ export class GameClient extends EventTarget {
       if (this.session) this.#resumeWithRetry();
     });
     this.#watchWake();
-    this.socket.on('disconnect', () => {
+    this.socket.on('disconnect', (reason) => {
       // Vue périmée tant que le serveur n'a pas renvoyé l'état actuel (voix coupée en attendant).
       this.stale = true;
       this.#setStatus('disconnected');
+      // Coupure décidée par le serveur (redémarrage…) : socket.io ne se reconnecte pas tout seul.
+      if (reason === 'io server disconnect') setTimeout(() => this.socket.connect(), 800 + Math.random() * 1200);
     });
     this.socket.io.on('reconnect_attempt', () => this.#setStatus('reconnecting'));
     this.socket.on('view', (v) => {

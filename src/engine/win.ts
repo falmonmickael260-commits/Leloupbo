@@ -79,7 +79,7 @@ registerWinCondition({
     if (wolves === 0 || wolves < alive.length - wolves) return null;
     const villagers = alive.filter((_, i) => camps[i] !== 'wolves');
     // Tir du Chasseur en attente (il vient de mourir) : il peut encore abattre un loup.
-    const pendingShots = s.deathQueue.filter((t) => t.kind === 'hunter_shot').length;
+    const pendingShots = s.deathQueue.filter((t) => t.kind === 'hunter_shot' && !s.players.find((p) => p.id === t.playerId)?.abandoned).length;
     const wolfKillers = villagers.filter((p) => (p.role === 'witch' && !!p.roleData.death) || p.role === 'hunter').length + pendingShots;
     return wolves > wolfKillers ? campVictory(ctx, 'wolves') : null;
   },

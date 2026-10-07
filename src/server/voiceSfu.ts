@@ -90,6 +90,8 @@ export class LiveKitBridge {
   private readonly pending = new Map<string, NodeJS.Timeout>();
   private readonly retries = new Map<string, number>();
   private readonly running = new Set<string>();
+  /** Un contrôle demandé pendant qu'un autre tournait : refait juste après (jamais perdu). */
+  private readonly rerun = new Set<string>();
   private readonly lastEnforced = new Map<string, number>();
   /** Dernier contrôle du serveur audio : null = pas encore vérifié. */
   health: { ok: boolean | null; error?: string; checkedAt?: string } = { ok: null };
@@ -184,7 +186,10 @@ export class LiveKitBridge {
   /** Compare les droits RÉELS de chaque participant LiveKit aux droits dus, et corrige. */
   async enforceNow(engine: GameEngine, now = Date.now()): Promise<void> {
     const code = engine.state.code;
-    if (this.running.has(code)) return;
+    if (this.running.has(code)) {
+      this.rerun.add(code);
+      return;
+    }
     this.running.add(code);
     this.lastEnforced.set(code, now);
     try {
@@ -197,6 +202,7 @@ export class LiveKitBridge {
       this.lastEnforced.delete(code); // nouvel essai à la prochaine seconde
     } finally {
       this.running.delete(code);
+      if (this.rerun.delete(code)) void this.enforceNow(engine);
     }
   }
 
@@ -238,6 +244,7 @@ export class LiveKitBridge {
     this.pending.delete(code);
     this.retries.delete(code);
     this.lastEnforced.delete(code);
+    this.rerun.delete(code);
     this.rooms.deleteRoom(this.roomName(code)).catch(() => {});
   }
 }

@@ -232,7 +232,8 @@ export function returnToLobby(ctx: Ctx): void {
     ...fresh,
     previousRoles,
     resultsRecorded: false,
-    lastNightLog: s.nightLog ?? [],
+    // Gardé seulement si la partie révélait les rôles à la fin (décidé au moment où elle s'est terminée).
+    lastNightLog: s.settings.revealRolesOnGameOver ? (s.nightLog ?? []) : [],
     nightLog: [],
     createdAt: s.createdAt,
     hostId: s.hostId,

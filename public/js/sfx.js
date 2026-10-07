@@ -387,7 +387,7 @@ export function preloadRecorded() {
           .catch(() => {});
       }
     })
-    .catch(() => {});
+    .catch(() => recorded.clear()); // réseau indisponible : nouvel essai au prochain appel
 }
 function playRecorded(name, volume) {
   const buf = recorded.get(name);

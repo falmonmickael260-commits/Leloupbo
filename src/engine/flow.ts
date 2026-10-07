@@ -113,11 +113,14 @@ export function runPipeline(ctx: Ctx): void {
     // Partie gagnée : fin immédiate (pas de dernière parole ni de discussion), sauf un tir du
     // Chasseur en attente, qui peut encore changer le vainqueur.
     if (checkWin(ctx)) {
-      if (!s.deathQueue.some((t) => t.kind === 'hunter_shot')) {
+      const shots = s.deathQueue.filter((t) => t.kind === 'hunter_shot' && !getPlayer(s, t.playerId)?.abandoned);
+      if (!shots.length) {
         s.deathQueue.length = 0;
         break;
       }
-      s.deathQueue = s.deathQueue.filter((t) => t.kind === 'hunter_shot');
+      // Le tir passe en premier ; les autres tâches (dernières paroles, succession du Capitaine)
+      // restent en file : si le tir renverse la victoire, la partie continue avec elles.
+      s.deathQueue = [...shots, ...s.deathQueue.filter((t) => !shots.includes(t))];
     }
     const task = s.deathQueue.shift()!;
     const p = getPlayer(s, task.playerId);

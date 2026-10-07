@@ -23,6 +23,8 @@ type WolvesData = {
   mode?: 'kill' | 'infect';
   /** Infection confirmée par le Loup Noir : cible verrouillée, fin de phase dans 5 s (serveur). */
   infectTarget?: string;
+  /** Fin de phase prévue avant le délai de 5 s (rétablie si la meute n'est plus d'accord). */
+  baseEndsAt?: number | null;
 };
 /**
  * Loup Noir en jeu (infection disponible) : quand la meute est d'accord, la nuit se termine après
@@ -90,8 +92,9 @@ registerNightStep({
     }
     const black = infector(ctx);
     if (!black) return;
+    const ph = ctx.state.phase;
     const shorten = () => {
-      const ph = ctx.state.phase;
+      if (d.baseEndsAt === undefined) d.baseEndsAt = ph.endsAt;
       const end = ctx.now + BLACK_WOLF_GRACE_MS;
       if (ph.endsAt === null || ph.endsAt > end) ph.endsAt = end;
     };
@@ -102,6 +105,11 @@ registerNightStep({
       d.infectTarget = d.votes[black.id];
       shorten();
     } else if (unanimous(this.actors(ctx), d.votes)) shorten(); // meute d'accord (TUER) : même délai
+    else if (d.baseEndsAt !== undefined) {
+      // Un loup change d'avis : la meute n'est plus d'accord, le temps normal revient.
+      ph.endsAt = d.baseEndsAt;
+      d.baseEndsAt = undefined;
+    }
   },
   isComplete(ctx) {
     // Avec un Loup Noir qui peut infecter : fin au délai fixe (voir BLACK_WOLF_GRACE_MS), jamais avant.

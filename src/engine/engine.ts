@@ -16,6 +16,7 @@ import './roles/index.ts';
 import { getPlayer, type Ctx, type GameState, type PlayerState } from './state.ts';
 import { buildView } from './view.ts';
 import { fail } from './errors.ts';
+import { defaultSettings } from './settings.ts';
 
 /** Un Hôte déconnecté depuis ce délai perd son rôle d'Hôte au profit d'un joueur connecté. */
 export const HOST_TRANSFER_DELAY_MS = 30_000;
@@ -26,7 +27,12 @@ export class GameEngine {
   constructor(
     public state: GameState,
     private readonly rng: Rng = cryptoRng,
-  ) {}
+  ) {
+    // Partie sauvegardée avant l'ajout d'un réglage : la valeur par défaut s'applique
+    // (sinon un réglage absent vaudrait « faux » et changerait les règles en cours de partie).
+    const d = defaultSettings();
+    state.settings = { ...d, ...state.settings, durations: { ...d.durations, ...state.settings?.durations } };
+  }
 
   static create(code: string, now: number, rng: Rng = cryptoRng): GameEngine {
     return new GameEngine(createGameState(code, now), rng);

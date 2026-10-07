@@ -278,3 +278,18 @@ describe('Voix — sécurité du canal des Loups (serveur = seule source de vér
     assert.throws(() => g.cmd(3, { action: 'wolf_vote', targets: [g.ids[4]] }));
   });
 });
+
+describe('Arrêt du serveur (redéploiement)', () => {
+  it('aucune action acceptée pendant l’arrêt (elle serait perdue) : refus clair, réessayable', { timeout: 10_000 }, async () => {
+    const srv = await startServer();
+    const c = await client(srv.url);
+    sockets.push(c);
+    const created = await emit(c, 'game:create', { name: 'Alice' });
+    assert.equal(created.ok, true);
+    srv.manager.stop();
+    const r = await emit(c, 'lobby:addBot', {});
+    assert.deepEqual([r.ok, r.error], [false, 'RESTARTING']);
+    assert.equal(c.connected, true, 'la connexion n’est pas coupée par le serveur (le navigateur se reconnecte seul au nouveau)');
+    await srv.close();
+  });
+});

@@ -986,3 +986,64 @@ describe('Sorcière — poison (le serveur est la seule source de vérité)', ()
     assert.ok(g.announcements().some((a) => a.includes('P3') && a.includes('P4')));
   });
 });
+
+describe('Corrections issues de la relecture', () => {
+  it('Loup Noir : la meute d’accord puis en désaccord → le temps normal revient', () => {
+    const g = setup(['black_wolf', 'werewolf', 'villager', 'villager', 'villager', 'villager', 'villager']);
+    g.until('WEREWOLF_PHASE');
+    const s = g.engine.state;
+    s.phase.endsAt = g.now + 40_000;
+    g.act(0, 'wolf_vote', [3]);
+    g.act(1, 'wolf_vote', [3]);
+    assert.equal(s.phase.endsAt! - g.now, 5000);
+    g.act(1, 'wolf_vote', [4]); // un loup change d'avis
+    assert.equal(s.phase.endsAt! - g.now, 40_000);
+  });
+
+  it('partie sauvegardée avant un nouveau réglage : la valeur par défaut s’applique au chargement', () => {
+    const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager']);
+    const saved = JSON.parse(JSON.stringify(g.engine.state));
+    delete saved.settings.witchNoPoisonFirstNight;
+    const restored = new GameEngine(saved, seededRng(1));
+    assert.equal(restored.state.settings.witchNoPoisonFirstNight, true);
+  });
+
+  it('Chasseur Capitaine : son tir renverse la victoire → dernière parole et succession conservées', () => {
+    // P0, P1 loups ; P2 Chasseur Capitaine ; P3, P4 villageois. Le village élimine le Chasseur :
+    // 2 loups contre 2 villageois, mais son tir (en attente) peut tout changer.
+    const g = setup(['werewolf', 'werewolf', 'hunter', 'villager', 'villager', 'villager'], { wolvesWinAtParity: true });
+    g.until('WEREWOLF_PHASE');
+    g.act(0, 'wolf_vote', [5]);
+    g.act(1, 'wolf_vote', [5]);
+    g.until('VOTING');
+    g.engine.state.captainId = g.ids[2];
+    for (const i of [0, 1, 3, 4]) g.act(i, 'vote', [2]);
+    g.act(2, 'vote', [0]);
+    g.skip(); // résultat du vote
+    for (let i = 0; i < 4 && g.phase !== 'HUNTER_SHOT'; i++) {
+      if (g.engine.state.phase.data.playerId === g.ids[2] || g.view(2).phase.canFinish) g.act(2, 'finish');
+      else g.skip();
+    }
+    assert.equal(g.phase, 'HUNTER_SHOT');
+    g.act(2, 'hunter_shot', [0]); // abat un loup : 1 loup contre 2 villageois, la partie continue
+    assert.notEqual(g.engine.state.status, 'finished');
+    // La succession du Capitaine n'a pas été perdue.
+    for (let i = 0; i < 6 && (g.phase as string) !== 'CAPTAIN_SUCCESSION'; i++) {
+      if (g.view(2).phase.canFinish) g.act(2, 'finish');
+      else if (g.view(0).phase.canFinish) g.act(0, 'finish');
+      else break;
+    }
+    assert.equal(g.phase, 'CAPTAIN_SUCCESSION');
+  });
+
+  it('journal des nuits : jamais montré dans le lobby si la partie ne révélait pas les rôles', () => {
+    const g = setup(['werewolf', 'villager', 'villager', 'villager'], { revealRolesOnGameOver: false });
+    const s = g.engine.state;
+    s.nightLog = ['Nuit 1 : secret'];
+    s.status = 'finished';
+    s.winner = { camp: 'wolves', title: '', winnerIds: [] };
+    g.engine.reset(g.ids[0], g.now);
+    s.settings.revealRolesOnGameOver = true; // l'hôte active l'option après coup
+    assert.equal(g.view(1).lastNightLog, null);
+  });
+});
