@@ -372,15 +372,22 @@ const recorded = new Map();
 export function preloadRecorded() {
   const c = audio();
   if (!c) return;
-  for (const name of ['fusil', 'recharge', 'jour', 'meute', 'coeur', 'cloche']) {
-    if (recorded.has(name)) continue;
-    recorded.set(name, null);
-    fetch(`/assets/sfx/${name}.mp3`)
-      .then((r) => (r.ok ? r.arrayBuffer() : null))
-      .then((b) => b && new Promise((res, rej) => c.decodeAudioData(b, res, rej)))
-      .then((buf) => buf && recorded.set(name, buf))
-      .catch(() => {});
-  }
+  if (recorded.size) return;
+  for (const name of ['fusil', 'recharge', 'jour', 'meute', 'coeur', 'cloche']) recorded.set(name, null);
+  // Le serveur dit quels enregistrements existent : aucune requête pour un fichier absent.
+  fetch('/api/sfx')
+    .then((r) => (r.ok ? r.json() : []))
+    .then((names) => {
+      for (const name of names) {
+        if (!recorded.has(name)) continue;
+        fetch(`/assets/sfx/${name}.mp3`)
+          .then((r) => (r.ok ? r.arrayBuffer() : null))
+          .then((b) => b && new Promise((res, rej) => c.decodeAudioData(b, res, rej)))
+          .then((buf) => buf && recorded.set(name, buf))
+          .catch(() => {});
+      }
+    })
+    .catch(() => {});
 }
 function playRecorded(name, volume) {
   const buf = recorded.get(name);

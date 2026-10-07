@@ -1,6 +1,7 @@
 import compression from 'compression';
 import express from 'express';
 import { createServer, type Server as HttpServer } from 'node:http';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
@@ -22,6 +23,19 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
   app.get('/health', (_req, res) => {
     const voice = manager.sfu ? { mode: 'livekit', livekit: manager.sfu.health } : { mode: 'pair-à-pair', manquant: missingSfuVars() };
     res.json({ ok: true, games: manager.rooms.size, uptime: process.uptime(), droppedSignals: manager.droppedSignals, voice, profils: manager.profiles.label });
+  });
+  // Bruitages enregistrés fournis (public/assets/sfx/<nom>.mp3) : liste, pour ne jamais demander un fichier absent.
+  app.get('/api/sfx', (_req, res) => {
+    let names: string[] = [];
+    try {
+      names = readdirSync(path.join(PUBLIC_DIR, 'assets', 'sfx'))
+        .filter((f) => f.endsWith('.mp3'))
+        .map((f) => f.slice(0, -4));
+    } catch {
+      /* dossier absent */
+    }
+    res.setHeader('Cache-Control', 'no-cache');
+    res.json(names);
   });
   app.get('/api/roles', (_req, res) => {
     res.json(allRoles().map(roleInfo));

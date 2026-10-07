@@ -665,22 +665,22 @@ function renderMic(v = client.view) {
   const st = voice.state();
   if (ui.voiceError) {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>⚠️</i>Son indisponible · réessayer';
+    btn.innerHTML = '<i>⚠️</i><span>Son indisponible · réessayer</span>';
   } else if (!st.active) {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>⏳</i>Connexion de la voix…';
+    btn.innerHTML = '<i>⏳</i><span>Connexion de la voix…</span>';
   } else if (!st.hasMic) {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>⚠️</i>Micro refusé · autorise-le';
+    btn.innerHTML = '<i>⚠️</i><span>Micro refusé · autorise-le</span>';
   } else if (st.selfMuted) {
     btn.className = 'mic-btn muted self';
-    btn.innerHTML = '<i>🔇</i>Tu t’es coupé · toucher pour réactiver';
+    btn.innerHTML = '<i>🔇</i><span>Tu t’es coupé · toucher pour réactiver</span>';
   } else if (v.voice.canSpeak) {
     btn.className = 'mic-btn live';
-    btn.innerHTML = '<i>🎙️</i>Micro ouvert · toucher pour couper';
+    btn.innerHTML = '<i>🎙️</i><span>Micro ouvert · toucher pour couper</span>';
   } else {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>🔇</i>Micro coupé · pas ton tour';
+    btn.innerHTML = '<i>🔇</i><span>Micro coupé · pas ton tour</span>';
   }
 }
 
@@ -994,6 +994,19 @@ function openThief() {
         st.remove();
       }),
   );
+}
+
+/**
+ * Écran du Voleur encore ouvert alors que son tour est fini (temps écoulé : le serveur a pris une
+ * carte pour lui, ou choix fait ailleurs) : on le referme, sinon il masquerait le jeu toute la partie.
+ * Le nouveau rôle est alors montré par l'animation de distribution habituelle.
+ */
+function closeStaleThief(v) {
+  const st = document.querySelector('.thief-stage');
+  if (!st || st.classList.contains('busy')) return;
+  if (v?.status === 'running' && v.prompt?.action === 'thief') return;
+  st.classList.remove('in');
+  setTimeout(() => st.remove(), 400);
 }
 
 // ================================================================== JOURNAL & CHATS
@@ -1371,6 +1384,7 @@ function onPrivate(v) {
 
 client.addEventListener('view', (e) => {
   const v = e.detail;
+  closeStaleThief(v);
   autoVoice(v);
   onPrivate(v);
   if (v && v.status !== 'lobby') onTransitions(v, ui.prev);

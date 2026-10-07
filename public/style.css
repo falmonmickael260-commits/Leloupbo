@@ -784,3 +784,7 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .juice-veil.soft.on { animation-name: veilSoft; }
 @keyframes veil { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes veilSoft { 0% { opacity: 0; } 30% { opacity: 0.45; } 100% { opacity: 0; } }
+/* Bouton micro : toujours sur une ligne (petits téléphones), texte raccourci si besoin. */
+.mic-btn { white-space: nowrap; max-width: 100%; min-width: 0; }
+.mic-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 380px) { .mic-btn { font-size: 12px; } }
