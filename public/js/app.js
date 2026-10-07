@@ -1357,8 +1357,26 @@ function renderReactions(v) {
     ui.reactSeen.add(e.id);
     if (Date.now() + client.clockOffset - e.at > 6000) continue; // trop ancienne (retour d'arrière-plan)
     board.throwReaction(e.from, e.to, e.kind, `${nameOf(v, e.from)} → ${nameOf(v, e.to)}`);
-    if (e.to === v.me.id) toast(e.kind === 'tomato' ? `🍅 ${nameOf(v, e.from)} pense que tu mens !` : `🌸 ${nameOf(v, e.from)} croit ce que tu dis !`);
+    reactionLine(v, e);
   }
+}
+
+/** Phrase à l'écran pour tout le monde : « 🍅 Sarah a jeté une tomate sur Micka ». */
+function reactionLine(v, e) {
+  const box = $('react-feed');
+  const tomato = e.kind === 'tomato';
+  const who = (id) => (id === v.me.id ? 'toi' : esc(nameOf(v, id)));
+  const from = e.from === v.me.id ? 'Tu as' : `<b>${esc(nameOf(v, e.from))}</b> a`;
+  const line = document.createElement('div');
+  line.className = `react-line ${e.kind}`;
+  // Pour l'orateur visé, le sens de la réaction est dit en clair.
+  const meaning = e.to === v.me.id ? (tomato ? ' : il pense que tu mens !' : ' : il croit ce que tu dis !') : '';
+  line.innerHTML = `<span class="ico">${tomato ? '🍅' : '🌸'}</span><span>${from} jeté ${tomato ? 'une tomate' : 'une fleur'} sur <b>${who(e.to)}</b>${meaning}</span>`;
+  line.classList.toggle('mine', e.to === v.me.id);
+  box.appendChild(line);
+  while (box.children.length > 3) box.firstElementChild.remove(); // 3 lignes au maximum
+  setTimeout(() => line.classList.add('out'), 4000);
+  setTimeout(() => line.remove(), 4500);
 }
 
 /** Cible : la seule personne qui a la parole, sinon celle qu'on entend parler en ce moment. */
