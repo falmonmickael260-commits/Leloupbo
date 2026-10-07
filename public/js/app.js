@@ -348,7 +348,6 @@ function renderLobby(v) {
     ${check('wolvesWinAtParity', '🐺 Victoire des Loups dès que le village ne peut plus gagner')}
     ${check('witchCanSelfSave', 'Sorcière peut se sauver')}
     ${check('witchNoPoisonFirstNight', 'Sorcière : pas de poison la 1re nuit')}
-    ${check('witchBothPotionsSameNight', 'Sorcière : les 2 potions la même nuit')}
     ${check('salvateurCanSelfProtect', 'Salvateur peut se protéger')}
     ${check('cupidWinsWithLovers', 'Cupidon gagne avec un couple mixte')}
     ${check('endVoteWhenAllVoted', 'Clore le vote quand tous ont voté')}
@@ -884,12 +883,13 @@ function renderAction(v) {
     if (ui.witchPoison) {
       html += `<p>☠️ <b>Touche le joueur à empoisonner.</b></p><div class="row"><button class="btn" data-witch="poison-cancel">Annuler</button></div>`;
     } else if (ui.witchSave) {
-      html += `<p>💚 ${esc(victim)} sera sauvé(e). ☠️ Touche un joueur pour l’empoisonner aussi, ou termine.</p>
-        <div class="row"><button class="btn btn-gold" data-witch="save">Terminer</button></div>`;
+      html += `<p>💚 ${esc(victim)} sera sauvé(e). <b>☠️ Touche le joueur à empoisonner.</b></p>
+        <div class="row"><button class="btn" data-witch="poison-cancel">Annuler</button></div>`;
     } else {
       const btns = [];
-      if (ids.includes('save')) btns.push(`<button class="btn btn-gold" data-witch="${ids.includes('save_kill') ? 'save-then' : 'save'}">💚 Sauver ${esc(victim)}</button>`);
+      if (ids.includes('save')) btns.push(`<button class="btn btn-gold" data-witch="save">💚 Sauver ${esc(victim)}</button>`);
       if (ids.includes('kill')) btns.push('<button class="btn btn-danger" data-witch="poison-pick">☠️ Empoisonner</button>');
+      if (ids.includes('save_kill')) btns.push('<button class="btn btn-danger" data-witch="both">💚☠️ Sauver ET empoisonner</button>');
       btns.push('<button class="btn" data-witch="none">Ne rien faire</button>');
       html += `<div class="row">${btns.join('')}</div>`;
     }
@@ -927,12 +927,13 @@ function renderAction(v) {
     (b) =>
       (b.onclick = () => {
         const w = b.dataset.witch;
-        if (w === 'save-then') {
+        if (w === 'both') {
           ui.witchSave = true;
           return render();
         }
         if (w === 'poison-pick' || w === 'poison-cancel') {
           ui.witchPoison = w === 'poison-pick';
+          ui.witchSave = false;
           return render();
         }
         witchCommand([], w);

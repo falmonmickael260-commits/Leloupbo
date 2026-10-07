@@ -53,11 +53,13 @@ registerNightStep({
     const options = [{ id: 'none', label: 'Ne rien faire' }];
     if (canSave) options.push({ id: 'save', label: `Potion de vie : sauver ${playerName(ctx.state, d.victim)}` });
     if (canKill) options.push({ id: 'kill', label: 'Potion de mort : empoisonner (choisir une cible)' });
-    if (canSave && canKill && ctx.state.settings.witchBothPotionsSameNight) options.push({ id: 'save_kill', label: 'Sauver ET empoisonner' });
+    // Règle fixe (plus une option) : à partir de la nuit 2, les deux potions la même nuit sont permises.
+    // Un ancien salon pouvait garder « witchBothPotionsSameNight: false » enregistré : on l'ignore.
+    if (canSave && canKill) options.push({ id: 'save_kill', label: 'Sauver ET empoisonner' });
     return {
       action: 'witch',
       title: '🧪 Vos potions',
-      description: noPoisonTonight ? 'Première nuit : la potion de mort est interdite.' : (ctx.state.settings.witchBothPotionsSameNight ? 'Réanimez, empoisonnez, ou les deux.' : 'Réanimez OU empoisonnez.') + ' Chaque potion ne sert qu’une fois.',
+      description: noPoisonTonight ? 'Première nuit : la potion de mort est interdite.' : 'Réanimez, empoisonnez, ou les deux.' + ' Chaque potion ne sert qu’une fois.',
       targets: canKill ? alivePlayers(ctx.state).filter((p) => p.id !== actor.id).map((p) => p.id) : [],
       minTargets: 0,
       maxTargets: canKill ? 1 : 0,

@@ -198,14 +198,18 @@ describe('Nuit', () => {
     assert.deepEqual(g.view(1).me.roleState, { potionVie: false, potionMort: false });
   });
 
-  it('Sorcière (option de l’hôte) : une seule potion par nuit', () => {
+  it('Sorcière : les deux potions la même nuit même dans un ancien salon (réglage resté à false)', () => {
     const g = setup(['werewolf', 'witch', 'villager', 'villager', 'villager', 'villager', 'villager'], { witchBothPotionsSameNight: false });
     g.until('WEREWOLF_PHASE');
     g.act(0, 'wolf_vote', [2]);
     g.act(1, 'witch', [], 'none');
     g.until('WEREWOLF_PHASE');
     g.act(0, 'wolf_vote', [3]);
-    assert.deepEqual(g.view(1).prompt!.options!.map((o) => o.id), ['none', 'save', 'kill']);
+    assert.deepEqual(g.view(1).prompt!.options!.map((o) => o.id), ['none', 'save', 'kill', 'save_kill']);
+    g.act(1, 'witch', [4], 'save_kill');
+    g.until('SUNRISE');
+    assert.equal(g.alive(3), true);
+    assert.equal(g.alive(4), false);
   });
 
   it('Sorcière : informée de la victime, potions uniques', () => {
