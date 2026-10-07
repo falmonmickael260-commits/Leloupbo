@@ -788,3 +788,29 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .mic-btn { white-space: nowrap; max-width: 100%; min-width: 0; }
 .mic-btn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 380px) { .mic-btn { font-size: 12px; } }
+
+/* Bouton micro : l'anneau vert suit ma voix (--lvl de 0 à 1) ; mort = gris discret. */
+.mic-btn.live { border-color: rgba(127, 224, 122, 0.55); color: #c9f5bf; }
+.mic-btn.live i { animation: none; box-shadow: 0 0 0 calc(2px + 7px * var(--lvl, 0)) rgba(95, 184, 74, calc(0.25 + 0.35 * var(--lvl, 0))); transition: box-shadow 0.12s ease-out; }
+.reduce-motion .mic-btn.live i { transition: none; }
+.mic-btn.dead { color: var(--lux-muted); border-style: dashed; }
+/* Téléphone : infos du joueur en pastilles qui passent à la ligne (rien n'est coupé en plein mot). */
+@media (orientation: portrait) and (max-width: 900px) {
+  .me-status { display: flex; flex-wrap: wrap; gap: 0 8px; font-size: 11.5px; line-height: 15px; max-height: 30px; }
+  .me-status > span { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+}
+/* Résultat du vote : barre proportionnelle aux voix derrière chaque nom, la tête du vote en avant. */
+.vote-list .target { position: relative; overflow: hidden; isolation: isolate; }
+.vote-list .target::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w, 0%); background: linear-gradient(90deg, rgba(224, 83, 61, 0.28), rgba(224, 83, 61, 0.1)); z-index: -1; }
+.vote-list .target .n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: rgba(224, 83, 61, 0.25); color: #ffd2c8; font-size: 12px; }
+.vote-list .target.lead { border-color: rgba(242, 199, 92, 0.6); }
+.vote-list .target.lead .n { background: #f2c75c; color: #1a1206; }
+/* Nouvelle action à faire : un seul éclat doré autour du panneau. */
+.action.fresh { animation: action-fresh 1.1s ease-out 1; }
+@keyframes action-fresh { 0% { box-shadow: 0 0 0 0 rgba(242, 199, 92, 0.85), var(--lux-shadow, 0 10px 30px rgba(0, 0, 0, 0.5)); } 100% { box-shadow: 0 0 0 14px rgba(242, 199, 92, 0), var(--lux-shadow, 0 10px 30px rgba(0, 0, 0, 0.5)); } }
+.reduce-motion .action.fresh { animation: none; }
+.mic-btn small { font: inherit; opacity: 0.75; }
+/* Téléphone : les libellés longs perdent leur précision plutôt que d'être coupés par « … ». */
+@media (orientation: portrait) and (max-width: 900px) {
+  .mic-btn.live small, .mic-btn.self small, .mic-btn.dead small { display: none; }
+}

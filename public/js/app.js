@@ -284,7 +284,7 @@ function renderLobby(v) {
   $('lobby-players').innerHTML = [...v.players]
     .sort((a, b) => a.seat - b.seat)
     .map(
-      (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="num">${nums.get(p.id)}</span><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${p.audio.diag ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
+      (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="num">${nums.get(p.id)}</span><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${p.audio.diag && !p.isBot && !(p.audio.mic && p.audio.speaker && p.audio.connected) ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
       ${p.isBot ? '' : audioIcons(p.audio)}
       ${isHost && !p.isMe ? `<button class="btn small" data-kick="${esc(p.id)}">Exclure</button>` : ''}</li>`,
     )
@@ -462,6 +462,9 @@ setInterval(() => {
     if (Date.now() - ui.heardAt > 20000) setTimeout(renderMyVoice);
     ui.heardAt = Date.now();
   }
+  // Bouton micro : l'anneau vert grandit avec ma voix (je vois que le micro capte).
+  const live = document.querySelector('#btn-mic.live');
+  if (live) live.style.setProperty('--lvl', Math.min(1, voice.level() * 1.6).toFixed(2));
   const bar = document.querySelector('#my-voice .lvl i');
   if (bar) bar.style.width = `${Math.min(100, Math.round(voice.level() * 100))}%`;
 }, 120);
@@ -654,7 +657,7 @@ function renderMe(v) {
   if (v.me.roleState && 'infection' in v.me.roleState) st.push(`<span>🖤 Infection ${v.me.roleState.infection ? 'disponible' : 'utilisée'}</span>`);
   if (v.me.roleState && 'potionVie' in v.me.roleState) st.push(`<span>🧪 Vie ${v.me.roleState.potionVie ? '✔' : '✘'} · Mort ${v.me.roleState.potionMort ? '✔' : '✘'}</span>`);
   if (v.me.isCaptain) st.push('<span>👑 Capitaine (voix double)</span>');
-  if (!v.me.alive) st.push('<span>💀 Mort · spectateur</span>');
+  if (!v.me.alive) st.unshift('<span>💀 Mort · spectateur</span>');
   $('me-status').innerHTML = st.join('');
   renderMic(v);
 }
@@ -665,22 +668,31 @@ function renderMic(v = client.view) {
   const st = voice.state();
   if (ui.voiceError) {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>⚠️</i><span>Son indisponible · réessayer</span>';
+    btn.innerHTML = '<i>⚠️</i><span>Son indisponible<small> · réessayer</small></span>';
   } else if (!st.active) {
     btn.className = 'mic-btn muted';
     btn.innerHTML = '<i>⏳</i><span>Connexion de la voix…</span>';
   } else if (!st.hasMic) {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>⚠️</i><span>Micro refusé · autorise-le</span>';
+    btn.innerHTML = '<i>⚠️</i><span>Micro refusé<small> · autorise-le</small></span>';
+  } else if (client.stale || client.status !== 'connected') {
+    btn.className = 'mic-btn muted';
+    btn.innerHTML = '<i>⏳</i><span>Reconnexion… micro fermé</span>';
+  } else if (st.micLive === false) {
+    btn.className = 'mic-btn muted self';
+    btn.innerHTML = '<i>⚠️</i><span>Micro pris par le téléphone<small> · toucher</small></span>';
+  } else if (v.status === 'running' && !v.me.alive) {
+    btn.className = 'mic-btn muted dead';
+    btn.innerHTML = '<i>💀</i><span>Tu es mort<small> · tu écoutes en silence</small></span>';
   } else if (st.selfMuted) {
     btn.className = 'mic-btn muted self';
-    btn.innerHTML = '<i>🔇</i><span>Tu t’es coupé · toucher pour réactiver</span>';
+    btn.innerHTML = '<i>🔇</i><span>Tu t’es coupé<small> · toucher pour réactiver</small></span>';
   } else if (v.voice.canSpeak) {
     btn.className = 'mic-btn live';
-    btn.innerHTML = '<i>🎙️</i><span>Micro ouvert · toucher pour couper</span>';
+    btn.innerHTML = '<i>🎙️</i><span>Micro ouvert<small> · toucher pour couper</small></span>';
   } else {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>🔇</i><span>Micro coupé · pas ton tour</span>';
+    btn.innerHTML = '<i>🔇</i><span>Micro coupé<small> · pas ton tour</small></span>';
   }
 }
 
@@ -743,7 +755,7 @@ client.addEventListener('view', keepScreenOn);
 // Bouton micro : coupe / réactive MON micro (si la voix marche), sinon relance la voix.
 $('btn-mic').onclick = () => {
   const st = voice.state();
-  if (st.active && st.hasMic && !ui.voiceError) voice.setSelfMute(!st.selfMuted);
+  if (st.active && st.hasMic && !ui.voiceError && st.micLive !== false) voice.setSelfMute(!st.selfMuted);
   else retryVoice();
 };
 voice.addEventListener('change', () => {
@@ -826,9 +838,12 @@ function renderAction(v) {
       list.push(vt);
       byTarget.set(vt.targetId, list);
     }
-    const rows = [...byTarget.entries()]
-      .sort((a, b) => b[1].reduce((n, x) => n + x.weight, 0) - a[1].reduce((n, x) => n + x.weight, 0))
-      .map(([t, list]) => `<div class="target"><b>${esc(numName(v, t))}</b> (${list.reduce((n, x) => n + x.weight, 0)}) ← ${list.map((x) => `${esc(numName(v, x.voterId))}${x.weight > 1 ? ' 👑' : ''}`).join(', ')}</div>`)
+    const weight = (list) => list.reduce((n, x) => n + x.weight, 0);
+    const sorted = [...byTarget.entries()].sort((a, b) => weight(b[1]) - weight(a[1]));
+    const top = weight(sorted[0][1]);
+    // Barre dorée proportionnelle aux voix : on voit d'un coup d'œil qui est en tête.
+    const rows = sorted
+      .map(([t, list], i) => `<div class="target${weight(list) === top ? ' lead' : ''}" style="--w:${Math.round((100 * weight(list)) / top)}%;--i:${i}"><b>${esc(numName(v, t))}</b> <span class="n">${weight(list)}</span> ← ${list.map((x) => `${esc(numName(v, x.voterId))}${x.weight > 1 ? ' 👑' : ''}`).join(', ')}</div>`)
       .join('');
     el.innerHTML = `<h3>🗳️ Qui a voté pour qui</h3><div class="vote-list">${rows}</div>`;
     return;
@@ -849,7 +864,13 @@ function renderAction(v) {
   const key = `${v.phase.seq}:${p.action}`;
   if (key !== ui.promptKey) {
     // Nouvelle action à faire : petite vibration (utile téléphone en poche ou écran ailleurs).
-    if (ui.promptKey !== undefined && !p.submitted) vibrate([60, 40, 60]);
+    if (ui.promptKey !== undefined && !p.submitted) {
+      vibrate([60, 40, 60]);
+      // Éclat doré bref sur le panneau : « c'est à toi ».
+      el.classList.remove('fresh');
+      void el.offsetWidth;
+      el.classList.add('fresh');
+    }
     ui.promptKey = key;
     ui.selected = [];
     ui.witchSave = false;
@@ -1413,6 +1434,7 @@ client.addEventListener('status', (e) => {
   const el = $('conn');
   el.classList.toggle('bad', e.detail !== 'connected');
   el.title = { connected: 'Connecté', disconnected: 'Déconnecté', reconnecting: 'Reconnexion…', connecting: 'Connexion…' }[e.detail] ?? e.detail;
+  renderMic();
 });
 client.addEventListener('session-lost', (e) => {
   toast(e.detail.message);

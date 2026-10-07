@@ -76,13 +76,22 @@ export async function revealCard(layer, role, slotEl, { pool = [], onTick } = {}
     <div class="reveal-card"><div class="reveal-glow"></div><div class="flip"><div class="face">${cardBackSVG()}</div></div>
     <p class="reveal-caption">Ton rôle secret…</p></div>`;
   layer.classList.add('show');
+  // Toucher l'écran accélère la révélation (utile si une action attend déjà, ou pour qui l'a déjà vue).
+  let hurry = false;
+  let skipNow = () => {};
+  const onTap = () => {
+    hurry = true;
+    skipNow();
+  };
+  layer.addEventListener('pointerdown', onTap);
+  const pause = (ms) => (hurry ? wait(Math.min(ms, 250)) : Promise.race([wait(ms), new Promise((r) => (skipNow = r))]));
   const card = layer.querySelector('.reveal-card');
   const flip = layer.querySelector('.flip');
   const face = layer.querySelector('.face');
   const caption = layer.querySelector('.reveal-caption');
   await wait(60);
   card.classList.add('in');
-  await wait(900);
+  await pause(900);
 
   // Défilement : faces des rôles en jeu (jamais deux fois la même d'affilée), dos intercalé au début.
   const others = pool.filter((r) => r.id !== role.id);
@@ -99,7 +108,7 @@ export async function revealCard(layer, role, slotEl, { pool = [], onTick } = {}
     const last = k === turns - 1;
     // Rapide au début, puis de plus en plus lent (suspense).
     const t = k / (turns - 1);
-    const dur = 70 + 520 * t * t * t;
+    const dur = hurry ? 40 : 70 + 520 * t * t * t;
     await flip.animate([{ transform: 'scaleX(1)' }, { transform: 'scaleX(0.02)' }], { duration: dur / 2, easing: 'ease-in' }).finished;
     let html;
     if (last) html = svgOf(role);
@@ -124,7 +133,7 @@ export async function revealCard(layer, role, slotEl, { pool = [], onTick } = {}
   layer.appendChild(flash);
   card.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.14)' }, { transform: 'scale(1)' }], { duration: 520, easing: 'cubic-bezier(.2,1.4,.4,1)' });
   caption.innerHTML = `Tu es <b>${role.name}</b>`;
-  await wait(2600);
+  await pause(2600);
   flash.remove();
 
   // Réduction vers l'emplacement de la carte dans le HUD.
@@ -139,6 +148,7 @@ export async function revealCard(layer, role, slotEl, { pool = [], onTick } = {}
   } else card.style.opacity = '0';
   layer.querySelector('.reveal-backdrop').style.opacity = '0';
   await wait(720);
+  layer.removeEventListener('pointerdown', onTap);
   layer.classList.remove('show');
   layer.innerHTML = '';
 }
