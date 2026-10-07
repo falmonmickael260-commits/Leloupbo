@@ -550,7 +550,7 @@ setInterval(renderGameOverCount, 250);
 // ================================================================== RETOURS VISUELS / TACTILES
 initJuice($('board'));
 // Mort d'un joueur : léger tremblement + voile sombre ; ma propre mort fait aussi vibrer le téléphone.
-board.addEventListener('death', (e) => impact('medium', { buzz: e.detail === client.view?.me.id }));
+board.addEventListener('death', () => impact('medium', { buzz: false })); // pas de vibration à la mort d'un joueur
 
 board.addEventListener('sfx', (e) => {
   const st = client.view?.status;
