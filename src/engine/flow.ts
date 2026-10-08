@@ -186,7 +186,7 @@ function startDay(ctx: Ctx): void {
 
 function startSpeeches(ctx: Ctx): void {
   const s = ctx.state;
-  s.speech = { order: buildSpeechOrder(s), index: -1 };
+  s.speech = { order: buildSpeechOrder(s, ctx.rng), index: -1 };
   s.speechRotation += 1;
   advanceSpeaker(ctx);
 }
