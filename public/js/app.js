@@ -554,6 +554,7 @@ initJuice();
 board.addEventListener('death', () => impact('medium'));
 // Ambiance Halloween 🎃 (automatique en octobre, désactivable dans le menu).
 setHalloween(board.stage, halloweenOn());
+board.refreshDecor(); // décor Halloween dès l'accueil
 
 board.addEventListener('sfx', (e) => {
   const st = client.view?.status;
@@ -1117,6 +1118,7 @@ const halloweenLabel = () => ($('btn-halloween').textContent = halloweenOn() ? '
 halloweenLabel();
 $('btn-halloween').onclick = () => {
   toggleHalloween(board.stage);
+  board.refreshDecor();
   halloweenLabel();
   render(); // personnages avec / sans costume
 };

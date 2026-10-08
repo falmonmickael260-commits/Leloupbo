@@ -299,6 +299,9 @@ Fichiers : `src/server/voiceSfu.ts`, `src/server/ice.ts`, `public/js/voiceSfu.js
   `--glow` ; place des joueurs via `--plaza`, arc libre devant l'enseigne via `--gap`,
   cadrage téléphone via `--mobile-width` / `--mobile-gap` / `--mobile-scale`).
   `?decor=village` réaffiche l'ancien village dessiné.
+- **Halloween** : en octobre (désactivable dans le menu), le décor Blackops est remplacé par
+  `blackops-halloween` (source `scripts/art/decor-src/blackops-halloween.png`, même cadrage) ;
+  `public/js/halloween.js` ajoute brume, fantômes, chauves-souris et toiles ; les personnages sont costumés.
 - **Téléphone** : la marge au-dessus du plateau prolonge la couleur du ciel
   (`--sky-top` / `--sky-mid` fournis par `DayNight`), le narrateur s'y affiche.
 - **Personnages** (`public/js/art/characters.js`) : tenues modernes décrites par

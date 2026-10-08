@@ -68,11 +68,19 @@ export class Board extends EventTarget {
 
   /** Change de map (décor) : ne recharge que si elle est différente. */
   setDecor(name) {
+    this.decorWanted = name;
     const forced = new URLSearchParams(location.search).get('decor'); // ?decor=… pour tester
-    const decor = forced || name || DEFAULT_DECOR;
+    let decor = forced || name || DEFAULT_DECOR;
+    // Halloween 🎃 : le décor Blackops a sa version Halloween (même cadrage, même place).
+    if (decor === 'blackops' && document.documentElement.classList.contains('halloween')) decor = 'blackops-halloween';
     if (decor === this.decor) return;
     this.decor = decor;
     this.loadLights(decor);
+  }
+
+  /** Ré-applique le décor demandé (ex. Halloween activé / désactivé). */
+  refreshDecor() {
+    this.setDecor(this.decorWanted);
   }
 
   async loadLights(decor = DEFAULT_DECOR) {
