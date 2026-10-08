@@ -604,3 +604,207 @@ export function claw(volume = 0.32) {
     src.stop(t + 0.2);
   });
 }
+
+// ------------------------------------------------------------------ ambiance de nuit
+// Sons d'ambiance, très bas pour ne jamais couvrir les voix. Joués de la même façon chez tous :
+// ils ne disent rien du rôle de personne.
+let ambBus = null;
+let wind = null;
+
+/** Bus de l'ambiance (volume général). */
+function amb(c) {
+  if (!ambBus) {
+    ambBus = c.createGain();
+    ambBus.gain.value = 1;
+    ambBus.connect(master);
+  }
+  return ambBus;
+}
+
+
+/** Vent nocturne continu, qui souffle et retombe lentement. */
+export function windStart(volume = 0.05) {
+  const c = ready();
+  if (!c || wind) return;
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer(c, 4, true);
+  src.loop = true;
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 420;
+  bp.Q.value = 0.7;
+  const lfo = c.createOscillator();
+  lfo.frequency.value = 0.07;
+  const lfoAmt = c.createGain();
+  lfoAmt.gain.value = 220;
+  lfo.connect(lfoAmt).connect(bp.frequency);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, c.currentTime);
+  g.gain.exponentialRampToValueAtTime(volume, c.currentTime + 3);
+  const gl = c.createOscillator();
+  gl.frequency.value = 0.05;
+  const glAmt = c.createGain();
+  glAmt.gain.value = volume * 0.5;
+  gl.connect(glAmt).connect(g.gain);
+  src.connect(bp).connect(g).connect(amb(c));
+  src.start();
+  lfo.start();
+  gl.start();
+  wind = { src, lfo, gl, g };
+}
+
+export function windStop() {
+  const c = ready();
+  if (!c || !wind) return;
+  const w = wind;
+  wind = null;
+  w.g.gain.cancelScheduledValues(c.currentTime);
+  w.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.8);
+  for (const n of [w.src, w.lfo, w.gl]) n.stop(c.currentTime + 4);
+}
+
+/** Un loup isolé qui hurle très loin (gauche ou droite). */
+export function distantHowl(volume = 0.16) {
+  const c = ready();
+  if (!c) return;
+  const base = 330 + Math.random() * 60;
+  howl(c, amb(c), c.currentTime + 0.05, { base, peak: base * (1.55 + Math.random() * 0.2), dur: 3.2 + Math.random() * 1.2, pan: Math.random() < 0.5 ? -0.75 : 0.75, level: volume });
+}
+
+/** Gémissement de fantôme : « ouuuh » qui glisse, tremble et se perd dans l'écho. */
+export function ghostMoan(volume = 0.09) {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime + 0.05;
+  const dur = 2.6 + Math.random() * 1.4;
+  const f0 = 360 + Math.random() * 120;
+  const o = c.createOscillator();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f0 * 1.35, t + dur * 0.4);
+  o.frequency.exponentialRampToValueAtTime(f0 * 0.7, t + dur);
+  const vib = c.createOscillator();
+  vib.frequency.value = 5.5;
+  const va = c.createGain();
+  va.gain.value = f0 * 0.025;
+  vib.connect(va).connect(o.frequency);
+  // Souffle : bruit filtré qui suit la voix
+  const n = c.createBufferSource();
+  n.buffer = noiseBuffer(c, dur + 0.2);
+  const nb = c.createBiquadFilter();
+  nb.type = 'bandpass';
+  nb.frequency.value = f0 * 2;
+  nb.Q.value = 3;
+  const ng = c.createGain();
+  ng.gain.value = 0.35;
+  const env = c.createGain();
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.exponentialRampToValueAtTime(volume, t + dur * 0.3);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  const pan = c.createStereoPanner ? c.createStereoPanner() : null;
+  if (pan) {
+    pan.pan.setValueAtTime(Math.random() < 0.5 ? -0.8 : 0.8, t);
+    pan.pan.linearRampToValueAtTime((Math.random() - 0.5) * 0.6, t + dur);
+  }
+  o.connect(env);
+  n.connect(nb).connect(ng).connect(env);
+  const tail = pan ? (env.connect(pan), pan) : env;
+  const wet = c.createGain();
+  wet.gain.value = 1.1;
+  tail.connect(amb(c));
+  tail.connect(wet).connect(reverb);
+  for (const x of [o, vib, n]) {
+    x.start(t);
+    x.stop(t + dur + 0.2);
+  }
+}
+
+/** Hibou : « hou… hou-hou », lointain. */
+export function owl(volume = 0.07) {
+  const c = ready();
+  if (!c) return;
+  const t0 = c.currentTime + 0.05;
+  const pan = (Math.random() - 0.5) * 1.4;
+  [0, 0.55, 0.8].forEach((dt, k) => {
+    const t = t0 + dt;
+    const d = k === 0 ? 0.42 : 0.2;
+    const o = c.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(400, t);
+    o.frequency.linearRampToValueAtTime(360, t + d);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(volume, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    const p = c.createStereoPanner ? c.createStereoPanner() : null;
+    if (p) p.pan.value = pan;
+    const tail = p ? (o.connect(g).connect(p), p) : o.connect(g);
+    const wet = c.createGain();
+    wet.gain.value = 0.7;
+    tail.connect(amb(c));
+    tail.connect(wet).connect(reverb);
+    o.start(t);
+    o.stop(t + d + 0.05);
+  });
+}
+
+/** Craquement de bois (vieille porte, plancher) : grincement lent. */
+export function creak(volume = 0.05) {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime + 0.05;
+  const dur = 0.9 + Math.random() * 0.7;
+  const o = c.createOscillator();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(70 + Math.random() * 30, t);
+  o.frequency.linearRampToValueAtTime(110 + Math.random() * 60, t + dur);
+  const am = c.createOscillator();
+  am.type = 'square';
+  am.frequency.setValueAtTime(18, t);
+  am.frequency.linearRampToValueAtTime(30, t + dur);
+  const amg = c.createGain();
+  amg.gain.value = 0.5;
+  const g = c.createGain();
+  g.gain.value = 0.5;
+  am.connect(amg).connect(g.gain);
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 900;
+  bp.Q.value = 4;
+  const env = c.createGain();
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.exponentialRampToValueAtTime(volume, t + 0.1);
+  env.gain.setValueAtTime(volume, t + dur * 0.8);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(bp).connect(env).connect(amb(c));
+  const wet = c.createGain();
+  wet.gain.value = 0.4;
+  env.connect(wet).connect(reverb);
+  for (const x of [o, am]) {
+    x.start(t);
+    x.stop(t + dur + 0.05);
+  }
+}
+
+/** Rafale de vent qui passe. */
+export function gust(volume = 0.08) {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime + 0.05;
+  const dur = 2.5 + Math.random();
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer(c, dur + 0.2, true);
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.Q.value = 1.4;
+  bp.frequency.setValueAtTime(300, t);
+  bp.frequency.exponentialRampToValueAtTime(1100, t + dur * 0.5);
+  bp.frequency.exponentialRampToValueAtTime(350, t + dur);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(volume, t + dur * 0.45);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(bp).connect(g).connect(amb(c));
+  src.start(t);
+  src.stop(t + dur + 0.2);
+}

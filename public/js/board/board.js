@@ -119,6 +119,8 @@ export class Board extends EventTarget {
       const holes = data.lights
         .filter((l) => l.kind !== 'window')
         .map((l) => `radial-gradient(circle ${(l.r * W * (l.kind === 'fire' ? 0.62 : l.kind === 'sign' ? 0.85 : 0.42)).toFixed(0)}px at ${(l.x * 100).toFixed(2)}% ${(l.y * 100).toFixed(2)}%, rgba(0,0,0,.35) 0%, #000 100%)`);
+      // La pleine lune (position de nuit : 1210, 78 sur le plateau) n'est pas assombrie : elle brille.
+      holes.push(`radial-gradient(circle 115px at ${((1210 / BOARD_W) * 100).toFixed(2)}% ${((78 / BOARD_H) * 100).toFixed(2)}%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 62%, #000 100%)`);
       const night = this.stage.querySelector('.night');
       night.style.maskImage = night.style.webkitMaskImage = holes.join(',');
       night.style.maskComposite = 'intersect';

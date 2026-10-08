@@ -16,6 +16,7 @@ import { MAPS } from './maps.js';
 import * as sfx from './sfx.js';
 import { clawSlash, impact, initJuice, reducedMotion, setReducedMotion } from './juice.js';
 import { halloweenNight, halloweenOn, setHalloween, toggleHalloween } from './halloween.js';
+import { nightAmbience, nightSoundsOn, toggleNightSounds } from './ambience.js';
 
 const params = new URLSearchParams(location.search);
 const profile = params.get('profile') || 'default';
@@ -1114,6 +1115,13 @@ $('dead-form').onsubmit = (e) => {
 $('btn-menu').onclick = () => $('menu').classList.toggle('open');
 const motionLabel = () => ($('btn-motion').textContent = reducedMotion() ? '✨ Animations : réduites' : '✨ Animations : normales');
 motionLabel();
+const nightSoundsLabel = () => ($('btn-nightsounds').textContent = nightSoundsOn() ? '🌙 Bruits de nuit : activés' : '🌙 Bruits de nuit : désactivés');
+nightSoundsLabel();
+$('btn-nightsounds').onclick = () => {
+  toggleNightSounds();
+  nightSoundsLabel();
+  render();
+};
 const halloweenLabel = () => ($('btn-halloween').textContent = halloweenOn() ? '🎃 Halloween : activé' : '🎃 Halloween : désactivé');
 halloweenLabel();
 $('btn-halloween').onclick = () => {
@@ -1322,6 +1330,7 @@ function render() {
   if (v.status === 'lobby') {
     show('lobby');
     halloweenNight(false);
+    nightAmbience(false);
     board.update(v, ui);
     renderLobby(v);
     renderReactions(v);
@@ -1331,6 +1340,10 @@ function render() {
   $('code').textContent = v.code;
   renderPhase(v);
   halloweenNight(v.status === 'running' && NIGHT_PHASES.has(v.phase.id));
+  // Bruits de nuit (vent, loup au loin, hibou, fantômes…) : jamais pendant qu'on parle.
+  // Phase des loups : silence pour TOUT le monde (les loups parlent ; un téléphone muet les trahirait).
+  const quietNight = v.status === 'running' && NIGHT_PHASES.has(v.phase.id) && !['NIGHT_RESOLUTION', 'WEREWOLF_PHASE'].includes(v.phase.id);
+  nightAmbience(quietNight, !!v.voice?.canSpeak || !!v.voice?.hearFrom?.length);
   renderMe(v);
   renderAction(v);
   renderChats(v);

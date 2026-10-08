@@ -88,7 +88,7 @@ export function halloweenNight(night) {
 
 /** Fantômes qui se baladent : jour et nuit (plus souvent la nuit), un ou deux à la fois. */
 function scheduleGhosts(first) {
-  const delay = first ?? (nightNow ? 6000 : 13000) + Math.random() * 8000;
+  const delay = first ?? (nightNow ? 4000 : 9000) + Math.random() * 6000;
   ghostTimer = setTimeout(() => {
     ghost();
     if (Math.random() < (nightNow ? 0.5 : 0.25)) setTimeout(ghost, 1800 + Math.random() * 2500);
@@ -122,19 +122,61 @@ function bats() {
   }
 }
 
+/** Point au hasard sur un bord de l'écran (un peu en dehors), en pixels. */
+function edgePoint(W, H, side) {
+  const m = 80;
+  if (side === 0) return { x: -m, y: Math.random() * H }; // gauche
+  if (side === 1) return { x: W + m, y: Math.random() * H }; // droite
+  if (side === 2) return { x: Math.random() * W, y: -m }; // haut
+  return { x: Math.random() * W, y: H + m }; // bas
+}
+
+/**
+ * Fantôme qui se balade PARTOUT : il traverse l'écran d'un bord à un autre (gauche ↔ droite,
+ * haut ↔ bas, en diagonale) en zigzaguant, ou apparaît au milieu, flotte puis s'évanouit.
+ */
 function ghost() {
   if (!screenLayer || reducedMotion() || document.hidden) return;
+  const W = window.innerWidth;
+  const H = window.innerHeight;
   const g = document.createElement('div');
-  const ltr = Math.random() < 0.5;
-  g.className = `hw-ghost ${ltr ? 'ltr' : 'rtl'}`;
-  // Se balade dans le ciel ou au niveau de la place, en ondulant ; plus visible la nuit.
-  g.style.top = `${18 + Math.random() * 45}%`;
-  g.style.setProperty('--gdur', `${(10 + Math.random() * 6).toFixed(1)}s`);
-  g.style.setProperty('--gsz', `${(34 + Math.random() * 22).toFixed(0)}px`);
-  g.style.setProperty('--gop', nightNow ? '0.7' : '0.42');
+  g.className = 'hw-ghost';
+  const size = 34 + Math.random() * 26;
+  g.style.width = `${size.toFixed(0)}px`;
   g.innerHTML = `<div class="hw-ghost-bob">${GHOST}</div>`;
   screenLayer.appendChild(g);
-  setTimeout(() => g.remove(), 17000);
+  const op = nightNow ? 0.72 : 0.45;
+  const pts = [];
+  let frames;
+  if (Math.random() < 0.25) {
+    // Apparition : surgit quelque part, dérive doucement, disparaît.
+    const x = W * (0.1 + Math.random() * 0.8);
+    const y = H * (0.1 + Math.random() * 0.75);
+    const dx = (Math.random() - 0.5) * 160;
+    const dy = (Math.random() - 0.5) * 120;
+    frames = [
+      { transform: `translate(${x}px, ${y}px) scale(.6)`, opacity: 0 },
+      { transform: `translate(${x + dx * 0.3}px, ${y + dy * 0.3}px) scale(1)`, opacity: op, offset: 0.25 },
+      { transform: `translate(${x + dx * 0.7}px, ${y + dy * 0.7}px) scale(1)`, opacity: op, offset: 0.7 },
+      { transform: `translate(${x + dx}px, ${y + dy}px) scale(1.3)`, opacity: 0 },
+    ];
+  } else {
+    // Traversée : d'un bord vers un autre bord différent, avec deux crochets en route.
+    const from = Math.floor(Math.random() * 4);
+    let to = Math.floor(Math.random() * 4);
+    if (to === from) to = from ^ 1;
+    const a = edgePoint(W, H, from);
+    const z = edgePoint(W, H, to);
+    pts.push(a);
+    for (const t of [0.33, 0.66]) pts.push({ x: a.x + (z.x - a.x) * t + (Math.random() - 0.5) * W * 0.35, y: a.y + (z.y - a.y) * t + (Math.random() - 0.5) * H * 0.3 });
+    pts.push(z);
+    frames = pts.map((p, i) => ({ transform: `translate(${p.x.toFixed(0)}px, ${p.y.toFixed(0)}px) scaleX(${(pts[Math.min(i + 1, 3)].x < p.x ? -1 : 1)})`, opacity: i === 0 || i === 3 ? 0 : op }));
+    frames[1].offset = 0.18;
+    frames[2].offset = 0.75;
+  }
+  const dur = 9000 + Math.random() * 7000;
+  const anim = g.animate(frames, { duration: dur, easing: 'ease-in-out', fill: 'forwards' });
+  anim.finished.finally(() => g.remove());
 }
 
 /** Toggle du menu. */
