@@ -1559,6 +1559,28 @@ client.addEventListener('status', (e) => {
   el.title = { connected: 'Connecté', disconnected: 'Déconnecté', reconnecting: 'Reconnexion…', connecting: 'Connexion…' }[e.detail] ?? e.detail;
   renderMic();
 });
+// ================================================================== MISE À JOUR DU JEU
+// Un téléphone resté ouvert garde l'ancienne version en mémoire même après une mise à jour :
+// à la reconnexion, le serveur annonce sa version ; si elle a changé, on recharge la page
+// (tout de suite hors partie ; en pleine partie : bandeau, puis automatiquement au lobby).
+let myBuild = null;
+let updateWaiting = false;
+client.addEventListener('build', (e) => {
+  if (!myBuild) myBuild = e.detail;
+  else if (e.detail !== myBuild) {
+    updateWaiting = true;
+    maybeUpdate();
+  }
+});
+function maybeUpdate() {
+  if (!updateWaiting) return;
+  const st = client.view?.status;
+  if (!st || st === 'lobby') return location.reload();
+  $('update-banner').hidden = false;
+}
+$('update-banner').onclick = () => location.reload();
+client.addEventListener('view', maybeUpdate);
+
 client.addEventListener('session-lost', (e) => {
   toast(e.detail.message);
   render();

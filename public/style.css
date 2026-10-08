@@ -957,3 +957,6 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .mic-btn.live i::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: rgba(95, 184, 74, 0.4); transform: scale(calc(1.15 + 0.6 * var(--lvl, 0))); transition: transform 0.12s ease-out; z-index: -1; will-change: transform; }
 .hw-fog { will-change: transform; }
 .reduce-motion .pion.floor .halo::after, .reduce-motion .pion.floor .plate::after { animation: none; opacity: 0.6; }
+/* Nouvelle version disponible (en pleine partie) */
+.update-banner { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 76px); transform: translateX(-50%); z-index: 80; max-width: calc(100vw - 24px); padding: 9px 16px; border-radius: 999px; border: 1.5px solid #f2c75c; background: rgba(8, 7, 10, 0.95); color: #f2c75c; font: 800 14px var(--font-ui); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6); cursor: pointer; }
+.update-banner[hidden] { display: none; }

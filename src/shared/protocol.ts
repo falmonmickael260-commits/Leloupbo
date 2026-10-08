@@ -40,6 +40,8 @@ export interface ClientToServerEvents {
 
 export interface ServerToClientEvents {
   view: (v: PlayerView) => void;
+  /** Version du jeu servie (un navigateur sur une ancienne version se met à jour). */
+  'server:build': (p: { build: string }) => void;
   kicked: (p: { reason: string }) => void;
   'voice:peer-joined': (p: { id: string }) => void;
   'voice:peer-left': (p: { id: string }) => void;

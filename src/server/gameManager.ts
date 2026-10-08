@@ -8,6 +8,7 @@
  * - diffusion à chaque joueur de SA vue uniquement ;
  * - relais de signalisation WebRTC pour la voix.
  */
+import { CLIENT_BUILD } from './build.ts';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import type { Server, Socket } from 'socket.io';
 import { decideBotCommand } from '../engine/bots.ts';
@@ -112,7 +113,10 @@ export class GameManager {
       this.sfuTimer.unref?.();
     }
     this.housekeeping = setInterval(() => this.tickAll(), opts.housekeepingMs ?? 1000);
-    io.on('connection', (socket) => this.bind(socket));
+    io.on('connection', (socket) => {
+      socket.emit('server:build', { build: CLIENT_BUILD });
+      this.bind(socket);
+    });
   }
 
   /** Recharge les parties persistées (redémarrage serveur) et relance leurs timers. */

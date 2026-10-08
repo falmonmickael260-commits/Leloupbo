@@ -54,6 +54,8 @@ export class GameClient extends EventTarget {
       this.view = v;
       this.dispatchEvent(new CustomEvent('view', { detail: v }));
     });
+    // Version du jeu annoncée par le serveur à chaque connexion (mise à jour détectée par app.js).
+    this.socket.on('server:build', ({ build }) => this.dispatchEvent(new CustomEvent('build', { detail: build })));
     this.socket.on('kicked', ({ reason }) => {
       this.#clear();
       this.view = null;
