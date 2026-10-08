@@ -1326,7 +1326,7 @@ function render() {
 }
 
 // ================================================================== RÉACTIONS 🍅 / 🌸
-// Purement sociales : le serveur compte (2 + 2 par tour de vote), vérifie et diffuse ;
+// Purement sociales : le serveur compte (4 + 4 par tour de vote), vérifie et diffuse ;
 // ici on n'affiche que ses chiffres et on anime le fil public « 🍅 Sarah → Micka ».
 function renderReactions(v) {
   const bar = $('react-bar');

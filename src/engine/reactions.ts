@@ -2,7 +2,7 @@
  * Réactions sociales pendant la parole : 🍅 tomate (« tu mens ») et 🌸 fleur (« je te crois »).
  *
  * Purement cosmétiques : aucun effet sur les votes, les rôles, les règles ou les statistiques.
- * Le SERVEUR tient les compteurs : 2 tomates et 2 fleurs par joueur et par tour de vote
+ * Le SERVEUR tient les compteurs : 4 tomates et 4 fleurs par joueur et par tour de vote
  * (un tour = une journée, revote compris), remis à neuf automatiquement chaque jour.
  */
 import { fail } from './errors.ts';
@@ -10,7 +10,7 @@ import { getPlayer, nextId, type Ctx, type GameState } from './state.ts';
 import { voiceChannel } from './voice.ts';
 
 export type ReactionKind = 'tomato' | 'flower';
-export const REACTIONS_PER_ROUND = 2;
+export const REACTIONS_PER_ROUND = 4;
 /** Délai minimal entre deux réactions d'un même joueur (anti double-clic / rafale). */
 export const REACTION_COOLDOWN_MS = 700;
 const MAX_FEED = 30;

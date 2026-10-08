@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { GameError } from '../src/engine/errors.ts';
+import { REACTIONS_PER_ROUND } from '../src/engine/reactions.ts';
 import { setup } from './helpers.ts';
 
 const rejects = (fn: () => void, code: string) =>
@@ -19,25 +20,25 @@ function atSpeech() {
 }
 
 describe('Réactions 🍅/🌸', () => {
-  it('2 tomates et 2 fleurs par tour, comptées par le serveur ; visibles de tous', () => {
+  it('4 tomates et 4 fleurs par tour, comptées par le serveur ; visibles de tous', () => {
     const { g, speaker, other, react } = atSpeech();
+    assert.equal(REACTIONS_PER_ROUND, 4);
     assert.deepEqual(g.view(other).reactions.targets, [speaker]);
-    react(other, 'tomato');
-    g.advance(800);
-    react(other, 'tomato');
-    g.advance(800);
-    rejects(() => react(other, 'tomato'), 'NO_REACTION_LEFT');
-    react(other, 'flower');
-    g.advance(800);
-    react(other, 'flower');
-    g.advance(800);
-    rejects(() => react(other, 'flower'), 'NO_REACTION_LEFT');
+    assert.equal(g.view(other).reactions.tomato, 4);
+    assert.equal(g.view(other).reactions.flower, 4);
+    for (const kind of ['tomato', 'flower']) {
+      for (let i = 0; i < 4; i++) {
+        react(other, kind);
+        g.advance(800);
+      }
+      rejects(() => react(other, kind), 'NO_REACTION_LEFT');
+    }
     const v = g.view(other).reactions;
     assert.equal(v.tomato, 0);
     assert.equal(v.flower, 0);
     // Tout le monde voit qui a lancé quoi sur qui.
     const feed = g.view((other + 1) % 6).reactions.feed;
-    assert.equal(feed.length, 4);
+    assert.equal(feed.length, 8);
     assert.deepEqual(feed[0], { ...feed[0], kind: 'tomato', from: g.ids[other], to: speaker });
   });
 
@@ -64,16 +65,17 @@ describe('Réactions 🍅/🌸', () => {
     rejects(() => react(other, 'flower'), 'WRONG_PHASE');
   });
 
-  it('remis à 2 + 2 au tour de vote suivant', () => {
+  it('remis à 4 + 4 au tour de vote suivant', () => {
     const { g, other, react } = atSpeech();
-    react(other, 'tomato');
-    g.advance(800);
-    react(other, 'tomato');
+    for (let i = 0; i < 4; i++) {
+      react(other, 'tomato');
+      g.advance(800);
+    }
     assert.equal(g.view(other).reactions.tomato, 0);
     g.until('WEREWOLF_PHASE');
     g.until('PLAYER_SPEECH');
     const v = g.view(other).reactions;
-    assert.equal(v.tomato, 2);
-    assert.equal(v.flower, 2);
+    assert.equal(v.tomato, 4);
+    assert.equal(v.flower, 4);
   });
 });
