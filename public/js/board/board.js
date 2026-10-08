@@ -28,12 +28,14 @@ export class Board extends EventTarget {
     this.mode = 'contain';
     root.innerHTML = `
       <div class="stage" data-sky="day">
-        <div class="sky"><div class="stars"></div><div class="sun"></div><div class="moon"></div></div>
-        <img class="village" alt="Le Village des Blackops" draggable="false"/>
-        <div class="tint"></div>
-        <div class="night"></div>
-        <img class="lights" alt="" draggable="false"/>
-        <div class="glows"></div>
+        <div class="scenery">
+          <div class="sky"><div class="stars"></div><div class="sun"></div><div class="moon"></div></div>
+          <img class="village" alt="Le Village des Blackops" draggable="false"/>
+          <div class="tint"></div>
+          <div class="night"></div>
+          <img class="lights" alt="" draggable="false"/>
+          <div class="glows"></div>
+        </div>
         <div class="pions"></div>
         <div class="fx"></div>
       </div>`;
@@ -308,13 +310,22 @@ export class Board extends EventTarget {
       if (seerResult) badges.push(`<b class="seer-badge ${seerResult === 'LOUP' ? 'wolf' : 'civil'}" title="Vu par la Voyante">🔮${seerResult === 'LOUP' ? '🐺' : '✅'}</b>`);
       if (p.isBot) badges.push('<b title="Bot">🤖</b>');
       if (!p.connected && !p.isBot) badges.push('<b title="Déconnecté">📴</b>');
-      el.querySelector('.badges').innerHTML = badges.join('');
+      // Réécrit seulement ce qui change (le plateau est mis à jour à chaque prise de parole).
+      const badgeHtml = badges.join('');
+      if (el.dataset.badges !== badgeHtml) {
+        el.dataset.badges = badgeHtml;
+        el.querySelector('.badges').innerHTML = badgeHtml;
+      }
       // Micro : autorisé (vert) ou coupé (barré), selon les permissions serveur.
       const micOn = running && p.alive !== false && (p.isMe ? v.voice.canSpeak && !ui.selfMuted : v.voice.hearFrom.includes(p.id));
-      const mic = el.querySelector('.mic');
-      mic.innerHTML = micOn ? MIC_ON : MIC_OFF;
-      mic.className = `mic ${micOn ? 'on' : 'off'}`;
-      mic.style.display = running || v.status === 'lobby' ? '' : 'none';
+      const micKey = `${micOn ? 1 : 0}${running || v.status === 'lobby' ? 1 : 0}`;
+      if (el.dataset.mic !== micKey) {
+        el.dataset.mic = micKey;
+        const mic = el.querySelector('.mic');
+        mic.innerHTML = micOn ? MIC_ON : MIC_OFF;
+        mic.className = `mic ${micOn ? 'on' : 'off'}`;
+        mic.style.display = running || v.status === 'lobby' ? '' : 'none';
+      }
 
       el.classList.toggle('me', p.isMe);
       el.classList.toggle('floor', v.phase.speakerId === p.id);

@@ -46,6 +46,9 @@ export class GameClient extends EventTarget {
     });
     this.socket.io.on('reconnect_attempt', () => this.#setStatus('reconnecting'));
     this.socket.on('view', (v) => {
+      // Le catalogue des rôles n'est envoyé qu'une fois par connexion : on garde le dernier reçu.
+      if (v.roleCatalog) this.roleCatalog = v.roleCatalog;
+      else v.roleCatalog = this.roleCatalog ?? [];
       this.stale = false;
       this.clockOffset = v.serverNow - Date.now();
       this.view = v;

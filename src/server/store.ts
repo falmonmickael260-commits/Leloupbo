@@ -41,22 +41,35 @@ export class FileGameStore implements GameStore {
     return path.join(this.dir, `${code.replace(/[^A-Z0-9]/gi, '')}.json`);
   }
 
+  /** Écriture prévue (pas encore commencée) par partie : on la réutilise au lieu d'en empiler une autre. */
+  private pending = new Map<string, { state: GameState; done: Promise<void> }>();
+
   save(state: GameState): Promise<void> {
-    const json = JSON.stringify(state);
     const code = state.code;
+    // Plusieurs changements rapprochés (actions, votes, réactions…) = UNE seule écriture,
+    // avec l'état le plus récent (il est sérialisé au moment d'écrire, pas à chaque appel).
+    const waiting = this.pending.get(code);
+    if (waiting) {
+      waiting.state = state;
+      return waiting.done;
+    }
     // Écritures sérialisées par partie pour ne jamais écraser un état plus récent.
     const prev = this.chains.get(code) ?? Promise.resolve();
-    const next = prev
+    const slot = { state, done: Promise.resolve() };
+    slot.done = prev
       .catch(() => undefined)
       .then(async () => {
+        this.pending.delete(code); // les changements suivants prépareront l'écriture d'après
+        const json = JSON.stringify(slot.state);
         await mkdir(this.dir, { recursive: true });
         const target = this.file(code);
         const tmp = `${target}.${process.pid}.tmp`;
         await writeFile(tmp, json, 'utf8');
         await rename(tmp, target);
       });
-    this.chains.set(code, next);
-    return next;
+    this.pending.set(code, slot);
+    this.chains.set(code, slot.done);
+    return slot.done;
   }
 
   async loadAll(): Promise<GameState[]> {
@@ -81,6 +94,7 @@ export class FileGameStore implements GameStore {
   async delete(code: string): Promise<void> {
     await (this.chains.get(code) ?? Promise.resolve()).catch(() => undefined);
     this.chains.delete(code);
+    this.pending.delete(code);
     await rm(this.file(code), { force: true });
   }
 }

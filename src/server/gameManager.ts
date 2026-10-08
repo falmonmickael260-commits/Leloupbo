@@ -30,6 +30,8 @@ interface SocketData {
   code?: string;
   playerId?: string;
   voice?: boolean;
+  /** Le catalogue des rôles (fixe) a déjà été envoyé sur cette connexion. */
+  catalogSent?: boolean;
 }
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -218,7 +220,14 @@ export class GameManager {
     for (const [playerId, sockets] of room.sockets) {
       if (!room.engine.hasPlayer(playerId)) continue;
       const view = room.engine.view(playerId, now);
-      for (const s of sockets) s.emit('view', view);
+      // Le catalogue des rôles ne change jamais : envoyé une seule fois par connexion
+      // (le navigateur le garde), ce qui allège chaque mise à jour d'environ un quart.
+      const light = { ...view, roleCatalog: undefined } as unknown as typeof view;
+      for (const s of sockets) {
+        const d = s.data as SocketData;
+        s.emit('view', d.catalogSent ? light : view);
+        d.catalogSent = true;
+      }
     }
   }
 

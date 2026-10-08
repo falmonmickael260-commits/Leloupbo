@@ -27,6 +27,14 @@ const narrator = new Narrator(document.getElementById('narrator'));
 window.blackops = { client, voice, board };
 
 const $ = (id) => document.getElementById(id);
+/** Réécrit une zone de l'écran seulement si son contenu change (moins de travail pour le téléphone). */
+const htmlCache = new WeakMap();
+function setHTML(el, html) {
+  if (htmlCache.get(el) === html) return false;
+  htmlCache.set(el, html);
+  el.innerHTML = html;
+  return true;
+}
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const nameOf = (v, id) => v.players.find((p) => p.id === id)?.name ?? '?';
 /** « 3. Marie » : nom précédé du numéro du joueur. */
@@ -283,15 +291,15 @@ function renderLobby(v) {
   $('lobby-code').textContent = v.code;
   $('lobby-count').textContent = `(${v.players.length}/${v.settings.maxPlayers})`;
   const nums = playerNumbers(v.players);
-  $('lobby-players').innerHTML = [...v.players]
+  const lobbyChanged = setHTML($('lobby-players'), [...v.players]
     .sort((a, b) => a.seat - b.seat)
     .map(
       (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="num">${nums.get(p.id)}</span><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${p.audio.diag && !p.isBot && !(p.audio.mic && p.audio.speaker && p.audio.connected) ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
       ${p.isBot ? '' : audioIcons(p.audio)}
       ${isHost && !p.isMe ? `<button class="btn small" data-kick="${esc(p.id)}">Exclure</button>` : ''}</li>`,
     )
-    .join('');
-  $('lobby-players').querySelectorAll('[data-kick]').forEach((b) => (b.onclick = () => safe(client.kick(b.dataset.kick))));
+    .join(''));
+  if (lobbyChanged) $('lobby-players').querySelectorAll('[data-kick]').forEach((b) => (b.onclick = () => safe(client.kick(b.dataset.kick))));
 
   // Choix du personnage
   const mine = v.players.find((p) => p.isMe)?.avatar;
@@ -670,7 +678,7 @@ function renderMe(v) {
   if (v.me.roleState && 'potionVie' in v.me.roleState) st.push(`<span>🧪 Vie ${v.me.roleState.potionVie ? '✔' : '✘'} · Mort ${v.me.roleState.potionMort ? '✔' : '✘'}</span>`);
   if (v.me.isCaptain) st.push('<span>👑 Capitaine (voix double)</span>');
   if (!v.me.alive) st.unshift('<span>💀 Mort · spectateur</span>');
-  $('me-status').innerHTML = st.join('');
+  setHTML($('me-status'), st.join(''));
   renderMic(v);
 }
 
@@ -680,31 +688,31 @@ function renderMic(v = client.view) {
   const st = voice.state();
   if (ui.voiceError) {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>⚠️</i><span>Son indisponible<small> · réessayer</small></span>';
+    setHTML(btn, '<i>⚠️</i><span>Son indisponible<small> · réessayer</small></span>');
   } else if (!st.active) {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>⏳</i><span>Connexion de la voix…</span>';
+    setHTML(btn, '<i>⏳</i><span>Connexion de la voix…</span>');
   } else if (!st.hasMic) {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>⚠️</i><span>Micro refusé<small> · autorise-le</small></span>';
+    setHTML(btn, '<i>⚠️</i><span>Micro refusé<small> · autorise-le</small></span>');
   } else if (client.stale || client.status !== 'connected') {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>⏳</i><span>Reconnexion… micro fermé</span>';
+    setHTML(btn, '<i>⏳</i><span>Reconnexion… micro fermé</span>');
   } else if (st.micLive === false) {
     btn.className = 'mic-btn muted self';
-    btn.innerHTML = '<i>⚠️</i><span>Micro pris par le téléphone<small> · toucher</small></span>';
+    setHTML(btn, '<i>⚠️</i><span>Micro pris par le téléphone<small> · toucher</small></span>');
   } else if (v.status === 'running' && !v.me.alive) {
     btn.className = 'mic-btn muted dead';
-    btn.innerHTML = '<i>💀</i><span>Tu es mort<small> · tu écoutes en silence</small></span>';
+    setHTML(btn, '<i>💀</i><span>Tu es mort<small> · tu écoutes en silence</small></span>');
   } else if (st.selfMuted) {
     btn.className = 'mic-btn muted self';
-    btn.innerHTML = '<i>🔇</i><span>Tu t’es coupé<small> · toucher pour réactiver</small></span>';
+    setHTML(btn, '<i>🔇</i><span>Tu t’es coupé<small> · toucher pour réactiver</small></span>');
   } else if (v.voice.canSpeak) {
     btn.className = 'mic-btn live';
-    btn.innerHTML = '<i>🎙️</i><span>Micro ouvert<small> · toucher pour couper</small></span>';
+    setHTML(btn, '<i>🎙️</i><span>Micro ouvert<small> · toucher pour couper</small></span>');
   } else {
     btn.className = 'mic-btn muted';
-    btn.innerHTML = '<i>🔇</i><span>Micro coupé<small> · pas ton tour</small></span>';
+    setHTML(btn, '<i>🔇</i><span>Micro coupé<small> · pas ton tour</small></span>');
   }
 }
 
@@ -830,13 +838,13 @@ function witchCommand(targets, option) {
 function renderAction(v) {
   const el = $('action');
   const p = v.prompt;
-  if (v.status === 'finished') return (el.innerHTML = '');
+  if (v.status === 'finished') return setHTML(el, '');
   if (v.phase.canFinish) {
     const lw = v.phase.id === 'DEATH_LAST_WORD';
-    el.innerHTML = `<h3>${lw ? '💀 Ta dernière parole' : '🎙️ À toi de parler !'}</h3>
+    if (setHTML(el, `<h3>${lw ? '💀 Ta dernière parole' : '🎙️ À toi de parler !'}</h3>
       <p>${lw ? 'Explique, accuse, défends-toi : tout le monde t’écoute.' : 'Ton micro est ouvert, les autres t’écoutent.'}</p>
-      <div class="row" style="justify-content:center"><button class="btn btn-finish" id="btn-finish">FINIR</button></div>`;
-    $('btn-finish').onclick = () => safe(client.finish());
+      <div class="row" style="justify-content:center"><button class="btn btn-finish" id="btn-finish">FINIR</button></div>`))
+      $('btn-finish').onclick = () => safe(client.finish());
     return;
   }
   if (!p && v.phase.votes?.length) {
@@ -853,7 +861,7 @@ function renderAction(v) {
     const rows = sorted
       .map(([t, list], i) => `<div class="target${weight(list) === top ? ' lead' : ''}" style="--w:${Math.round((100 * weight(list)) / top)}%;--i:${i}"><b>${esc(numName(v, t))}</b> <span class="n">${weight(list)}</span> ← ${list.map((x) => `${esc(numName(v, x.voterId))}${x.weight > 1 ? ' 👑' : ''}`).join(', ')}</div>`)
       .join('');
-    el.innerHTML = `<h3>🗳️ Qui a voté pour qui</h3><div class="vote-list">${rows}</div>`;
+    setHTML(el, `<h3>🗳️ Qui a voté pour qui</h3><div class="vote-list">${rows}</div>`);
     return;
   }
   if (!p) {
@@ -866,7 +874,7 @@ function renderAction(v) {
       else if (v.phase.id === 'FREE_DISCUSSION') msg = '🗣️ Discussion libre : tout le monde peut parler !';
       else if (v.phase.id === 'VOTING' && v.me.runoffCandidate) msg = '⚖️ Tu es à égalité : le village vote entre vous. Tu ne votes pas.';
     }
-    el.innerHTML = msg ? `<p class="quiet">${msg}</p>` : '';
+    setHTML(el, msg ? `<p class="quiet">${msg}</p>` : '');
     return;
   }
   const key = `${v.phase.seq}:${p.action}`;
@@ -927,7 +935,8 @@ function renderAction(v) {
     }
     if (p.minTargets === 0) html += `<div class="row"><button class="btn" id="btn-pass">${p.action === 'hunter_shot' ? 'Ne pas tirer' : 'Passer'}</button></div>`;
   }
-  el.innerHTML = html;
+  // Panneau identique : on garde les boutons déjà branchés (rien à reconstruire).
+  if (!setHTML(el, html)) return;
   el.querySelectorAll('[data-bw]').forEach((b) => (b.onclick = () => safe(client.command('wolf_vote', [], b.dataset.bw))));
   el.querySelectorAll('[data-opt]').forEach((b) => (b.onclick = () => safe(client.command(p.action, [], b.dataset.opt))));
   el.querySelectorAll('[data-witch]').forEach(
@@ -1050,6 +1059,10 @@ const itemsOf = (v, tab) =>
   tab === 'events' ? v.announcements : tab === 'private' ? v.privateLog : (v.chats[tab] ?? []);
 
 function fillList(body, list, tab, force) {
+  // Rien de nouveau dans cet onglet : on ne reconstruit pas la liste (100 messages).
+  const key = `${tab}|${list.length}|${list[list.length - 1]?.id ?? ''}`;
+  if (!force && body.dataset.key === key) return;
+  body.dataset.key = key;
   const atBottom = force || body.scrollTop + body.clientHeight >= body.scrollHeight - 30;
   body.innerHTML =
     list
@@ -1061,8 +1074,8 @@ function fillList(body, list, tab, force) {
 function renderChats(v) {
   const tabs = tabsFor(v);
   if (!tabs.some(([id]) => id === ui.tab)) ui.tab = 'events';
-  $('tabs').innerHTML = tabs.map(([id, label]) => `<button data-tab="${id}" class="${ui.tab === id ? 'on' : ''}">${label}</button>`).join('');
-  $('tabs').querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => ((ui.tab = b.dataset.tab), (ui.forceScroll = true), render())));
+  if (setHTML($('tabs'), tabs.map(([id, label]) => `<button data-tab="${id}" class="${ui.tab === id ? 'on' : ''}">${label}</button>`).join('')))
+    $('tabs').querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => ((ui.tab = b.dataset.tab), (ui.forceScroll = true), render())));
   fillList($('tab-body'), itemsOf(v, ui.tab), ui.tab, ui.forceScroll);
   ui.forceScroll = false;
   const isChat = ['village', 'wolves'].includes(ui.tab);

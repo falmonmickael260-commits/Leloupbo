@@ -67,6 +67,9 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
     pingInterval: 20_000,
     pingTimeout: 25_000,
     maxHttpBufferSize: 64_000,
+    // Compression des messages (états de partie en JSON) : ~4 à 5 fois moins de données
+    // à faire passer, utile en 4G ou avec une connexion faible.
+    perMessageDeflate: { threshold: 1024 },
     serveClient: true,
   });
   const manager = new GameManager(io, store, opts);

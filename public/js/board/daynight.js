@@ -50,6 +50,9 @@ export class DayNight {
   /** Passe immédiatement (sans animation) à un état — ex. à la reconnexion. */
   snap(state) {
     cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    for (const a of this.anims ?? []) a.cancel();
+    this.anims = [];
     this.queue = [];
     this.state = state;
     this.values = { ...KEYS[state] };
@@ -83,27 +86,74 @@ export class DayNight {
     this.onSegment?.(this.state, target);
     // Lever / coucher : un peu plus longs, pour bien voir le soleil bouger.
     const dur = target === 'night' || target === 'day' ? this.segmentMs * 1.15 : this.segmentMs;
+    // Soleil, lune, étoiles et voiles : animés par la carte graphique (aucun travail par image
+    // pour le processeur). Le dégradé du ciel et la luminosité des personnages, eux, sont mis à
+    // jour ~10 fois par seconde : largement assez pour une transition de plusieurs secondes.
+    const e = this.el;
+    const opt = { duration: dur, easing: 'cubic-bezier(.45,0,.55,1)', fill: 'forwards' };
+    const tr = (x, y) => `translate(${x}px, ${y}px)`;
+    this.anims = [
+      e.sun.animate([{ transform: tr(from.sunX, from.sunY), opacity: from.sun }, { transform: tr(to.sunX, to.sunY), opacity: to.sun }], opt),
+      e.moon.animate([{ transform: tr(from.moonX, from.moonY), opacity: from.moon }, { transform: tr(to.moonX, to.moonY), opacity: to.moon }], opt),
+      e.stars.animate([{ opacity: from.stars }, { opacity: to.stars }], opt),
+      e.tint.animate([{ opacity: from.tint }, { opacity: to.tint }], opt),
+      e.night.animate([{ opacity: from.night }, { opacity: to.night }], opt),
+      e.lights.animate([{ opacity: from.lamps }, { opacity: to.lamps }], opt),
+      e.glows.animate([{ opacity: from.lamps }, { opacity: to.lamps }], opt),
+    ];
     const t0 = performance.now();
+    let lastSky = 0;
     const step = (now) => {
       const t = Math.min(1, (now - t0) / dur);
       this.values = mix(from, to, ease(t));
-      this.apply(this.values);
-      if (t < 1) this.raf = requestAnimationFrame(step);
-      else {
+      if (t >= 1) {
+        // Fin : valeurs définitives posées en style, animations retirées.
+        this.apply(this.values);
+        for (const a of this.anims) a.cancel();
+        this.anims = [];
         this.state = target;
         this.stage.dataset.sky = target;
         this.#next();
+        return;
       }
+      if (now - lastSky > 100) {
+        lastSky = now;
+        this.applySky(this.values);
+      }
+      this.raf = requestAnimationFrame(step);
     };
     this.raf = requestAnimationFrame(step);
   }
 
-  apply(v) {
+  /** Ciel (dégradé), couleurs de page et luminosité des personnages. */
+  applySky(v) {
     const e = this.el;
     e.sky.style.background = `linear-gradient(180deg, ${rgb(v.top)} 0%, ${rgb(v.mid)} 16%, ${rgb(v.bot)} 27%)`;
     // Couleur du haut du ciel : prolonge le ciel au-dessus du plateau (marge du haut sur téléphone).
-    document.documentElement.style.setProperty('--sky-top', rgb(v.top));
-    document.documentElement.style.setProperty('--sky-mid', rgb(v.mid));
+    // Variables de page : changées seulement quand la couleur change vraiment (sinon toute la
+    // page est recalculée).
+    const q = (c) => rgb(c.map((x) => Math.round(x / 8) * 8)); // paliers de couleur (invisibles)
+    const top = q(v.top);
+    const mid = q(v.mid);
+    if (top !== this.lastTop || mid !== this.lastMid) {
+      this.lastTop = top;
+      this.lastMid = mid;
+      // Posées sur le plateau lui-même (propriétés non héritées : rien d'autre n'est recalculé).
+      const host = this.stage.parentElement ?? document.documentElement;
+      host.style.setProperty('--sky-top', top);
+      host.style.setProperty('--sky-mid', mid);
+    }
+    // --night règle les filtres de TOUS les personnages : mise à jour par paliers (≈ 10 par transition).
+    const night = Math.round(v.night * 10) / 10;
+    if (night !== this.lastNight) {
+      this.lastNight = night;
+      this.stage.style.setProperty('--night', night.toFixed(1));
+    }
+  }
+
+  apply(v) {
+    const e = this.el;
+    this.applySky(v);
     e.sun.style.transform = `translate(${v.sunX}px, ${v.sunY}px)`;
     e.sun.style.opacity = v.sun;
     e.moon.style.transform = `translate(${v.moonX}px, ${v.moonY}px)`;
@@ -113,6 +163,5 @@ export class DayNight {
     e.night.style.opacity = v.night;
     e.lights.style.opacity = v.lamps;
     e.glows.style.opacity = v.lamps;
-    this.stage.style.setProperty('--night', v.night.toFixed(3));
   }
 }
