@@ -272,7 +272,7 @@ export class Board extends EventTarget {
         el.style.zIndex = String(Math.round(pos.y));
       }
       const pose = ui.aiming === p.id ? 'aim' : 'idle';
-      const figKey = `${p.avatar}|${pose}`;
+      const figKey = `${p.avatar}|${pose}|${document.documentElement.classList.contains('halloween') ? 'hw' : ''}`;
       if (el.dataset.fig !== figKey) {
         el.dataset.fig = figKey;
         el.querySelector('.figure').innerHTML = characterSVG(p.avatar, { pose, title: p.name });

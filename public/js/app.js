@@ -14,7 +14,8 @@ import { profiles } from './platform/profiles.js';
 import { Voice } from './voiceManager.js';
 import { MAPS } from './maps.js';
 import * as sfx from './sfx.js';
-import { impact, initJuice, reducedMotion, setReducedMotion } from './juice.js';
+import { clawSlash, impact, initJuice, reducedMotion, setReducedMotion } from './juice.js';
+import { halloweenNight, halloweenOn, setHalloween, toggleHalloween } from './halloween.js';
 
 const params = new URLSearchParams(location.search);
 const profile = params.get('profile') || 'default';
@@ -551,6 +552,8 @@ setInterval(renderGameOverCount, 250);
 initJuice();
 // Mort d'un joueur : léger tremblement + voile sombre ; ma propre mort fait aussi vibrer le téléphone.
 board.addEventListener('death', () => impact('medium'));
+// Ambiance Halloween 🎃 (automatique en octobre, désactivable dans le menu).
+setHalloween(board.stage, halloweenOn());
 
 board.addEventListener('sfx', (e) => {
   const st = client.view?.status;
@@ -1110,6 +1113,13 @@ $('dead-form').onsubmit = (e) => {
 $('btn-menu').onclick = () => $('menu').classList.toggle('open');
 const motionLabel = () => ($('btn-motion').textContent = reducedMotion() ? '✨ Animations : réduites' : '✨ Animations : normales');
 motionLabel();
+const halloweenLabel = () => ($('btn-halloween').textContent = halloweenOn() ? '🎃 Halloween : activé' : '🎃 Halloween : désactivé');
+halloweenLabel();
+$('btn-halloween').onclick = () => {
+  toggleHalloween(board.stage);
+  halloweenLabel();
+  render(); // personnages avec / sans costume
+};
 $('btn-motion').onclick = () => {
   setReducedMotion(!reducedMotion());
   motionLabel();
@@ -1219,6 +1229,11 @@ function onTransitions(v, prev) {
     if (ph.id === 'SUNRISE' && fresh.some((a) => a.kind === 'death' && a.text.startsWith('💀') && /cette nuit/.test(a.text))) {
       ui.noBirdsUntil = Date.now() + 8000;
       sfx.nightDeath();
+      // Annonce des victimes de la nuit : coup de griffe sanglant au milieu de l'écran.
+      // (Toutes les morts de la nuit, sans distinguer la cause : on ne trahit pas la Sorcière.)
+      setTimeout(() => {
+        if (clawSlash()) sfx.claw();
+      }, 350);
     }
     for (const a of fresh) if ((['death', 'vote', 'victory'].includes(a.kind) || /Capitaine/.test(a.text)) && !a.text.startsWith('🗳️')) narrator.say(a.text.replace(/^[^\p{L}]+/u, ''), a.kind === 'victory' ? 'victory' : a.kind === 'death' ? 'death' : 'vote');
     if (anns.length) ui.lastAnn = anns[anns.length - 1].id;
@@ -1304,6 +1319,7 @@ function render() {
   firstView = false;
   if (v.status === 'lobby') {
     show('lobby');
+    halloweenNight(false);
     board.update(v, ui);
     renderLobby(v);
     renderReactions(v);
@@ -1312,6 +1328,7 @@ function render() {
   show('game');
   $('code').textContent = v.code;
   renderPhase(v);
+  halloweenNight(v.status === 'running' && NIGHT_PHASES.has(v.phase.id));
   renderMe(v);
   renderAction(v);
   renderChats(v);

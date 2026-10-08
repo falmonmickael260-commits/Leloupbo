@@ -580,3 +580,27 @@ export function chime(volume = 0.12) {
     o.stop(st + 0.65);
   });
 }
+
+/** Mort d'un joueur : coup de griffe (déchirure rapide, trois passes), discret. */
+export function claw(volume = 0.32) {
+  const c = ready();
+  if (!c) return;
+  const t0 = c.currentTime;
+  [0, 0.06, 0.12].forEach((dt) => {
+    const t = t0 + dt;
+    const src = c.createBufferSource();
+    src.buffer = noiseBuffer(c, 0.2);
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(5200, t);
+    bp.frequency.exponentialRampToValueAtTime(900, t + 0.14);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(volume, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    src.connect(bp).connect(g).connect(master);
+    src.start(t);
+    src.stop(t + 0.2);
+  });
+}

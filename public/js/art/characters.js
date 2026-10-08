@@ -269,7 +269,56 @@ function accessoriesHead(c) {
 }
 
 /** SVG complet d'un personnage (style BD, tenues modernes). */
-export function characterSVG(id, { pose = 'idle', title = '' } = {}) {
+// ------------------------------------------------------------------ costumes d'Halloween 🎃
+// Dessinés PAR-DESSUS le personnage (repère 120×200, tête centrée en 60,36). Chaque personnage
+// garde toujours le même costume pendant la période d'Halloween.
+const COSTUMES = ['witch', 'vampire', 'devil', 'skeleton', 'mummy', 'cat'];
+export const costumeOf = (id) => COSTUMES[Math.max(0, CHARACTER_IDS.indexOf(id)) % COSTUMES.length];
+const halloweenActive = () => typeof document !== 'undefined' && document.documentElement.classList.contains('halloween');
+
+function costume(kind) {
+  switch (kind) {
+    case 'witch':
+      // Chapeau pointu violet nuit, boucle dorée
+      return `<path d="M34 24 Q60 14 86 24 Q88 30 60 31 Q32 30 34 24 Z" fill="#2a1840" ${ink()}/>
+        <path d="M44 24 Q52 -2 70 -18 Q66 -4 74 4 Q72 14 76 23 Q60 27 44 24 Z" fill="#3b2160" ${ink()}/>
+        <path d="M45 19 Q60 23 75 19 L76 24 Q60 28 44 24 Z" fill="#7d3fb0" ${ink(1.6)}/>
+        <rect x="56" y="18.5" width="8" height="6.5" rx="1" fill="none" stroke="#e8c04a" stroke-width="2"/>`;
+    case 'vampire':
+      // Col de cape rouge et noir dressé + crocs
+      return `<path d="M38 50 L30 26 L50 46 Z" fill="#14101a" ${ink()}/><path d="M82 50 L90 26 L70 46 Z" fill="#14101a" ${ink()}/>
+        <path d="M40 48 L35 32 L49 46 Z" fill="#9c1622"/><path d="M80 48 L85 32 L71 46 Z" fill="#9c1622"/>
+        <path d="M56.5 48.5 l1.6 4 l1.4 -4 Z M61 48.5 l1.5 4 l1.5 -4 Z" fill="#ffffff" stroke="${INK}" stroke-width=".8"/>
+        <path d="M57 53 q0.4 2 0.3 3 M62.6 53 q0.4 2 0.3 3" stroke="#c4140a" stroke-width="1.2" fill="none" stroke-linecap="round"/>`;
+    case 'devil':
+      // Cornes rouges + pointe de queue
+      return `<path d="M46 22 Q40 10 44 2 Q48 12 53 18 Z" fill="#d22a1e" ${ink()}/><path d="M74 22 Q80 10 76 2 Q72 12 67 18 Z" fill="#d22a1e" ${ink()}/>
+        <path d="M45 6 Q46 12 50 16 M75 6 Q74 12 70 16" stroke="#ff8a6a" stroke-width="1.4" fill="none" opacity=".8"/>
+        <path d="M84 150 q14 -6 12 -22 q-1 -8 4 -12" stroke="#d22a1e" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M98 112 l6 2 l-2 6 Z" fill="#d22a1e" ${ink(1.4)}/>`;
+    case 'skeleton':
+      // Maquillage tête de mort
+      return `<ellipse cx="60" cy="37" rx="14.5" ry="17" fill="#f4f1ea" opacity=".93"/>
+        <ellipse cx="53" cy="35" rx="4.4" ry="5" fill="${INK}"/><ellipse cx="67" cy="35" rx="4.4" ry="5" fill="${INK}"/>
+        <path d="M60 40 l-2.4 4 h4.8 Z" fill="${INK}"/>
+        <path d="M52 48 h16 M54 46 v4 M57 46 v4 M60 46 v4 M63 46 v4 M66 46 v4" stroke="${INK}" stroke-width="1.3"/>`;
+    case 'mummy':
+      // Bandelettes en travers de la tête (les yeux restent visibles)
+      return `<g fill="#efe6d2" stroke="${INK}" stroke-width="1.2" opacity=".96">
+        <path d="M43 22 Q60 16 77 24 L77 29 Q60 22 43 27 Z"/><path d="M43 41 Q60 46 77 40 L77 45 Q60 51 44 46 Z"/>
+        <path d="M45 50 Q60 55 75 49 L72 54 Q60 58 48 54 Z"/><path d="M44 30 L52 31 L50 34 L44 33 Z"/><path d="M76 31 L69 30 L71 33 L76 34 Z"/></g>
+        <path d="M58 24 q4 1 6 -1 M50 43 q4 1 7 0" stroke="#c9bda4" stroke-width="1" fill="none"/>`;
+    case 'cat':
+      // Oreilles de chat noir + moustaches
+      return `<path d="M42 24 L42 6 L55 18 Z" fill="#17131c" ${ink()}/><path d="M78 24 L78 6 L65 18 Z" fill="#17131c" ${ink()}/>
+        <path d="M44.5 20 L44.5 11 L51 17 Z M75.5 20 L75.5 11 L69 17 Z" fill="#e86a9a"/>
+        <path d="M60 43 l-1.6 -1.5 h3.2 Z" fill="#17131c"/>
+        <path d="M47 43 h-8 M47 45.5 l-7 2 M73 43 h8 M73 45.5 l7 2" stroke="#17131c" stroke-width="1.1" stroke-linecap="round"/>`;
+    default:
+      return '';
+  }
+}
+
+export function characterSVG(id, { pose = 'idle', title = '', halloween = halloweenActive() } = {}) {
   const c = getCharacter(id);
   const skin = c.skin;
   const skinSh = shade(skin, 0.8);
@@ -291,5 +340,6 @@ export function characterSVG(id, { pose = 'idle', title = '' } = {}) {
   if (covered) s += `<path d="M44 30 q-1 8 1 12 M76 30 q1 8 -1 12" stroke="${c.hair}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
   else s += hairFront(c);
   s += accessoriesHead(c);
+  if (halloween) s += costume(costumeOf(c.id));
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" class="character" role="img" aria-label="${title || c.name}">${s}</svg>`;
 }
