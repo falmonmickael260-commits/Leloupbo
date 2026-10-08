@@ -213,7 +213,9 @@ export class Board extends EventTarget {
     if (this.portrait && L.mobileTop != null && this.visibleW) {
       // Téléphone plein écran : rond entre le bas de l'enseigne et le bas de l'écran,
       // dans la largeur visible.
-      const top = L.mobileTop + 175 * size; // pieds du joueur le plus haut (tête sous l'enseigne)
+      // Pieds du joueur le plus haut : juste sous l'enseigne et le bandeau d'annonce, pour que les
+      // joueurs forment un vrai rond autour du loup du sol, sans être serrés en bas.
+      const top = L.mobileTop + (L.mobileRise ?? 60);
       const bottom = BOARD_H - 22;
       ry = Math.max(60, (bottom - top) / 2);
       rx = Math.min(rxFull, this.visibleW / 2 - 70 * size - 10);
