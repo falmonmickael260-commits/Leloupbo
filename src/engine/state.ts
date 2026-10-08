@@ -105,6 +105,8 @@ export interface GameState {
   captainElectionDone: boolean;
   speech: { order: string[]; index: number } | null;
   speechRotation: number;
+  /** Premier à avoir parlé au tour de parole précédent (pour ne pas recommencer par lui). */
+  lastFirstSpeaker?: string | null;
   ballot: BallotBox | null;
   deathQueue: DeathTask[];
   /** Où reprendre une fois la séquence de morts terminée. */

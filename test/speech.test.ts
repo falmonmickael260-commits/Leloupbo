@@ -19,6 +19,14 @@ describe('Ordre de parole', () => {
     assert.ok(firsts.size >= 5, `trop peu de premiers orateurs différents : ${firsts.size}`);
   });
 
+  it('jamais le même premier orateur deux jours de suite', () => {
+    const g = setup(['werewolf', 'seer', 'villager', 'villager', 'villager', 'villager']);
+    for (let seed = 1; seed <= 100; seed++) {
+      g.engine.state.lastFirstSpeaker = g.ids[seed % 6];
+      assert.notEqual(buildSpeechOrder(g.engine.state, seededRng(seed))[0], g.ids[seed % 6]);
+    }
+  });
+
   it('le Capitaine vivant parle toujours en premier', () => {
     const g = setup(['werewolf', 'seer', 'villager', 'villager', 'villager', 'villager']);
     g.engine.state.captainId = g.ids[3];
