@@ -51,8 +51,6 @@ export class DayNight {
   snap(state) {
     cancelAnimationFrame(this.raf);
     this.raf = 0;
-    for (const a of this.anims ?? []) a.cancel();
-    this.anims = [];
     this.queue = [];
     this.state = state;
     this.values = { ...KEYS[state] };
@@ -86,39 +84,24 @@ export class DayNight {
     this.onSegment?.(this.state, target);
     // Lever / coucher : un peu plus longs, pour bien voir le soleil bouger.
     const dur = target === 'night' || target === 'day' ? this.segmentMs * 1.15 : this.segmentMs;
-    // Soleil, lune, étoiles et voiles : animés par la carte graphique (aucun travail par image
-    // pour le processeur). Le dégradé du ciel et la luminosité des personnages, eux, sont mis à
-    // jour ~10 fois par seconde : largement assez pour une transition de plusieurs secondes.
-    const e = this.el;
-    const opt = { duration: dur, easing: 'cubic-bezier(.45,0,.55,1)', fill: 'forwards' };
-    const tr = (x, y) => `translate(${x}px, ${y}px)`;
-    this.anims = [
-      e.sun.animate([{ transform: tr(from.sunX, from.sunY), opacity: from.sun }, { transform: tr(to.sunX, to.sunY), opacity: to.sun }], opt),
-      e.moon.animate([{ transform: tr(from.moonX, from.moonY), opacity: from.moon }, { transform: tr(to.moonX, to.moonY), opacity: to.moon }], opt),
-      e.stars.animate([{ opacity: from.stars }, { opacity: to.stars }], opt),
-      e.tint.animate([{ opacity: from.tint }, { opacity: to.tint }], opt),
-      e.night.animate([{ opacity: from.night }, { opacity: to.night }], opt),
-      e.lights.animate([{ opacity: from.lamps }, { opacity: to.lamps }], opt),
-      e.glows.animate([{ opacity: from.lamps }, { opacity: to.lamps }], opt),
-    ];
+    // Aucun calque graphique séparé (sur téléphone, les calques de la taille du plateau saturent
+    // la mémoire graphique et l'écran clignote) : tout change par petites étapes (~15 par seconde),
+    // et seulement quand la valeur visible change.
     const t0 = performance.now();
     let lastSky = 0;
     const step = (now) => {
       const t = Math.min(1, (now - t0) / dur);
       this.values = mix(from, to, ease(t));
       if (t >= 1) {
-        // Fin : valeurs définitives posées en style, animations retirées.
         this.apply(this.values);
-        for (const a of this.anims) a.cancel();
-        this.anims = [];
         this.state = target;
         this.stage.dataset.sky = target;
         this.#next();
         return;
       }
-      if (now - lastSky > 100) {
+      if (now - lastSky > 66) {
         lastSky = now;
-        this.applySky(this.values);
+        this.apply(this.values);
       }
       this.raf = requestAnimationFrame(step);
     };
@@ -151,17 +134,26 @@ export class DayNight {
     }
   }
 
+  /** Pose un style seulement s'il change (évite tout recalcul inutile). */
+  set(el, prop, value) {
+    const key = `__${prop}`;
+    if (el[key] === value) return;
+    el[key] = value;
+    el.style[prop] = value;
+  }
+
   apply(v) {
     const e = this.el;
     this.applySky(v);
-    e.sun.style.transform = `translate(${v.sunX}px, ${v.sunY}px)`;
-    e.sun.style.opacity = v.sun;
-    e.moon.style.transform = `translate(${v.moonX}px, ${v.moonY}px)`;
-    e.moon.style.opacity = v.moon;
-    e.stars.style.opacity = v.stars;
-    e.tint.style.opacity = v.tint;
-    e.night.style.opacity = v.night;
-    e.lights.style.opacity = v.lamps;
-    e.glows.style.opacity = v.lamps;
+    const r = (x) => (Math.round(x * 25) / 25).toFixed(2); // opacités par paliers (invisibles)
+    this.set(e.sun, 'transform', `translate(${Math.round(v.sunX)}px, ${Math.round(v.sunY)}px)`);
+    this.set(e.sun, 'opacity', r(v.sun));
+    this.set(e.moon, 'transform', `translate(${Math.round(v.moonX)}px, ${Math.round(v.moonY)}px)`);
+    this.set(e.moon, 'opacity', r(v.moon));
+    this.set(e.stars, 'opacity', r(v.stars));
+    this.set(e.tint, 'opacity', r(v.tint));
+    this.set(e.night, 'opacity', r(v.night));
+    this.set(e.lights, 'opacity', r(v.lamps));
+    this.set(e.glows, 'opacity', r(v.lamps));
   }
 }
