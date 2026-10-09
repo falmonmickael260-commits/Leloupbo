@@ -26,7 +26,8 @@ export function clientBuildId(publicDir: string): string {
       h.update(readFileSync(f));
     }
   } catch {
-    h.update(String(Date.now()));
+    // Fichiers illisibles : version fixe (sinon chaque redémarrage forcerait un rechargement).
+    return 'inconnue';
   }
   return h.digest('hex').slice(0, 12);
 }

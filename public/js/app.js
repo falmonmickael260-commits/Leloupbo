@@ -1563,7 +1563,8 @@ client.addEventListener('status', (e) => {
 // Un téléphone resté ouvert garde l'ancienne version en mémoire même après une mise à jour :
 // à la reconnexion, le serveur annonce sa version ; si elle a changé, on recharge la page
 // (tout de suite hors partie ; en pleine partie : bandeau, puis automatiquement au lobby).
-let myBuild = null;
+// Version avec laquelle CETTE page a été chargée (inscrite par le serveur dans la page).
+let myBuild = document.querySelector('meta[name="blackops-build"]')?.content || null;
 let updateWaiting = false;
 client.addEventListener('build', (e) => {
   if (!myBuild) myBuild = e.detail;

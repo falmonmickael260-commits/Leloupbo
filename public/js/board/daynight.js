@@ -33,7 +33,10 @@ export class DayNight {
     this.el = {
       sky: stage.querySelector('.sky'),
       sun: stage.querySelector('.sun'),
-      moon: stage.querySelector('.moon'),
+      moon: stage.querySelector('.sky .moon'),
+      // Copie de la lune AU-DESSUS du voile de nuit : elle brille au lieu d'être assombrie,
+      // et elle n'existe que là où est la lune (aucun disque clair quand la lune est absente).
+      moonLit: stage.querySelector('.moonlight .moon'),
       stars: stage.querySelector('.stars'),
       tint: stage.querySelector('.tint'),
       night: stage.querySelector('.night'),
@@ -150,6 +153,10 @@ export class DayNight {
     this.set(e.sun, 'opacity', r(v.sun));
     this.set(e.moon, 'transform', `translate(${Math.round(v.moonX)}px, ${Math.round(v.moonY)}px)`);
     this.set(e.moon, 'opacity', r(v.moon));
+    if (e.moonLit) {
+      this.set(e.moonLit, 'transform', `translate(${Math.round(v.moonX)}px, ${Math.round(v.moonY)}px)`);
+      this.set(e.moonLit, 'opacity', r(v.moon));
+    }
     this.set(e.stars, 'opacity', r(v.stars));
     this.set(e.tint, 'opacity', r(v.tint));
     this.set(e.night, 'opacity', r(v.night));

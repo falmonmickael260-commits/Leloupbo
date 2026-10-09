@@ -269,7 +269,9 @@ export interface PlayerView {
   settings: GameSettings;
   /** Composition publique (cartes du jeu, y compris villageois de complément). */
   composition: Record<RoleId, number> | null;
-  roleCatalog: RoleInfo[];
+  /** Catalogue des rôles (fixe) : envoyé une seule fois par connexion, absent des envois suivants
+   *  (le navigateur garde le dernier reçu, voir gameClient.js). */
+  roleCatalog?: RoleInfo[];
   phase: PhaseView;
   players: PublicPlayer[];
   me: MeView;

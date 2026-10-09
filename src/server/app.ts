@@ -1,7 +1,7 @@
 import compression from 'compression';
 import express from 'express';
 import { createServer, type Server as HttpServer } from 'node:http';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
@@ -11,7 +11,7 @@ import { GameManager, type ManagerOptions } from './gameManager.ts';
 import type { GameStore } from './store.ts';
 import { missingSfuVars } from './voiceSfu.ts';
 import { profileRouter } from '../platform/http.ts';
-import { PUBLIC_DIR } from './build.ts';
+import { CLIENT_BUILD, PUBLIC_DIR } from './build.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export { PUBLIC_DIR };
@@ -48,6 +48,20 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
   // Client LiveKit (chargé à la demande par le navigateur, seulement si le serveur audio est configuré).
   app.get('/vendor/livekit-client.umd.js', (_req, res) => {
     res.sendFile(path.resolve(here, '../../node_modules/livekit-client/dist/livekit-client.umd.js'), { maxAge: '1d' });
+  });
+  // Page d'accueil : la version du jeu y est inscrite (balise <meta>). Le navigateur la compare
+  // à celle que le serveur annonce à la connexion : une page restée ouverte sur une ancienne
+  // version se met à jour (même si le serveur a redémarré juste après son chargement).
+  let indexHtml = '';
+  try {
+    indexHtml = readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8').replace('</head>', `    <meta name="blackops-build" content="${CLIENT_BUILD}" />\n  </head>`);
+  } catch {
+    /* page absente : servie par express.static ci-dessous */
+  }
+  app.get(['/', '/index.html'], (_req, res, next) => {
+    if (!indexHtml) return next();
+    res.setHeader('Cache-Control', 'no-cache');
+    res.type('html').send(indexHtml);
   });
   // Page et scripts : toujours revérifiés (une mise à jour du jeu est visible tout de suite).
   // Polices et décor : gardés en cache (ils changent rarement).

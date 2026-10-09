@@ -220,13 +220,20 @@ export class GameManager {
     this.store.save(room.engine.state).catch((e) => console.error('[store] échec sauvegarde', room.code, e));
   }
 
+  /** Après une réaction 🍅/🌸 (rien d'autre n'a changé) : état envoyé + sauvegarde, c'est tout. */
+  private afterReaction(room: GameRoom): void {
+    if (this.stopped) return;
+    this.broadcast(room, this.now());
+    this.store.save(room.engine.state).catch((e) => console.error('[store] échec sauvegarde', room.code, e));
+  }
+
   private broadcast(room: GameRoom, now: number): void {
     for (const [playerId, sockets] of room.sockets) {
       if (!room.engine.hasPlayer(playerId)) continue;
       const view = room.engine.view(playerId, now);
       // Le catalogue des rôles ne change jamais : envoyé une seule fois par connexion
       // (le navigateur le garde), ce qui allège chaque mise à jour d'environ un quart.
-      const light = { ...view, roleCatalog: undefined } as unknown as typeof view;
+      const light: typeof view = { ...view, roleCatalog: undefined };
       for (const s of sockets) {
         const d = s.data as SocketData;
         s.emit('view', d.catalogSent ? light : view);
@@ -421,7 +428,28 @@ export class GameManager {
     socket.on('lobby:settings', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.updateSettings(id, p, now)));
     socket.on('lobby:addBot', (_p, ack) => this.mutate(socket, ack, (room, id, now) => void room.engine.addBot(id, now)));
     socket.on('player:audio', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.setAudioStatus(id, p, now)));
-    socket.on('game:react', (p, ack) => this.mutate(socket, ack, (room, id, now) => void room.engine.react(id, p?.kind, p?.targetId, now), 'react'));
+    // Réaction 🍅/🌸 : purement visuelle → envoi léger (état aux joueurs + sauvegarde), sans
+    // revérifier la voix ni les minuteries… sauf si la phase a changé entre-temps.
+    socket.on('game:react', (p, ack) =>
+      this.run(
+        socket,
+        ack,
+        () => {
+          const { room, playerId } = this.context(socket);
+          const seq = room.engine.state.phase.seq;
+          let sent = false;
+          try {
+            room.engine.react(playerId, p?.kind, p?.targetId, this.now());
+            sent = true;
+          } finally {
+            if (room.engine.state.phase.seq !== seq) this.afterChange(room);
+            else if (sent) this.afterReaction(room);
+          }
+          return {};
+        },
+        'react',
+      ),
+    );
     socket.on('player:tag', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.setTag(id, p?.playerId, p?.text, now)));
     socket.on('lobby:avatar', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.setAvatar(id, p?.avatar, now)));
     socket.on('lobby:kick', (p, ack) =>

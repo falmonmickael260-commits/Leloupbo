@@ -70,6 +70,7 @@ code { background: rgba(0, 0, 0, 0.08); padding: 1px 5px; border-radius: 4px; }
 .sky { overflow: hidden; }
 .stars i { position: absolute; background: #fff; border-radius: 50%; box-shadow: 0 0 4px #fff; }
 .sun, .moon { position: absolute; left: 0; top: 0; }
+.moonlight { pointer-events: none; }
 .sun { width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; background: radial-gradient(circle, #fff6c8 0 35%, #ffd552 36% 62%, transparent 63%); }
 .sun::before { content: ''; position: absolute; inset: -40px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 214, 120, 0.75), rgba(255, 170, 60, 0.25) 45%, transparent 70%); }
 .sun::after { content: ''; position: absolute; inset: 22px; border-radius: 50%; border: 4px solid var(--ink); }
