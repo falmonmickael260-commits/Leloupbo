@@ -27,7 +27,6 @@ export function createGameState(code: string, now: number): GameState {
     captainId: null,
     captainElectionDone: false,
     speech: null,
-    speechRotation: 0,
     ballot: null,
     deathQueue: [],
     pipelineNext: null,
@@ -184,6 +183,7 @@ export function startGame(ctx: Ctx, playerId: string): void {
   s.status = 'running';
   s.nightLog = [];
   s.reactions = null;
+  s.lastFirstSpeaker = null;
   for (const p of players) {
     const def = requireRole(p.role!);
     tell(ctx, p.id, 'role', `🎴 Votre rôle : ${def.emoji} ${def.name}. ${def.description}`);
@@ -237,6 +237,7 @@ export function returnToLobby(ctx: Ctx): void {
     lastNightLog: s.settings.revealRolesOnGameOver ? (s.nightLog ?? []) : [],
     nightLog: [],
     reactions: null,
+    lastFirstSpeaker: null,
     createdAt: s.createdAt,
     hostId: s.hostId,
     settings: s.settings,

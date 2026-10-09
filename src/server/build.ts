@@ -31,5 +31,8 @@ export function clientBuildId(publicDir: string): string {
   return h.digest('hex').slice(0, 12);
 }
 
+/** Dossier des fichiers servis au navigateur (page, scripts, styles, décors). */
+export const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public');
+
 /** Empreinte du dossier public du jeu, calculée une fois au démarrage du serveur. */
-export const CLIENT_BUILD = clientBuildId(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../public'));
+export const CLIENT_BUILD = clientBuildId(PUBLIC_DIR);

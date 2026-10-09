@@ -11,15 +11,20 @@
  */
 import { reducedMotion } from './juice.js';
 
-const KEY = 'blackops:halloween';
-
 export function halloweenSeason(d = new Date()) {
   return d.getMonth() === 9 || (d.getMonth() === 10 && d.getDate() <= 2);
 }
 
+/**
+ * Choix du menu, gardé pour la période en cours seulement : celui fait pendant Halloween
+ * (clé de l'année) n'agit plus une fois la période finie, et l'année suivante repart sur
+ * l'activation automatique ; celui fait hors saison vaut pour toute la période hors saison.
+ */
+const storageKey = (d = new Date()) => `blackops:halloween:${halloweenSeason(d) ? d.getFullYear() : 'off'}`;
+
 export function halloweenOn() {
   try {
-    const v = localStorage.getItem(KEY);
+    const v = localStorage.getItem(storageKey());
     if (v !== null) return v === '1';
   } catch {
     /* stockage indisponible */
@@ -55,7 +60,7 @@ export function setHalloween(stage, on) {
   screenLayer?.remove();
   stageLayer = frontLayer = screenLayer = null;
   if (!on) return;
-  // Sur le plateau, au sol autour des joueurs : brume (deux couches qui dérivent lentement).
+  // Sur le plateau, au sol autour des joueurs : brume (deux couches fixes, plus dense la nuit).
   stageLayer = document.createElement('div');
   stageLayer.className = 'hw-stage';
   stageLayer.innerHTML = '<div class="hw-fog"></div><div class="hw-fog b"></div>';
@@ -170,7 +175,10 @@ function ghost() {
     pts.push(a);
     for (const t of [0.33, 0.66]) pts.push({ x: a.x + (z.x - a.x) * t + (Math.random() - 0.5) * W * 0.35, y: a.y + (z.y - a.y) * t + (Math.random() - 0.5) * H * 0.3 });
     pts.push(z);
-    frames = pts.map((p, i) => ({ transform: `translate(${p.x.toFixed(0)}px, ${p.y.toFixed(0)}px) scaleX(${(pts[Math.min(i + 1, 3)].x < p.x ? -1 : 1)})`, opacity: i === 0 || i === 3 ? 0 : op }));
+    // Le fantôme regarde où il va ; au dernier point, il garde le sens du dernier trajet
+    // (sinon il se retournerait en s'écrasant pendant la fin de sa course).
+    const facing = (i) => (i < 3 ? pts[i + 1].x < pts[i].x : pts[3].x < pts[2].x) ? -1 : 1;
+    frames = pts.map((p, i) => ({ transform: `translate(${p.x.toFixed(0)}px, ${p.y.toFixed(0)}px) scaleX(${facing(i)})`, opacity: i === 0 || i === 3 ? 0 : op }));
     frames[1].offset = 0.18;
     frames[2].offset = 0.75;
   }
@@ -183,7 +191,7 @@ function ghost() {
 export function toggleHalloween(stage) {
   const on = !halloweenOn();
   try {
-    localStorage.setItem(KEY, on ? '1' : '0');
+    localStorage.setItem(storageKey(), on ? '1' : '0');
   } catch {
     /* ignore */
   }

@@ -187,9 +187,9 @@ function startDay(ctx: Ctx): void {
 function startSpeeches(ctx: Ctx): void {
   const s = ctx.state;
   s.speech = { order: buildSpeechOrder(s, ctx.rng), index: -1 };
-  s.lastFirstSpeaker = s.speech.order[0] ?? null;
-  s.speechRotation += 1;
   advanceSpeaker(ctx);
+  // Celui qui a VRAIMENT ouvert la parole (un joueur déconnecté est sauté) : pas lui demain.
+  if (s.speech) s.lastFirstSpeaker = s.speech.order[s.speech.index] ?? null;
 }
 
 /** Donne la parole au prochain joueur vivant et connecté (le client ne peut jamais choisir). */

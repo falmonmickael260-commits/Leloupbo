@@ -104,7 +104,6 @@ export interface GameState {
   captainId: string | null;
   captainElectionDone: boolean;
   speech: { order: string[]; index: number } | null;
-  speechRotation: number;
   /** Premier à avoir parlé au tour de parole précédent (pour ne pas recommencer par lui). */
   lastFirstSpeaker?: string | null;
   ballot: BallotBox | null;

@@ -638,15 +638,19 @@ export function windStart(volume = 0.05) {
   const lfoAmt = c.createGain();
   lfoAmt.gain.value = 220;
   lfo.connect(lfoAmt).connect(bp.frequency);
-  const g = c.createGain();
-  g.gain.setValueAtTime(0.0001, c.currentTime);
-  g.gain.exponentialRampToValueAtTime(volume, c.currentTime + 3);
+  // Souffle qui monte et retombe (1 ± 0,5), AVANT le volume général du vent : l'arrivée et
+  // l'arrêt en fondu (g) s'appliquent donc à tout le vent, souffle compris.
+  const swell = c.createGain();
+  swell.gain.value = 1;
   const gl = c.createOscillator();
   gl.frequency.value = 0.05;
   const glAmt = c.createGain();
-  glAmt.gain.value = volume * 0.5;
-  gl.connect(glAmt).connect(g.gain);
-  src.connect(bp).connect(g).connect(amb(c));
+  glAmt.gain.value = 0.5;
+  gl.connect(glAmt).connect(swell.gain);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, c.currentTime);
+  g.gain.exponentialRampToValueAtTime(volume, c.currentTime + 3);
+  src.connect(bp).connect(swell).connect(g).connect(amb(c));
   src.start();
   lfo.start();
   gl.start();
@@ -658,9 +662,16 @@ export function windStop() {
   if (!c || !wind) return;
   const w = wind;
   wind = null;
-  w.g.gain.cancelScheduledValues(c.currentTime);
-  w.g.gain.setTargetAtTime(0.0001, c.currentTime, 0.8);
-  for (const n of [w.src, w.lfo, w.gl]) n.stop(c.currentTime + 4);
+  const t = c.currentTime;
+  const gain = w.g.gain;
+  // Fondu depuis le volume ACTUEL (même si le vent était encore en train de monter).
+  if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(t);
+  else {
+    gain.cancelScheduledValues(t);
+    gain.setValueAtTime(gain.value, t);
+  }
+  gain.setTargetAtTime(0.0001, t, 0.8);
+  for (const n of [w.src, w.lfo, w.gl]) n.stop(t + 4);
 }
 
 /** Un loup isolé qui hurle très loin (gauche ou droite). */

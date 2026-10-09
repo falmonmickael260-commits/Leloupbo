@@ -305,7 +305,8 @@ function renderLobby(v) {
   const mine = v.players.find((p) => p.isMe)?.avatar;
   const taken = new Set(v.players.filter((p) => !p.isMe).map((p) => p.avatar));
   const grid = $('avatar-grid');
-  const gridKey = `${mine}|${[...taken].join(',')}`;
+  // Costumes d'Halloween activés ou non : les personnages proposés changent aussi.
+  const gridKey = `${mine}|${[...taken].join(',')}|${document.documentElement.classList.contains('halloween') ? 'hw' : ''}`;
   if (grid.dataset.key !== gridKey) {
     grid.dataset.key = gridKey;
     grid.innerHTML = CHARACTERS.map(
@@ -559,7 +560,7 @@ setInterval(renderGameOverCount, 250);
 // Bruitages synchronisés avec les animations du plateau.
 // ================================================================== RETOURS VISUELS / TACTILES
 initJuice();
-// Mort d'un joueur : léger tremblement + voile sombre ; ma propre mort fait aussi vibrer le téléphone.
+// Mort d'un joueur : voile sombre bref (l'écran ne tremble pas, le téléphone ne vibre pas).
 board.addEventListener('death', () => impact('medium'));
 // Ambiance Halloween 🎃 (automatique en octobre, désactivable dans le menu).
 setHalloween(board.stage, halloweenOn());
@@ -1146,7 +1147,6 @@ $('btn-halloween').onclick = () => {
 $('btn-motion').onclick = () => {
   setReducedMotion(!reducedMotion());
   motionLabel();
-  if (!reducedMotion()) impact('small');
 };
 
 // ================================================================== RÔLES DE LA PARTIE (info)

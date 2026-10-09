@@ -11,9 +11,10 @@ import { GameManager, type ManagerOptions } from './gameManager.ts';
 import type { GameStore } from './store.ts';
 import { missingSfuVars } from './voiceSfu.ts';
 import { profileRouter } from '../platform/http.ts';
+import { PUBLIC_DIR } from './build.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-export const PUBLIC_DIR = path.resolve(here, '../../public');
+export { PUBLIC_DIR };
 
 export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: HttpServer; manager: GameManager; io: Server } {
   const app = express();
