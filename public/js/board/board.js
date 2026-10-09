@@ -183,6 +183,11 @@ export class Board extends EventTarget {
       x = (w - BOARD_W * s) / 2;
       y = (h - BOARD_H * s) / 2;
     }
+    // Écran large redimensionné : la remontée du cercle dépend de l'échelle → on le recalcule.
+    if (!portrait && this.scale && Math.abs(s - this.scale) > 0.02) {
+      this.layoutKey = null;
+      if (this.lastView) queueMicrotask(() => this.update(this.lastView));
+    }
     this.scale = s;
     // Position du haut du plateau à l'écran : l'interface mobile se place au-dessus.
     document.documentElement.style.setProperty('--board-top', `${Math.max(0, Math.round(y + this.root.getBoundingClientRect().top))}px`);
@@ -209,6 +214,14 @@ export class Board extends EventTarget {
     let rx = this.portrait && L.mobileWidth ? Math.min(rxFull, L.mobileWidth / 2 - 115) : rxFull;
     let ry = this.square.ry * BOARD_H * 0.78;
     const size = (n > 14 ? 0.78 : n > 10 ? 0.88 : 1) * (this.portrait && L.mobileScale ? L.mobileScale : 1);
+    if (!this.portrait) {
+      // Écran large : cercle un peu remonté et aplati, pour que les joueurs du bas ne passent
+      // plus sous la barre « moi » (en bas à gauche) ni sous le panneau d'action (en bas).
+      const bottom = cy + ry;
+      ry *= 0.79;
+      // Remontée ≈ hauteur de la barre « moi » à l'écran (plus grande sur un écran bas).
+      cy = bottom - ry - 82 / (this.scale || 0.88);
+    }
     if (this.portrait && L.mobileTop != null && this.visibleW) {
       // Téléphone plein écran : rond entre le bas de l'enseigne et le bas de l'écran,
       // dans la largeur visible.
