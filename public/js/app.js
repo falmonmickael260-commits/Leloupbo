@@ -1208,7 +1208,7 @@ function renderGameOver(v) {
     })
     .join('');
   const log = v.nightLog?.length ? `<details class="night-log"><summary>🌙 Ce qui s’est passé chaque nuit</summary><ul>${v.nightLog.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>` : '';
-  el.innerHTML = `<h2>${esc(v.winner.title)}</h2><div class="final-grid">${items}</div>${log}
+  el.innerHTML = `<h2>${esc(v.winner.title)}</h2><div class="final-grid${(v.finalRoles?.length ?? 0) > 15 ? ' many' : ''}">${items}</div>${log}
     <p class="back-lobby">🔄 Retour au lobby dans <b id="go-count"></b>… <span class="muted">(même groupe, même code)</span></p>
     <div class="row" style="justify-content:center"><button class="btn" id="btn-quit-end">Quitter</button></div>`;
   $('btn-quit-end').onclick = () => {

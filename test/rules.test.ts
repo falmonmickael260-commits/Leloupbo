@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import { GameEngine } from '../src/engine/engine.ts';
 import { GameError } from '../src/engine/errors.ts';
 import { seededRng } from '../src/engine/rng.ts';
+import { GAME_OVER_RETURN_MS } from '../src/engine/flow.ts';
 import { setup, T0 } from './helpers.ts';
 
 const rejects = (fn: () => void, code?: string) =>
@@ -648,7 +649,7 @@ describe('Conditions de victoire', () => {
 });
 
 describe('Fin de partie, étiquettes et loups automatiques', () => {
-  it('victoire → 5 secondes → tout le monde revient au lobby (même code, mêmes joueurs, même Hôte)', () => {
+  it('victoire → écran des rôles (20 s) → tout le monde revient au lobby (même code, mêmes joueurs, même Hôte)', () => {
     const g = setup(['werewolf', 'villager', 'villager', 'villager', 'villager']);
     g.until('WEREWOLF_PHASE');
     g.engine.leave(g.ids[0], g.now); // le seul loup s'en va : victoire du village
@@ -656,9 +657,10 @@ describe('Fin de partie, étiquettes et loups automatiques', () => {
     assert.equal(s.phase.id, 'GAME_OVER');
     g.ids.shift();
     assert.equal(s.status, 'finished');
-    assert.equal(s.phase.endsAt! - s.phase.startedAt, 5000);
+    assert.equal(s.phase.endsAt! - s.phase.startedAt, GAME_OVER_RETURN_MS);
+    assert.equal(GAME_OVER_RETURN_MS, 20_000);
     const hostId = s.hostId;
-    g.advance(4900);
+    g.advance(GAME_OVER_RETURN_MS - 100);
     assert.equal(s.status, 'finished', 'écran de victoire encore affiché');
     g.advance(200);
     assert.equal(s.status, 'lobby');

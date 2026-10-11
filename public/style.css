@@ -958,3 +958,15 @@ input[type='checkbox'] { accent-color: #e2b450; }
 /* Nouvelle version disponible (en pleine partie) */
 .update-banner { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 76px); transform: translateX(-50%); z-index: 80; max-width: calc(100vw - 24px); padding: 9px 16px; border-radius: 999px; border: 1.5px solid #f2c75c; background: rgba(8, 7, 10, 0.95); color: #f2c75c; font: 800 14px var(--font-ui); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6); cursor: pointer; }
 .update-banner[hidden] { display: none; }
+/* Fin de partie sur téléphone : 5 petites cartes par ligne → les rôles de tout le monde d'un
+   coup d'œil, sans faire défiler. */
+@media (orientation: portrait) and (max-width: 900px) {
+  .gameover { width: 96vw; padding: 12px 10px; max-height: calc(100vh - 150px); top: calc(50% - 40px); }
+  .final-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px 6px; }
+  .final-grid.many { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px 4px; } /* 16 à 18 joueurs : 3 lignes */
+  .final-grid.many .final-item { font-size: 9.5px; }
+  .final-item { font-size: 10.5px; line-height: 1.2; min-width: 0; }
+  .final-item .mini { margin-bottom: 2px; }
+  .final-item > :not(.mini), .final-item { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gameover .back-lobby { font-size: 15px; margin-top: 10px; }
+}
