@@ -424,6 +424,32 @@ function wolfGauge(n, s, dis) {
 const IN_APP = /FBAN|FBAV|FB_IAB|Instagram|Snapchat|Line\/|WhatsApp|Messenger|TikTok|musical_ly|; wv\)/i.test(navigator.userAgent);
 const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+// ================================================================== APPLI INSTALLABLE
+// Icône sur l'écran d'accueil, ouverture en plein écran (fiche : /manifest.webmanifest).
+const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+// Service worker minimal (aucun cache : toujours la dernière version ; page claire sans connexion).
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+let installPrompt = null;
+// Android / ordinateur : le navigateur propose l'installation → bouton « Installer l'appli ».
+addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  $('btn-install').hidden = false;
+});
+addEventListener('appinstalled', () => {
+  installPrompt = null;
+  $('btn-install').hidden = true;
+});
+$('btn-install').onclick = async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice.catch(() => null);
+  installPrompt = null;
+  $('btn-install').hidden = true;
+};
+// iPhone : Apple n'autorise pas de bouton, on explique le geste (pas dans l'appli déjà installée).
+$('ios-install').hidden = !(IS_IOS && !STANDALONE && !IN_APP && /Safari\//.test(navigator.userAgent));
+
 function renderMyVoice() {
   const el = $('my-voice');
   if (!el || client.view?.status !== 'lobby') return;

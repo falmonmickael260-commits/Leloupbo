@@ -42,6 +42,15 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
   app.get('/api/roles', (_req, res) => {
     res.json(allRoles().map(roleInfo));
   });
+  // Appli Android des magasins (« Trusted Web Activity ») : prouve que l'appli et le site vont ensemble,
+  // pour qu'elle s'ouvre en plein écran, sans barre d'adresse. Valeurs données par Google Play / PWABuilder.
+  app.get('/.well-known/assetlinks.json', (_req, res) => {
+    const pkg = process.env.ANDROID_PACKAGE_NAME?.trim();
+    const prints = (process.env.ANDROID_SHA256_FINGERPRINTS ?? '').split(/[\s,]+/).filter(Boolean);
+    res.setHeader('Cache-Control', 'no-cache');
+    if (!pkg || !prints.length) return res.status(404).json([]);
+    res.json([{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: pkg, sha256_cert_fingerprints: prints } }]);
+  });
   app.use(compression());
   // Profils de la plateforme : le gestionnaire est créé plus bas, le routeur le lit à la demande.
   app.use('/api/profiles', (req, res, next) => profiles(req, res, next));

@@ -47,6 +47,35 @@ const waitFor = async (pred: () => boolean, ms = 3000) => {
 const sockets: Client[] = [];
 after(() => sockets.forEach((s) => s.close()));
 
+describe('Appli installable (écran d’accueil, magasins)', () => {
+  it('fiche d’appli, icônes et service worker servis ; lien Android seulement s’il est configuré', { timeout: 15_000 }, async () => {
+    const srv = await startServer();
+    try {
+      const manifest = await fetch(`${srv.url}/manifest.webmanifest`);
+      assert.equal(manifest.status, 200);
+      const m = await manifest.json();
+      assert.equal(m.display, 'standalone');
+      for (const icon of m.icons) assert.equal((await fetch(`${srv.url}${icon.src}`)).status, 200, icon.src);
+      const sw = await fetch(`${srv.url}/sw.js`);
+      assert.equal(sw.status, 200);
+      assert.match(sw.headers.get('content-type') ?? '', /javascript/);
+      const page = await (await fetch(`${srv.url}/`)).text();
+      assert.ok(page.includes('rel="manifest"') && page.includes('apple-touch-icon'));
+      // Lien Android (Digital Asset Links) : absent tant que l'appli n'est pas créée.
+      delete process.env.ANDROID_PACKAGE_NAME;
+      assert.equal((await fetch(`${srv.url}/.well-known/assetlinks.json`)).status, 404);
+      process.env.ANDROID_PACKAGE_NAME = 'fr.lameutenoire.app';
+      process.env.ANDROID_SHA256_FINGERPRINTS = 'AA:BB, CC:DD';
+      const links = await (await fetch(`${srv.url}/.well-known/assetlinks.json`)).json();
+      assert.deepEqual(links[0].target, { namespace: 'android_app', package_name: 'fr.lameutenoire.app', sha256_cert_fingerprints: ['AA:BB', 'CC:DD'] });
+    } finally {
+      delete process.env.ANDROID_PACKAGE_NAME;
+      delete process.env.ANDROID_SHA256_FINGERPRINTS;
+      await srv.close();
+    }
+  });
+});
+
 describe('Serveur temps réel', () => {
   it('création, connexion, lancement, reconnexion et redémarrage serveur', { timeout: 20_000 }, async () => {
     const srv = await startServer();

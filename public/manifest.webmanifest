@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Le Village des Blackops",
+  "short_name": "Blackops",
+  "description": "Le Loup-Garou en ligne entre amis, avec la voix : rôles secrets, nuits, votes, jusqu'à 18 joueurs.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#060508",
+  "theme_color": "#1b130e",
+  "categories": ["games", "entertainment", "social"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

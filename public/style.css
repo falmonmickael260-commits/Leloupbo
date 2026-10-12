@@ -616,6 +616,15 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .plist .head { border: 1.5px solid var(--lux-line); background: #1d1a22; }
 .plist .num, .pion .pnum { background: var(--lux-gold-grad); color: #1a1206; }
 .plist .diag { color: var(--lux-muted); }
+/* Appli installable : bouton (Android, ordinateur) et geste à faire (iPhone), sous l'accueil */
+.install-chip { display: block; margin: 10px auto 0; padding: 9px 18px; border: 1.5px solid var(--lux-line); border-radius: 999px; background: rgba(8, 7, 10, 0.85); color: #f2c75c; font: 800 14px var(--font-ui); box-shadow: 0 0 14px rgba(242, 199, 92, 0.18); cursor: pointer; }
+.install-chip[hidden], .install-hint[hidden] { display: none; }
+.install-hint { width: min(420px, 92vw); margin: 10px auto 0; text-align: center; color: var(--lux-muted); font: 600 12.5px/1.4 var(--font-ui); }
+.install-hint b { color: #f2c75c; }
+/* Appli installée (plein écran) : l'interface reste au-dessus de la barre d'accueil des iPhone. */
+@media (display-mode: standalone) {
+  .screen { bottom: env(safe-area-inset-bottom, 0px); }
+}
 /* Rôle à la partie précédente, sous le nom */
 .plist .prev-role { display: block; margin-top: 1px; font-size: 11.5px; line-height: 1.25; font-weight: 700; color: var(--lux-muted); }
 .plist .prev-role b { color: #f2c75c; font-weight: 800; }
