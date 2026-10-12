@@ -133,5 +133,6 @@ export function buildView(ctx: Ctx, playerId: string): PlayerView {
       : null,
     nightLog: reveal ? [...(s.nightLog ?? [])] : null,
     lastNightLog: s.status === 'lobby' && s.lastNightLog?.length ? [...s.lastNightLog] : null,
+    lastRoles: s.status === 'lobby' && s.lastRoles ? { ...s.lastRoles } : null,
   };
 }

@@ -14,6 +14,7 @@ import type {
   DeathCause,
   GameSettings,
   GameStatus,
+  LastRole,
   PhaseId,
   PrivateMessage,
   RoleId,
@@ -127,6 +128,8 @@ export interface GameState {
   nightLog?: string[];
   /** Journal des nuits de la partie précédente (consultable depuis le lobby). */
   lastNightLog?: string[];
+  /** Rôles de la partie précédente, montrés dans le lobby à côté de chaque joueur (publics : révélés à la fin). */
+  lastRoles?: Record<string, LastRole> | null;
   /** Réactions sociales (🍅/🌸) : compteurs par joueur pour la journée + fil récent. Cosmétique. */
   reactions?: ReactionState | null;
 }

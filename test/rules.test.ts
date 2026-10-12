@@ -1169,5 +1169,35 @@ describe('Corrections issues de la relecture', () => {
     g.engine.reset(g.ids[0], g.now);
     s.settings.revealRolesOnGameOver = true; // l'hôte active l'option après coup
     assert.equal(g.view(1).lastNightLog, null);
+    assert.equal(g.view(1).lastRoles, null, 'rôles jamais montrés non plus');
+  });
+
+  it('lobby : à côté de chaque joueur, son rôle à la partie précédente (🏆, 🖤, ❤️), effacé au lancement', () => {
+    // P0 Loup Noir, P1 Loup-Garou, P2 Cupidon, P3-P6 villageois
+    const g = setup(['black_wolf', 'werewolf', 'cupid', 'villager', 'villager', 'villager', 'villager']);
+    g.until('CUPID_PHASE');
+    g.act(2, 'cupid', [3, 4]);
+    g.until('WEREWOLF_PHASE');
+    g.cmd(0, { action: 'wolf_vote', targets: [g.ids[5]], option: 'infect' });
+    assert.equal(g.view(3).lastRoles, null, 'rien pendant la partie');
+    g.until('SUNRISE');
+    const s = g.engine.state;
+    // Fin de partie : les loups gagnent.
+    s.status = 'finished';
+    s.winner = { camp: 'wolves', title: '', winnerIds: [g.ids[0], g.ids[1], g.ids[5]] };
+    assert.equal(g.view(3).lastRoles, null, 'rien sur l’écran de victoire (il montre déjà tout)');
+    g.engine.reset(g.ids[0], g.now);
+    assert.equal(s.status, 'lobby');
+    const last = g.view(6).lastRoles!;
+    assert.deepEqual(last[g.ids[0]], { role: 'black_wolf', roleName: 'Loup Noir', emoji: '🖤', won: true, infected: false, lover: false });
+    assert.deepEqual(last[g.ids[5]], { role: 'villager', roleName: 'Simple Villageois', emoji: last[g.ids[5]].emoji, won: true, infected: true, lover: false });
+    assert.equal(last[g.ids[3]].lover, true);
+    assert.equal(last[g.ids[3]].won, false);
+    assert.equal(last[g.ids[2]].role, 'cupid');
+    assert.equal(Object.keys(last).length, 7);
+    // Nouvelle partie : plus de rôles d'avant.
+    g.engine.start(s.hostId, g.now);
+    assert.equal(s.lastRoles, null);
+    assert.equal(g.view(1).lastRoles, null);
   });
 });

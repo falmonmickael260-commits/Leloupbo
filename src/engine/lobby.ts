@@ -1,5 +1,5 @@
 /** Création de partie, gestion du lobby, composition et distribution aléatoire des rôles. */
-import type { RoleId } from '../shared/types.ts';
+import type { LastRole, RoleId } from '../shared/types.ts';
 import { fail } from './errors.ts';
 import { AVATAR_IDS, defaultAvatar, isAvatarId } from '../shared/avatars.ts';
 import { enterPhase } from './phase.ts';
@@ -188,6 +188,7 @@ export function startGame(ctx: Ctx, playerId: string): void {
   s.nightLog = [];
   s.reactions = null;
   s.lastFirstSpeaker = null;
+  s.lastRoles = null;
   for (const p of players) {
     const def = requireRole(p.role!);
     tell(ctx, p.id, 'role', `🎴 Votre rôle : ${def.emoji} ${def.name}. ${def.description}`);
@@ -237,8 +238,9 @@ export function returnToLobby(ctx: Ctx): void {
     ...fresh,
     previousRoles,
     resultsRecorded: false,
-    // Gardé seulement si la partie révélait les rôles à la fin (décidé au moment où elle s'est terminée).
+    // Gardés seulement si la partie révélait les rôles à la fin (décidé au moment où elle s'est terminée).
     lastNightLog: s.settings.revealRolesOnGameOver ? (s.nightLog ?? []) : [],
+    lastRoles: s.settings.revealRolesOnGameOver ? lastRolesOf(s, keep) : null,
     nightLog: [],
     reactions: null,
     lastFirstSpeaker: null,
@@ -262,6 +264,18 @@ export function returnToLobby(ctx: Ctx): void {
   if (!getPlayer(s, s.hostId)) transferHost(ctx);
   syncAutoWolves(s);
   announce(ctx, 'system', '🔄 Nouvelle partie : retour au lobby.');
+}
+
+/** Rôle final de chaque joueur de la partie qui s'achève (celui de l'écran de victoire), pour le lobby. */
+function lastRolesOf(s: GameState, players: PlayerState[]): Record<string, LastRole> {
+  const winners = new Set(s.winner?.winnerIds ?? []);
+  const out: Record<string, LastRole> = {};
+  for (const p of players) {
+    const role = p.role ?? 'villager';
+    const def = getRole(role);
+    out[p.id] = { role, roleName: def?.name ?? '?', emoji: def?.emoji ?? '', won: winners.has(p.id), infected: !!p.infected, lover: !!p.loverId };
+  }
+  return out;
 }
 
 /** Étiquette personnelle posée par `authorId` sur `targetId` (texte vide = suppression). Privée. */

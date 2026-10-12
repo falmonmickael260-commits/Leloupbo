@@ -345,7 +345,8 @@ export class Board extends EventTarget {
       el.classList.toggle('floor', v.phase.speakerId === p.id);
       el.classList.toggle('talking', !!ui.talking?.has(p.id) && micOn);
       el.classList.toggle('targetable', !!(canTarget && prompt.targets.includes(p.id)));
-      el.classList.toggle('selected', !!ui.selected?.includes(p.id));
+      // Sélection locale affichée seulement pendant une action en cours (jamais après la fin du vote ou de la nuit).
+      el.classList.toggle('selected', !!(prompt && ui.selected?.includes(p.id)));
       el.classList.toggle('voted', !!prompt?.current?.includes(p.id));
       el.classList.toggle('subject', v.phase.subjectId === p.id);
       const picks = wolfPicks.get(p.id) ?? 0;

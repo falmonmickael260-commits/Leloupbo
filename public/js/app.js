@@ -276,6 +276,13 @@ function audioIcons(a) {
   return audioIcon(ICON_MIC, mic, mic ? 'Micro actif' : 'Micro coupé') + audioIcon(ICON_SPK, spk, spk ? 'Son actif' : 'Son coupé');
 }
 
+/** Lobby : rôle du joueur à la partie précédente (🏆 gagnant, 🖤 infecté, ❤️ amoureux). */
+function prevRole(r) {
+  if (!r) return '';
+  const marks = `${r.won ? ' 🏆' : ''}${r.infected ? ' 🖤' : ''}${r.lover ? ' ❤️' : ''}`;
+  return `<small class="prev-role" title="Son rôle à la partie précédente">avant : <b>${esc(r.emoji)} ${esc(r.roleName)}</b>${marks}</small>`;
+}
+
 function renderLobby(v) {
   // Partie précédente : ce qui s'est passé chaque nuit (ouvert à la demande).
   const logKey = (v.lastNightLog ?? []).join('\n');
@@ -294,7 +301,7 @@ function renderLobby(v) {
   const lobbyChanged = setHTML($('lobby-players'), [...v.players]
     .sort((a, b) => a.seat - b.seat)
     .map(
-      (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="num">${nums.get(p.id)}</span><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${p.audio.diag && !p.isBot && !(p.audio.mic && p.audio.speaker && p.audio.connected) ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
+      (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="num">${nums.get(p.id)}</span><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${prevRole(v.lastRoles?.[p.id])}${p.audio.diag && !p.isBot && !(p.audio.mic && p.audio.speaker && p.audio.connected) ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
       ${p.isBot ? '' : audioIcons(p.audio)}
       ${isHost && !p.isMe ? `<button class="btn small" data-kick="${esc(p.id)}">Exclure</button>` : ''}</li>`,
     )
@@ -855,6 +862,9 @@ function witchCommand(targets, option) {
 function renderAction(v) {
   const el = $('action');
   const p = v.prompt;
+  // Action terminée (vote clos, choix de nuit fait…) : la sélection locale s'efface. Sinon le cercle
+  // doré restait sous le joueur choisi toute la nuit, et passait pour un indice.
+  if (!p) ui.selected = [];
   if (v.status === 'finished') return setHTML(el, '');
   if (v.phase.canFinish) {
     const lw = v.phase.id === 'DEATH_LAST_WORD';

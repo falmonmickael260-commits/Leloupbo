@@ -293,4 +293,16 @@ export interface PlayerView {
   nightLog: string[] | null;
   /** Journal des nuits de la partie précédente (lobby). */
   lastNightLog: string[] | null;
+  /** Lobby : rôle de chaque joueur à la partie précédente (si elle révélait les rôles à la fin). */
+  lastRoles: Record<string, LastRole> | null;
+}
+
+/** Rôle tenu à la partie précédente, affiché dans le lobby à côté du joueur. */
+export interface LastRole {
+  role: RoleId;
+  roleName: string;
+  emoji: string;
+  won: boolean;
+  infected: boolean;
+  lover: boolean;
 }
