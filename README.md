@@ -49,8 +49,8 @@ npm run simulate -- 10 200       # 200 parties : statistiques de victoire
 * Création de partie par l'Hôte (4 à 18 joueurs), choix des rôles disponibles ;
   **distribution aléatoire côté serveur** (l'Hôte ne choisit jamais qui reçoit quoi) ;
   réglages verrouillés une fois la partie lancée.
-* Rôles : Villageois, Loup-Garou, Loup-Blanc, Voyante, Sorcière, Cupidon, Voleur,
-  Chasseur, Salvateur, Capitaine (élu). Ajout d'un rôle = un fichier.
+* Rôles : Villageois, Loup-Garou, Loup-Blanc, Loup Noir, Super Loup Noir, Voyante,
+  Sorcière, Cupidon, Voleur, Chasseur, Salvateur, Capitaine (élu). Ajout d'un rôle = un fichier.
 * Machine d'état serveur : nuit (rôles réveillés un par un) → résolution →
   lever du jour → dernières paroles (30 s, bouton FINIR) → élection du Capitaine
   (jour 1) → tours de parole (45 s chacun, un seul micro) → discussion libre (60 s)

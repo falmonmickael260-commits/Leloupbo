@@ -915,6 +915,124 @@ describe('Loup Noir', () => {
     const wolves = e.state.players.filter((p) => p.role === 'werewolf' || p.role === 'black_wolf');
     assert.equal(wolves.length, 3);
   });
+
+  it('pouvoir épuisé : la meute d’accord → toujours le même délai fixe de 5 s (le chrono ne trahit rien)', () => {
+    const g = night1();
+    g.cmd(0, { action: 'wolf_vote', targets: [g.ids[4]], option: 'infect' });
+    g.until('SUNRISE');
+    g.until('WEREWOLF_PHASE'); // nuit 2 : infection utilisée
+    for (const i of [0, 1, 4]) g.act(i, 'wolf_vote', [5]);
+    assert.equal(g.phase, 'WEREWOLF_PHASE', 'pas de fin immédiate');
+    assert.equal(g.engine.state.phase.endsAt! - g.now, 5000);
+  });
+});
+
+describe('Super Loup Noir', () => {
+  function night1() {
+    // P0 Super Loup Noir, P1 Loup-Garou, P2 Voyante, P3 Sorcière, P4-P9 villageois
+    const g = setup(['super_black_wolf', 'werewolf', 'seer', 'witch', 'villager', 'villager', 'villager', 'villager', 'villager', 'villager']);
+    g.until('WEREWOLF_PHASE');
+    return g;
+  }
+  const options = (g: ReturnType<typeof night1>) => g.view(0).prompt!.options?.map((o) => o.id);
+
+  it('infecte une nuit sur deux : nuit 1 → recharge la nuit 2 → de nouveau possible la nuit 3', () => {
+    const g = night1();
+    assert.deepEqual(options(g), ['kill', 'infect']);
+    assert.equal((g.view(1).prompt!.info as any).blackWolf.roleName, 'Super Loup Noir');
+    g.cmd(0, { action: 'wolf_vote', targets: [g.ids[4]], option: 'infect' });
+    g.until('SUNRISE');
+    const s = g.engine.state;
+    assert.equal(s.players[4].infected, true);
+    assert.equal(g.alive(4), true);
+    assert.ok(g.privateLog(1).includes('🖤 Le Super Loup Noir a infecté P4 : il rejoint secrètement la meute.'));
+    assert.ok(s.nightLog!.some((l) => l.includes('Super Loup Noir P0 INFECTE P4')));
+    assert.deepEqual(g.view(0).me.roleState, { infection: false, rechargeNight: 3 });
+    // Nuit 2 : en recharge → pas de bouton INFECTER, et le serveur refuse l'infection.
+    g.until('WEREWOLF_PHASE');
+    assert.equal(s.nightNumber, 2);
+    assert.equal(options(g), undefined);
+    assert.equal((g.view(1).prompt!.info as any).blackWolf, null);
+    rejects(() => g.cmd(0, { action: 'wolf_vote', targets: [g.ids[5]], option: 'infect' }), 'BAD_OPTION');
+    for (const i of [0, 1, 4]) g.act(i, 'wolf_vote', [5]);
+    g.until('SUNRISE');
+    assert.equal(g.alive(5), false, 'nuit de recharge : la meute tue');
+    assert.ok(!s.players[5].infected);
+    assert.deepEqual(g.view(0).me.roleState, { infection: true });
+    // Nuit 3 : de nouveau disponible.
+    g.until('WEREWOLF_PHASE');
+    assert.deepEqual(options(g), ['kill', 'infect']);
+    g.cmd(0, { action: 'wolf_vote', targets: [g.ids[6]], option: 'infect' });
+    g.until('SUNRISE');
+    assert.equal(s.players[6].infected, true);
+    assert.equal(g.alive(6), true);
+    assert.deepEqual(g.view(0).me.roleState, { infection: false, rechargeNight: 5 });
+    // Les deux infectés se réveillent avec la meute ; la Voyante voit LOUP.
+    g.until('WEREWOLF_PHASE');
+    assert.equal(g.view(4).prompt!.action, 'wolf_vote');
+    assert.equal(g.view(6).prompt!.action, 'wolf_vote');
+  });
+
+  it('non utilisée, l’infection reste disponible la nuit suivante', () => {
+    const g = night1();
+    for (const i of [0, 1]) g.act(i, 'wolf_vote', [5]);
+    g.until('SUNRISE');
+    assert.equal(g.alive(5), false);
+    g.until('WEREWOLF_PHASE');
+    assert.deepEqual(options(g), ['kill', 'infect']);
+  });
+
+  it('nuit de recharge : la meute d’accord → fin après le même délai fixe de 5 s (le chrono ne trahit rien)', () => {
+    const g = night1();
+    g.cmd(0, { action: 'wolf_vote', targets: [g.ids[4]], option: 'infect' });
+    g.until('SUNRISE');
+    g.until('WEREWOLF_PHASE'); // nuit 2 : en recharge
+    assert.equal(options(g), undefined);
+    for (const i of [0, 1, 4]) g.act(i, 'wolf_vote', [5]);
+    assert.equal(g.phase, 'WEREWOLF_PHASE');
+    assert.equal(g.engine.state.phase.endsAt! - g.now, 5000);
+    g.skip();
+    assert.notEqual(g.phase, 'WEREWOLF_PHASE');
+  });
+
+  it('Voyante → LOUP ; aucune fuite vers le village', () => {
+    const g = night1();
+    g.cmd(0, { action: 'wolf_vote', targets: [g.ids[4]], option: 'infect' });
+    g.until('SEER_PHASE');
+    g.act(2, 'seer', [0]);
+    assert.ok(g.privateLog(2).includes('🔮 P0 : LOUP'));
+    g.until('SUNRISE');
+    for (const i of [2, 3, 5, 6, 7, 8, 9]) {
+      const v = g.view(i);
+      assert.equal(v.me.pack, null);
+      assert.ok(!v.privateLog.some((m) => m.kind !== 'role' && /infect/i.test(m.text)), `fuite (message privé) vers P${i}`);
+      assert.ok(!v.announcements.some((a) => /infect/i.test(a.text)), `fuite (annonce) vers P${i}`);
+    }
+  });
+
+  it('un seul des deux par partie (Loup Noir OU Super Loup Noir), compté parmi les loups prévus', () => {
+    const e = GameEngine.create('S', T0, seededRng(5));
+    const host = e.join('H', 'h', T0);
+    for (let i = 0; i < 9; i++) e.join(`J${i}`, `t${i}`, T0); // 10 joueurs → 3 loups
+    rejects(() => e.updateSettings(host.id, { roles: { black_wolf: 1, super_black_wolf: 1 } }, T0), 'BAD_SETTINGS');
+    rejects(() => e.updateSettings(host.id, { roles: { super_black_wolf: 2 } }, T0), 'BAD_SETTINGS');
+    e.updateSettings(host.id, { roles: { super_black_wolf: 1, seer: 1 } }, T0);
+    assert.equal(e.state.settings.roles.werewolf, 2);
+    e.start(host.id, T0);
+    assert.equal(e.state.players.filter((p) => p.role === 'werewolf' || p.role === 'super_black_wolf').length, 3);
+    const sbw = e.state.players.find((p) => p.role === 'super_black_wolf')!;
+    assert.deepEqual(sbw.roleData, { lastInfectNight: null });
+    assert.ok(e.view(sbw.id, T0).privateLog.some((m) => m.text.startsWith('🎴 Votre rôle : 🖤 Super Loup Noir.')));
+  });
+
+  it('le Voleur qui prend la carte devient Super Loup Noir et peut infecter dès la nuit 1', () => {
+    const g = setup(['thief', 'werewolf', 'villager', 'villager', 'villager', 'villager', 'villager'], {}, ['super_black_wolf', 'villager']);
+    g.until('THIEF_PHASE');
+    g.act(0, 'thief', [], '0');
+    g.until('WEREWOLF_PHASE');
+    assert.equal(g.engine.state.players[0].role, 'super_black_wolf');
+    assert.deepEqual(options(g), ['kill', 'infect']);
+  });
 });
 
 

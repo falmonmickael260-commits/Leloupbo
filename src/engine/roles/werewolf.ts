@@ -2,7 +2,8 @@ import { alivePlayers, formatNames, logNight, playerName, tell, type Ctx, type P
 import { fail } from '../errors.ts';
 import { tally } from '../tally.ts';
 import { shuffle } from '../rng.ts';
-import { isWolfPack, registerNightStep, registerRole, stepData, validateTargets } from './registry.ts';
+import { canInfect, isInfectorRole, useInfection } from './infection.ts';
+import { getRole, isWolfPack, registerNightStep, registerRole, stepData, validateTargets } from './registry.ts';
 
 registerRole({
   id: 'werewolf',
@@ -21,23 +22,31 @@ type WolvesData = {
   votes: Record<string, string>;
   target: string | null;
   mode?: 'kill' | 'infect';
-  /** Infection confirmée par le Loup Noir : cible verrouillée, fin de phase dans 5 s (serveur). */
+  /** Infection confirmée par le Loup Noir (ou le Super Loup Noir) : cible verrouillée, fin de phase dans 5 s (serveur). */
   infectTarget?: string;
   /** Fin de phase prévue avant le délai de 5 s (rétablie si la meute n'est plus d'accord). */
   baseEndsAt?: number | null;
 };
 /**
- * Loup Noir en jeu (infection disponible) : quand la meute est d'accord, la nuit se termine après
- * ce délai FIXE, quel que soit son choix. La durée de la phase ne trahit donc jamais une infection,
- * et il a le temps d'appuyer sur INFECTER même après avoir touché la victime.
+ * Loup Noir (ou Super Loup Noir) vivant : quand la meute est d'accord, la nuit se termine après
+ * ce délai FIXE, quel que soit son choix, et même quand son infection est épuisée ou en recharge.
+ * La durée de la phase (visible de tous) ne trahit donc jamais une infection, ni cette nuit ni les
+ * précédentes, et il a le temps d'appuyer sur INFECTER même après avoir touché la victime.
  */
 export const BLACK_WOLF_GRACE_MS = 5000;
 const data = (ctx: Parameters<typeof stepData>[0]) => stepData<WolvesData>(ctx, WOLVES_STEP, () => ({ votes: {}, target: null }));
 
-/** Loup Noir vivant qui n'a pas encore utilisé son infection. */
+/** Loup Noir ou Super Loup Noir vivant qui peut infecter cette nuit. */
 function infector(ctx: Ctx): PlayerState | undefined {
-  return alivePlayers(ctx.state).find((p) => p.role === 'black_wolf' && !!p.roleData.infect);
+  return alivePlayers(ctx.state).find((p) => canInfect(p, ctx.state.nightNumber));
 }
+
+/** Un Loup Noir ou un Super Loup Noir est vivant (pouvoir disponible ou non) : fin au délai fixe. */
+function graceMode(ctx: Ctx): boolean {
+  return alivePlayers(ctx.state).some(isInfectorRole);
+}
+
+const roleName = (p: PlayerState) => getRole(p.role)?.name ?? 'Loup Noir';
 
 function unanimous(pack: PlayerState[], votes: Record<string, string>): boolean {
   if (pack.length === 0) return false;
@@ -49,13 +58,14 @@ registerNightStep({
   id: WOLVES_STEP,
   phase: 'WEREWOLF_PHASE',
   order: 30,
-  roleIds: ['werewolf', 'white_wolf', 'black_wolf'],
+  roleIds: ['werewolf', 'white_wolf', 'black_wolf', 'super_black_wolf'],
   duration: (s) => s.durations.werewolf,
   isScheduled: () => true,
   actors: (ctx) => alivePlayers(ctx.state).filter(isWolfPack),
   prompt(ctx, actor) {
     const d = data(ctx);
     const pack = this.actors(ctx);
+    const black = infector(ctx);
     const targets = alivePlayers(ctx.state).filter((p) => !isWolfPack(p)).map((p) => p.id);
     return {
       action: 'wolf_vote',
@@ -68,11 +78,20 @@ registerNightStep({
       canChange: !d.infectTarget,
       current: d.votes[actor.id] ? [d.votes[actor.id]] : [],
       // Loup Noir (pouvoir disponible) : choix TUER / INFECTER, visible de toute la meute.
-      options: infector(ctx)?.id === actor.id && !d.infectTarget ? [{ id: 'kill', label: '🐺 TUER' }, { id: 'infect', label: '🖤 INFECTER' }] : undefined,
+      options: black?.id === actor.id && !d.infectTarget ? [{ id: 'kill', label: '🐺 TUER' }, { id: 'infect', label: '🖤 INFECTER' }] : undefined,
       info: {
         // mode null : le Loup Noir n'a pas encore choisi (TUER par défaut à la fin du temps).
-        blackWolf: infector(ctx)
-          ? { id: infector(ctx)!.id, name: infector(ctx)!.name, mode: d.mode ?? null, locked: !!d.infectTarget, targetName: d.infectTarget ? playerName(ctx.state, d.infectTarget) : null }
+        blackWolf: black
+          ? {
+              id: black.id,
+              name: black.name,
+              roleName: roleName(black),
+              // Super Loup Noir : infection rechargeable (une nuit sur deux).
+              recharge: black.role === 'super_black_wolf',
+              mode: d.mode ?? null,
+              locked: !!d.infectTarget,
+              targetName: d.infectTarget ? playerName(ctx.state, d.infectTarget) : null,
+            }
           : null,
         packVotes: pack.map((w) => ({ wolfId: w.id, wolfName: w.name, targetId: d.votes[w.id] ?? null, targetName: d.votes[w.id] ? playerName(ctx.state, d.votes[w.id]) : null })),
       },
@@ -81,17 +100,17 @@ registerNightStep({
   handle(ctx, actor, cmd) {
     const p = this.prompt(ctx, actor)!;
     const d = data(ctx);
-    if (d.infectTarget) fail('LOCKED', 'Le Loup Noir a lancé l’infection : le choix est terminé.');
+    if (d.infectTarget) fail('LOCKED', 'L’infection est lancée : le choix est terminé.');
     if (cmd.option === 'kill' || cmd.option === 'infect') {
-      if (infector(ctx)?.id !== actor.id) fail('BAD_OPTION', 'Seul le Loup Noir peut infecter.');
+      if (infector(ctx)?.id !== actor.id) fail('BAD_OPTION', isInfectorRole(actor) ? 'Infection indisponible cette nuit.' : 'Seul le Loup Noir peut infecter.');
       d.mode = cmd.option; // sans cible : simple changement de mode (ou confirmation, voir plus bas)
     }
     if (!cmd.option || (Array.isArray(cmd.targets) && cmd.targets.length > 0)) {
       const [target] = validateTargets(cmd.targets, p.targets, 1, 1);
       d.votes[actor.id] = target;
     }
+    if (!graceMode(ctx)) return;
     const black = infector(ctx);
-    if (!black) return;
     const ph = ctx.state.phase;
     const shorten = () => {
       if (d.baseEndsAt === undefined) d.baseEndsAt = ph.endsAt;
@@ -101,7 +120,7 @@ registerNightStep({
     // INFECTER confirmé sur une cible : choix verrouillé, fin de la phase 5 s plus tard (minuterie
     // du SERVEUR : elle se termine même si le Loup Noir ferme sa page). La cible ne devient infectée
     // qu'à la fin de la phase, pour qu'elle ne rejoigne pas la meute (écran, micro) en pleine discussion.
-    if (actor.id === black.id && d.mode === 'infect' && d.votes[black.id]) {
+    if (black && actor.id === black.id && d.mode === 'infect' && d.votes[black.id]) {
       d.infectTarget = d.votes[black.id];
       shorten();
     } else if (unanimous(this.actors(ctx), d.votes)) shorten(); // meute d'accord (TUER) : même délai
@@ -112,8 +131,8 @@ registerNightStep({
     }
   },
   isComplete(ctx) {
-    // Avec un Loup Noir qui peut infecter : fin au délai fixe (voir BLACK_WOLF_GRACE_MS), jamais avant.
-    if (infector(ctx)) return false;
+    // Avec un Loup Noir (ou Super Loup Noir) vivant : fin au délai fixe (voir BLACK_WOLF_GRACE_MS), jamais avant.
+    if (graceMode(ctx)) return false;
     return unanimous(this.actors(ctx), data(ctx).votes);
   },
   onEnd(ctx) {
@@ -135,11 +154,12 @@ registerNightStep({
     if (d.target && black && d.mode === 'infect') {
       // INFECTION : la victime ne meurt pas, garde son rôle et rejoint secrètement la meute.
       const victim = ctx.state.players.find((p) => p.id === d.target)!;
-      logNight(ctx, `🖤 Le Loup Noir ${black.name} INFECTE ${victim.name} au lieu de le tuer.`);
+      const name = roleName(black);
+      logNight(ctx, `🖤 Le ${name} ${black.name} INFECTE ${victim.name} au lieu de le tuer.`);
       victim.infected = true;
-      black.roleData.infect = false; // une seule fois dans toute la partie
-      for (const w of pack) tell(ctx, w.id, 'wolves', `🖤 Le Loup Noir a infecté ${victim.name} : il rejoint secrètement la meute.`);
-      tell(ctx, victim.id, 'infected', '🖤 Tu as été infecté par le Loup Noir. Tu gardes ton rôle et tes pouvoirs, mais tu joues désormais secrètement pour les Loups : dès la nuit prochaine, tu te réveilles avec la meute.');
+      useInfection(black, ctx.state.nightNumber); // Loup Noir : une seule fois ; Super Loup Noir : une nuit d'attente
+      for (const w of pack) tell(ctx, w.id, 'wolves', `🖤 Le ${name} a infecté ${victim.name} : il rejoint secrètement la meute.`);
+      tell(ctx, victim.id, 'infected', `🖤 Tu as été infecté par le ${name}. Tu gardes ton rôle et tes pouvoirs, mais tu joues désormais secrètement pour les Loups : dès la nuit prochaine, tu te réveilles avec la meute.`);
     } else {
       if (!d.target) logNight(ctx, '🐺 Les Loups ne désignent aucune victime.');
       if (d.target) ctx.state.night!.effects.push({ type: 'attack', target: d.target, source: 'wolves' });

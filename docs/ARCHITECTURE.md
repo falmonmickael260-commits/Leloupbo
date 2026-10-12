@@ -120,6 +120,8 @@ registerNightStep({ id: 'fox', phase: 'FOX_PHASE', order: 55, roleIds: ['fox'],
 | Simple Villageois | Aucun pouvoir |
 | Loup-Garou | Canal voix + chat privés ; voient les votes de la meute ; fin anticipée si unanimité ; sinon majorité, égalité tirée au sort |
 | Loup-Blanc | Se réveille avec la meute ; camp indépendant ; nuits paires : peut dévorer un loup ; gagne seul ; résultat Voyante configurable |
+| Loup Noir | Loup-Garou qui, une fois dans la partie, peut **infecter** la victime au lieu de la tuer (elle garde son rôle et rejoint secrètement la meute) ; tant qu'il est vivant, la phase des Loups finit toujours 5 s après l'accord de la meute (le chrono ne trahit jamais une infection) |
+| Super Loup Noir | Comme le Loup Noir (même carte, bandeau « SUPER »), mais l'infection se recharge : une nuit sur deux (une nuit d'attente après chaque infection) ; un seul des deux par partie |
 | Voyante | Reçoit uniquement `LOUP` / `CIVIL`, calculé serveur |
 | Sorcière | Informée de la victime ; nuit 1 : pas de potion de mort ; une seule utilisation par potion ; auto-sauvetage configurable |
 | Cupidon | Nuit 1, deux joueurs ; chaque amoureux ne connaît que le **nom** de l'autre ; mort par chagrin ; tirage au sort si Cupidon ne choisit pas |

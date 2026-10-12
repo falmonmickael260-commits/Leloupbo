@@ -365,7 +365,15 @@ function renderLobby(v) {
     ${check('revealVotes', '🗳️ Montrer qui a voté contre qui au résultat')}`;
   const el = $('settings');
   el.querySelectorAll('[data-role]').forEach(
-    (b) => (b.onclick = () => safe(client.updateSettings({ roles: { ...s.roles, [b.dataset.role]: Math.max(0, (s.roles[b.dataset.role] ?? 0) + Number(b.dataset.d)) } }))),
+    (b) =>
+      (b.onclick = () => {
+        const id = b.dataset.role;
+        const roles = { ...s.roles, [id]: Math.max(0, (s.roles[id] ?? 0) + Number(b.dataset.d)) };
+        // Un seul pouvoir d'infection par partie : prendre le Super Loup Noir retire le Loup Noir, et inversement.
+        const rival = INFECTOR_RIVAL[id];
+        if (rival && roles[id] > 0) delete roles[rival];
+        safe(client.updateSettings({ roles }));
+      }),
   );
   el.querySelectorAll('[data-map]').forEach((b) => (b.onclick = () => safe(client.updateSettings({ map: b.dataset.map }))));
   el.querySelectorAll('[data-bool]').forEach((c) => (c.onchange = () => safe(client.updateSettings({ [c.dataset.bool]: c.checked }))));
@@ -382,10 +390,12 @@ function renderLobby(v) {
 
 /** Règle du nombre de loups : 5 à 8 joueurs → 2, 9 à 11 → 3, 12 à 18 → 4 (1 en dessous de 5). */
 const wolvesFor = (n) => (n < 5 ? 1 : n <= 8 ? 2 : n <= 11 ? 3 : 4);
+/** Loup Noir et Super Loup Noir : un seul des deux par partie. */
+const INFECTOR_RIVAL = { black_wolf: 'super_black_wolf', super_black_wolf: 'black_wolf' };
 
 /** Jauge du lobby : nombre de joueurs et nombre de Loups-Garous prévus. */
 function wolfGauge(n, s, dis) {
-  const wolves = s.autoWolves ? wolvesFor(n) : (s.roles.werewolf ?? 0);
+  const wolves = s.autoWolves ? wolvesFor(n) : (s.roles.werewolf ?? 0) + (s.roles.black_wolf ?? 0) + (s.roles.super_black_wolf ?? 0);
   const brackets = [
     [5, 8, 2],
     [9, 11, 3],
@@ -675,8 +685,14 @@ function renderMe(v) {
   if (v.me.lover && !ui.revealing) st.push(`<span>❤️ Amoureux de <b>${esc(v.me.lover.name)}</b></span>`);
   if (v.me.pack && v.me.pack.length > 1 && !ui.revealing) st.push(`<span>🐺 Meute : ${v.me.pack.filter((w) => w.id !== v.me.id).map((w) => `${esc(w.name)}${w.alive ? '' : ' 💀'}`).join(', ')}</span>`);
   if (v.me.infected && !ui.revealing) st.push('<span>🖤 <b>Infecté</b> : tu joues secrètement pour les Loups (tu gardes ton rôle)</span>');
-  if (v.me.roleState && 'infection' in v.me.roleState) st.push(`<span>🖤 Infection ${v.me.roleState.infection ? 'disponible' : 'utilisée'}</span>`);
-  if (v.me.roleState && 'potionVie' in v.me.roleState) st.push(`<span>🧪 Vie ${v.me.roleState.potionVie ? '✔' : '✘'} · Mort ${v.me.roleState.potionMort ? '✔' : '✘'}</span>`);
+  // Pouvoirs (infection, potions) : cachés pendant la révélation, sinon ils trahissent le rôle avant la carte.
+  if (v.me.roleState && 'infection' in v.me.roleState && !ui.revealing) {
+    const rs = v.me.roleState;
+    // Super Loup Noir : infection rechargée une nuit sur deux.
+    const txt = rs.infection ? 'disponible' : rs.rechargeNight ? `en recharge : de nouveau possible la nuit ${rs.rechargeNight}` : 'utilisée';
+    st.push(`<span>🖤 Infection ${txt}</span>`);
+  }
+  if (v.me.roleState && 'potionVie' in v.me.roleState && !ui.revealing) st.push(`<span>🧪 Vie ${v.me.roleState.potionVie ? '✔' : '✘'} · Mort ${v.me.roleState.potionMort ? '✔' : '✘'}</span>`);
   if (v.me.isCaptain) st.push('<span>👑 Capitaine (voix double)</span>');
   if (!v.me.alive) st.unshift('<span>💀 Mort · spectateur</span>');
   setHTML($('me-status'), st.join(''));
@@ -928,11 +944,13 @@ function renderAction(v) {
         // Infection confirmée : le serveur termine la phase dans 5 s (compte à rebours en haut).
         html += `<div class="infect-lock">🖤 <b>INFECTION EN COURS…</b><br>${esc(bw.targetName)} va rejoindre la meute.</div>`;
       } else if (p.options?.length) {
-        // Loup Noir : TUER ou INFECTER (une seule fois dans la partie).
+        // Loup Noir : TUER ou INFECTER (une seule fois dans la partie ; Super Loup Noir : une nuit sur deux).
         html += `<div class="row black-wolf">${p.options
           .map((o) => `<button class="btn ${bw?.mode === o.id ? 'btn-gold' : ''}" data-bw="${esc(o.id)}">${esc(o.label)}</button>`)
-          .join('')}</div><p class="hint">${bw?.mode ? '🖤 Infecter : la victime survit et rejoint la meute (1 fois).' : '<b>Choisis TUER ou INFECTER</b> (sinon : TUER).'}</p>`;
-      } else if (bw?.mode === 'infect') html += `<p class="wolf-votes">🖤 ${esc(bw.name)} (Loup Noir) veut <b>INFECTER</b> la victime.</p>`;
+          .join('')}</div><p class="hint">${bw?.mode ? `🖤 Infecter : la victime survit et rejoint la meute (${bw.recharge ? 'une nuit sur deux' : '1 fois'}).` : '<b>Choisis TUER ou INFECTER</b> (sinon : TUER).'}</p>`;
+      } else if (bw?.mode === 'infect') html += `<p class="wolf-votes">🖤 ${esc(bw.name)} (${esc(bw.roleName ?? 'Loup Noir')}) veut <b>INFECTER</b> la victime.</p>`;
+      // Super Loup Noir pendant sa nuit de recharge : il sait pourquoi il n'a pas le bouton INFECTER.
+      else if (v.me.roleState?.rechargeNight) html += `<p class="hint">🖤 Infection en recharge : de nouveau possible la nuit ${esc(v.me.roleState.rechargeNight)}.</p>`;
     }
     if (p.minTargets === 0) html += `<div class="row"><button class="btn" id="btn-pass">${p.action === 'hunter_shot' ? 'Ne pas tirer' : 'Passer'}</button></div>`;
   }
@@ -1371,7 +1389,7 @@ function render() {
 }
 
 // ================================================================== RÉACTIONS 🍅 / 🌸
-// Purement sociales : le serveur compte (4 + 4 par tour de vote), vérifie et diffuse ;
+// Purement sociales : le serveur compte (7 + 7 par tour de vote), vérifie et diffuse ;
 // ici on n'affiche que ses chiffres et on anime le fil public « 🍅 Sarah → Micka ».
 function renderReactions(v) {
   const bar = $('react-bar');

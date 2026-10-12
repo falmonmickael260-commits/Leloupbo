@@ -76,11 +76,22 @@ const CARD_IMAGES = new Set(['werewolf', 'black_wolf', 'white_wolf', 'seer', 'wi
 // Préchargement : la carte est prête au moment de sa révélation.
 if (typeof Image !== 'undefined') for (const r of [...CARD_IMAGES, 'dos']) new Image().src = `/assets/cartes/${r}.webp?v=${CARDS_V}`;
 
+/** Rôles qui reprennent l'illustration d'un autre : le Super Loup Noir garde la carte du Loup Noir. */
+const CARD_ALIAS = { super_black_wolf: 'black_wolf' };
+/** Bandeau « SUPER » posé au-dessus du nom, sur la carte du Loup Noir (mêmes rouge et noir que la carte). */
+const SUPER_BANNER = `<g aria-hidden="true">
+    <path d="M86 304 H214 L204 317 L214 330 H86 L96 317 Z" fill="#100507" stroke="#d11a22" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M100 308 H200 M100 326 H200" stroke="#7a1015" stroke-width="1"/>
+    <text x="150" y="324" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="18" letter-spacing="5" fill="#ff3b3b" stroke="#2a0306" stroke-width=".6" paint-order="stroke">SUPER</text>
+  </g>`;
+
 export function cardSVG(roleId, roleName) {
-  if (CARD_IMAGES.has(roleId)) {
+  const img = CARD_ALIAS[roleId] ?? roleId;
+  if (CARD_IMAGES.has(img)) {
     // La carte fournie a son propre cadre et ses coins : affichée telle quelle, fond transparent.
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" class="role-card-svg" role="img" aria-label="${roleName}">
-  <image href="/assets/cartes/${roleId}.webp?v=${CARDS_V}" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid meet"/>
+  <image href="/assets/cartes/${img}.webp?v=${CARDS_V}" x="0" y="0" width="300" height="450" preserveAspectRatio="xMidYMid meet"/>
+  ${roleId === 'super_black_wolf' ? SUPER_BANNER : ''}
 </svg>`;
   }
   return drawnCardSVG(roleId, roleName);

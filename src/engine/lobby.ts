@@ -42,8 +42,8 @@ export function createGameState(code: string, now: number): GameState {
 /** Loups automatiques : ajuste le nombre de Loups-Garous au nombre de joueurs du lobby. */
 export function syncAutoWolves(s: GameState): void {
   if (s.status !== 'lobby' || !s.settings.autoWolves) return;
-  // Le Loup Noir compte parmi les loups prévus : il remplace un Loup-Garou.
-  const black = s.settings.roles.black_wolf ?? 0;
+  // Le Loup Noir (ou le Super Loup Noir) compte parmi les loups prévus : il remplace un Loup-Garou.
+  const black = (s.settings.roles.black_wolf ?? 0) + (s.settings.roles.super_black_wolf ?? 0);
   s.settings.roles = { ...s.settings.roles, werewolf: Math.max(1, wolvesFor(s.players.length) - black) };
 }
 
@@ -127,7 +127,11 @@ export function updateSettings(ctx: Ctx, playerId: string, patch: unknown): void
   requireHost(s, playerId);
   // Les rôles ne peuvent plus être modifiés une fois la partie lancée.
   if (s.status !== 'lobby') fail('GAME_STARTED', 'Les réglages sont verrouillés pendant la partie.');
-  s.settings = applySettingsPatch(s.settings, patch, (id) => getRole(id), s.players.length);
+  const next = applySettingsPatch(s.settings, patch, (id) => getRole(id), s.players.length);
+  // Un seul pouvoir d'infection par partie : Loup Noir OU Super Loup Noir.
+  if ((next.roles.black_wolf ?? 0) > 0 && (next.roles.super_black_wolf ?? 0) > 0)
+    fail('BAD_SETTINGS', 'Choisis le Loup Noir OU le Super Loup Noir (un seul des deux par partie).');
+  s.settings = next;
   syncAutoWolves(s);
 }
 

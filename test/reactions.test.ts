@@ -20,14 +20,14 @@ function atSpeech() {
 }
 
 describe('Réactions 🍅/🌸', () => {
-  it('4 tomates et 4 fleurs par tour, comptées par le serveur ; visibles de tous', () => {
+  it('7 tomates et 7 fleurs par tour, comptées par le serveur ; visibles de tous', () => {
     const { g, speaker, other, react } = atSpeech();
-    assert.equal(REACTIONS_PER_ROUND, 4);
+    assert.equal(REACTIONS_PER_ROUND, 7);
     assert.deepEqual(g.view(other).reactions.targets, [speaker]);
-    assert.equal(g.view(other).reactions.tomato, 4);
-    assert.equal(g.view(other).reactions.flower, 4);
+    assert.equal(g.view(other).reactions.tomato, 7);
+    assert.equal(g.view(other).reactions.flower, 7);
     for (const kind of ['tomato', 'flower']) {
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 7; i++) {
         react(other, kind);
         g.advance(800);
       }
@@ -38,7 +38,7 @@ describe('Réactions 🍅/🌸', () => {
     assert.equal(v.flower, 0);
     // Tout le monde voit qui a lancé quoi sur qui.
     const feed = g.view((other + 1) % 6).reactions.feed;
-    assert.equal(feed.length, 8);
+    assert.equal(feed.length, 14);
     assert.deepEqual(feed[0], { ...feed[0], kind: 'tomato', from: g.ids[other], to: speaker });
   });
 
@@ -65,9 +65,9 @@ describe('Réactions 🍅/🌸', () => {
     rejects(() => react(other, 'flower'), 'WRONG_PHASE');
   });
 
-  it('remis à 4 + 4 au tour de vote suivant', () => {
+  it('remis à 7 + 7 au tour de vote suivant', () => {
     const { g, other, react } = atSpeech();
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 7; i++) {
       react(other, 'tomato');
       g.advance(800);
     }
@@ -75,7 +75,7 @@ describe('Réactions 🍅/🌸', () => {
     g.until('WEREWOLF_PHASE');
     g.until('PLAYER_SPEECH');
     const v = g.view(other).reactions;
-    assert.equal(v.tomato, 4);
-    assert.equal(v.flower, 4);
+    assert.equal(v.tomato, 7);
+    assert.equal(v.flower, 7);
   });
 });
