@@ -7,6 +7,17 @@ import { createApp } from './app.ts';
 import { FileGameStore } from './store.ts';
 import { profileStoreFromEnv } from '../platform/profiles.ts';
 
+// Charge .env.local si présent (développement uniquement — en production,
+// l'hébergeur fournit ses propres variables d'environnement). `loadEnvFile`
+// est disponible depuis Node 20.6 ; silencieusement ignoré sinon.
+if (typeof process.loadEnvFile === 'function') {
+  try {
+    process.loadEnvFile(new URL('../../.env.local', import.meta.url));
+  } catch {
+    /* pas de .env.local — normal en production */
+  }
+}
+
 const PORT = Number(process.env.PORT ?? 3000);
 const DATA_DIR = process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data/games');
 

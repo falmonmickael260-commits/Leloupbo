@@ -45,6 +45,8 @@ export interface PlayerState {
   loverId: string | null;
   /** Profil de la plateforme (UUID interne, jamais envoyé aux navigateurs). Absent = invité ou bot. */
   profileId?: string;
+  /** Compte Revanche Game (UUID central, distinct de `profileId`). Absent = invité, bot, ou profil propre à La Meute uniquement. */
+  platformUserId?: string;
   /** Infecté par le Loup Noir : joue secrètement pour les Loups (garde son rôle et ses pouvoirs). */
   infected?: boolean;
   /** Données persistantes propres au rôle (potions, dernière protection…). */

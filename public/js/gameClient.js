@@ -9,6 +9,7 @@
  * Événements émis : 'view', 'status', 'error', 'session-lost', 'kicked'.
  */
 /* global io */
+import { getIncomingPlatformToken } from './platformToken.js';
 
 export class GameError extends Error {
   constructor(code, message) {
@@ -141,13 +142,17 @@ export class GameClient extends EventTarget {
 
   /** `profile` : identifiants du profil de la plateforme ({ id, key }) ou null pour un invité. */
   async create(name, profile = null) {
-    const r = await this.request('game:create', profile ? { name, profile } : { name });
+    const rgToken = getIncomingPlatformToken();
+    const payload = { name, ...(profile ? { profile } : {}), ...(rgToken ? { rgToken } : {}) };
+    const r = await this.request('game:create', payload);
     this.#save({ code: r.code, token: r.token, playerId: r.playerId });
     return r;
   }
 
   async join(code, name, profile = null) {
-    const r = await this.request('game:join', profile ? { code, name, profile } : { code, name });
+    const rgToken = getIncomingPlatformToken();
+    const payload = { code, name, ...(profile ? { profile } : {}), ...(rgToken ? { rgToken } : {}) };
+    const r = await this.request('game:join', payload);
     this.#save({ code: r.code, token: r.token, playerId: r.playerId });
     return r;
   }

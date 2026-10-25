@@ -22,7 +22,9 @@ import { RateLimiter } from './rateLimit.ts';
 import { LiveKitBridge, missingSfuVars, sfuConfigFromEnv, type SfuConfig } from './voiceSfu.ts';
 import type { GameStore } from './store.ts';
 import { memoryProfileStore, type ProfileStore } from '../platform/profiles.ts';
-import { gameResults } from './results.ts';
+import { gameResults, platformGameResults } from './results.ts';
+import { verifyPlatformToken } from './platform-token.ts';
+import { reportMatchResult } from './platform.ts';
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -160,22 +162,24 @@ export class GameManager {
     }
   }
 
-  createGame(name: unknown, profileId: string | null = null): { room: GameRoom; session: SessionInfo } {
+  createGame(name: unknown, profileId: string | null = null, platformUserId: string | null = null): { room: GameRoom; session: SessionInfo } {
     const now = this.now();
     const code = this.newCode();
     const room = new GameRoom(GameEngine.create(code, now, this.rng), now);
     const token = randomBytes(24).toString('base64url');
     const p = room.engine.join(name, hashToken(token), now);
     this.linkProfile(room, p.id, profileId);
+    this.linkPlatformUser(room, p.id, platformUserId);
     this.rooms.set(code, room);
     return { room, session: { code, playerId: p.id, token } };
   }
 
-  joinGame(rawCode: unknown, name: unknown, profileId: string | null = null): { room: GameRoom; session: SessionInfo } {
+  joinGame(rawCode: unknown, name: unknown, profileId: string | null = null, platformUserId: string | null = null): { room: GameRoom; session: SessionInfo } {
     const room = this.findRoom(rawCode);
     const token = randomBytes(24).toString('base64url');
     const p = room.engine.join(name, hashToken(token), this.now());
     this.linkProfile(room, p.id, profileId);
+    this.linkPlatformUser(room, p.id, platformUserId);
     return { room, session: { code: room.code, playerId: p.id, token } };
   }
 
@@ -191,6 +195,15 @@ export class GameManager {
     if (p) p.profileId = profileId;
   }
 
+  /** Même principe, pour le compte Revanche Game central (distinct du profil ci-dessus). */
+  private linkPlatformUser(room: GameRoom, playerId: string, platformUserId: string | null): void {
+    if (!platformUserId) return;
+    const players = room.engine.state.players;
+    if (players.some((x) => x.platformUserId === platformUserId && !x.abandoned)) return;
+    const p = players.find((x) => x.id === playerId);
+    if (p) p.platformUserId = platformUserId;
+  }
+
   /** Fin de partie : le serveur enregistre lui-même le résultat de chaque joueur ayant un profil. */
   private recordResults(room: GameRoom): void {
     const s = room.engine.state;
@@ -198,6 +211,9 @@ export class GameManager {
     s.resultsRecorded = true;
     const rows = gameResults(s);
     if (rows.length) this.profiles.recordGame(s.code, rows).catch((e) => console.error('[profils] échec enregistrement', s.code, e));
+    const platformRows = platformGameResults(s);
+    // Inutile d'appeler la plateforme centrale si personne n'a de compte Revanche Game dans cette partie.
+    if (platformRows.some((r) => r.user_id)) reportMatchResult({ roomCode: s.code, finishedAt: this.now(), players: platformRows });
   }
 
   private findRoom(rawCode: unknown): GameRoom {
@@ -396,8 +412,9 @@ export class GameManager {
     // Le profil (facultatif) est vérifié avant d'entrer : clé invalide → joueur invité.
     socket.on('game:create', async (p, ack) => {
       const profileId = await this.profiles.verifyOptional(p?.profile);
+      const platformUserId = verifyPlatformToken(p?.rgToken)?.uid ?? null;
       this.run(socket, ack, () => {
-        const { room, session } = this.createGame(p?.name, profileId);
+        const { room, session } = this.createGame(p?.name, profileId, platformUserId);
         this.attach(socket, room, session.playerId);
         return session;
       }, 'session');
@@ -405,8 +422,9 @@ export class GameManager {
 
     socket.on('game:join', async (p, ack) => {
       const profileId = await this.profiles.verifyOptional(p?.profile);
+      const platformUserId = verifyPlatformToken(p?.rgToken)?.uid ?? null;
       this.run(socket, ack, () => {
-        const { room, session } = this.joinGame(p?.code, p?.name, profileId);
+        const { room, session } = this.joinGame(p?.code, p?.name, profileId, platformUserId);
         this.attach(socket, room, session.playerId);
         return session;
       }, 'session');

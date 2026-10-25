@@ -25,3 +25,29 @@ export function gameResults(s: GameState): GameResultRow[] {
       eliminated: !p.alive,
     }));
 }
+
+/**
+ * Même résultat, pour la plateforme Revanche Game centrale (compte distinct
+ * du profil propre à La Meute — voir `platformUserId` dans `state.ts`).
+ * Inclut tout le monde, pas seulement ceux qui ont un profil La Meute :
+ * les bots et invités remontent comme `guest_label`, sans compte attribué.
+ */
+export interface PlatformResultRow {
+  user_id: string | null;
+  guest_label: string | null;
+  outcome: 'win' | 'loss' | 'draw';
+  score: null;
+  position: null;
+}
+
+export function platformGameResults(s: GameState): PlatformResultRow[] {
+  const win = s.winner;
+  if (s.status !== 'finished' || !win) return [];
+  return s.players.map((p) => ({
+    user_id: p.platformUserId ?? null,
+    guest_label: p.platformUserId ? null : p.name,
+    outcome: win.camp === 'draw' ? 'draw' : win.winnerIds.includes(p.id) ? 'win' : 'loss',
+    score: null,
+    position: null,
+  }));
+}
