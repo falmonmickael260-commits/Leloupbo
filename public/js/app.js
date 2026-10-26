@@ -17,6 +17,8 @@ import * as sfx from './sfx.js';
 import { clawSlash, impact, initJuice, reducedMotion, setReducedMotion } from './juice.js';
 import { halloweenNight, halloweenOn, setHalloween, toggleHalloween } from './halloween.js';
 import { nightAmbience, nightSoundsOn, toggleNightSounds } from './ambience.js';
+import { getIncomingPlatformToken, peekPlatformUsername } from './platformToken.js';
+import { clearIncomingRoomCode, getIncomingRoomCode } from './platformRoom.js';
 
 const params = new URLSearchParams(location.search);
 const profile = params.get('profile') || 'default';
@@ -1646,3 +1648,48 @@ client.addEventListener('kicked', (e) => {
   render();
 });
 render();
+
+// ================================================================== INVITATION REVANCHE GAMES
+// Arrivée depuis une invitation acceptée sur la plateforme : l'URL portait
+// `rg_token` (identité) et `rg_room` (partie à rejoindre). Les deux ont déjà
+// été retirés de la barre d'adresse par leurs modules respectifs.
+//
+// Objectif : ne rien faire retaper. Le pseudonyme du compte remplit les champs
+// vides, et le code de partie est pré-rempli — voire rejoint directement quand
+// un joueur est déjà choisi.
+{
+  const invitedName = peekPlatformUsername(getIncomingPlatformToken());
+
+  if (invitedName) {
+    // Seulement les champs vides : un pseudo déjà saisi reste prioritaire.
+    for (const id of ['name', 'new-name']) {
+      const el = $(id);
+      if (el && !el.value) el.value = invitedName.slice(0, 20);
+    }
+  }
+
+  const invitedRoom = getIncomingRoomCode();
+  if (invitedRoom) {
+    const codeEl = $('join-code');
+    if (codeEl) codeEl.value = invitedRoom;
+
+    // Entrée directe seulement si un joueur est déjà choisi (profil actif ou
+    // mode invité). Sinon on laisse l'écran « Qui joue ? » faire son travail :
+    // le code est prêt, il restera un clic sur « Rejoindre ».
+    const playerChosen = Boolean(profiles.active()) || profiles.isGuest();
+    let resolvedName = null;
+    if (playerChosen) {
+      try {
+        resolvedName = myName();
+      } catch {
+        resolvedName = null; // aucun pseudo utilisable
+      }
+    }
+
+    if (resolvedName) {
+      clearIncomingRoomCode();
+      primeAudio();
+      safe(Promise.resolve().then(() => client.join(invitedRoom, resolvedName, profiles.credentials())));
+    }
+  }
+}
