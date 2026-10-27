@@ -91,8 +91,13 @@ export class Board extends EventTarget {
     const lightsImg = this.stage.querySelector('.lights');
     try {
       const url = decor === 'village' || !/^[a-z0-9-]+$/i.test(decor) ? '/assets/lights.json' : `/assets/decor/${decor}.json`;
-      const data = await (await fetch(url)).json();
+      let data = await (await fetch(url)).json();
       if (token !== this.loadToken) return; // une autre map a été demandée entre-temps
+      // Téléphone tenu en hauteur : version du décor dessinée en hauteur, si la map en a une.
+      if (data.mobileDecor && this.phoneDecor && /^[a-z0-9-]+$/i.test(data.mobileDecor)) {
+        data = await (await fetch(`/assets/decor/${data.mobileDecor}.json`)).json();
+        if (token !== this.loadToken) return;
+      }
       if (!data.image) {
         village.src = '/assets/village.svg';
         lightsImg.src = '/assets/village-lights.svg';
@@ -116,6 +121,7 @@ export class Board extends EventTarget {
       }
       this.square = data.square;
       this.decorLayout = data.layout ?? {};
+      this.contentW = data.contentWidth ?? null;
       const W = data.width;
       // Halos lumineux (fenêtres, lanternes, feu) visibles la nuit.
       this.stage.querySelector('.glows').innerHTML = data.lights
@@ -156,6 +162,12 @@ export class Board extends EventTarget {
     let x;
     let y;
     const portrait = h > w * 1.05;
+    // Écran de téléphone en hauteur (pas une tablette) : décor dessiné en hauteur, s'il existe.
+    const phone = portrait && w / h <= 0.72;
+    if (phone !== this.phoneDecor) {
+      this.phoneDecor = phone;
+      if (this.decor) this.loadLights(this.decor);
+    }
     if (portrait !== this.portrait) {
       this.portrait = portrait;
       this.layoutKey = null; // taille des pions différente sur téléphone
@@ -165,10 +177,11 @@ export class Board extends EventTarget {
     if (fill) {
       // Téléphone : le décor remplit tout l'écran en hauteur (ciel, enseigne… en haut),
       // centré sur la place ; les joueurs forment un rond sur la place (voir computeLayout).
-      s = h / BOARD_H;
+      // Décor dessiné en hauteur : il couvre toujours toute la largeur (le haut du ciel peut être rogné).
+      s = Math.max(h / BOARD_H, this.contentW ? w / this.contentW : 0);
       const cx = this.square.cx * BOARD_W;
       x = Math.min(0, Math.max(w - BOARD_W * s, w / 2 - cx * s));
-      y = 0;
+      y = h - BOARD_H * s;
       const visibleW = Math.min(BOARD_W, w / s);
       if (Math.abs(visibleW - (this.visibleW ?? 0)) > 4) {
         this.visibleW = visibleW;

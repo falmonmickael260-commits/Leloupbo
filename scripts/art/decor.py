@@ -13,6 +13,8 @@ Usage (outil ponctuel, hors dépendances du jeu : pip install pillow) :
                  commencent les joueurs (ex. bas de l'enseigne).
   --claw x0,y0,x1,y1 : emblème rouge (griffe) au sol, éclairé en rouge : ses pixels rouges
                  forment un calque à part (<nom>-claw.webp), qui rougeoie et palpite la nuit.
+  --fit contain : image en hauteur (téléphone) : posée au centre du plateau, sur toute sa hauteur.
+  --mobile-decor <nom> : décor à utiliser à la place sur téléphone (image en hauteur, voir --fit).
 
 --glow : zone (ex. une enseigne) dont les parties claires s'illuminent la nuit.
 Coordonnées de --plaza et --glow en pixels de l'IMAGE SOURCE : centre et rayons du cercle
@@ -149,13 +151,17 @@ def main():
         'height': H,
         'image': f'/assets/decor/{name}.webp?v={VERSION}',
         'lightsImage': f'/assets/decor/{name}-lights.webp?v={VERSION}',
-        'fit': 'cover',
+        'fit': sys.argv[sys.argv.index('--fit') + 1] if '--fit' in sys.argv else 'cover',
         'square': square,
         'layout': layout,
         'lights': spots,
     }
     if claw_cfg:
         cfg['claw'] = claw_cfg
+    if cfg['fit'] == 'contain':
+        cfg['contentWidth'] = round(w * s, 1)  # largeur réelle de l'image sur le plateau (centrée)
+    if '--mobile-decor' in sys.argv:
+        cfg['mobileDecor'] = sys.argv[sys.argv.index('--mobile-decor') + 1]
     (OUT / f'{name}.json').write_text(json.dumps(cfg))
     print(f'{name} : {len(spots)} lumières, place {square}')
 
