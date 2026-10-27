@@ -295,15 +295,15 @@ Fichiers : `src/server/voiceSfu.ts`, `src/server/ice.ts`, `public/js/voiceSfu.js
 
 ## 13. Décor fourni, personnages modernes, robustesse de la voix
 
-- **Décor par défaut** : `public/assets/decor/blackops.*`, généré depuis
-  `scripts/art/decor-src/blackops.png` par `scripts/art/decor.py` (ciel transparent →
+- **Décor par défaut** (La Meute Noire) : `public/assets/decor/blackops.*`, généré depuis
+  `scripts/art/decor-src/lameute.png` par `scripts/art/decor.py` (ciel transparent →
   ciel animé derrière ; calque des lumières isolé pour la nuit ; enseignes illuminées via
   `--glow` ; place des joueurs via `--plaza`, arc libre devant l'enseigne via `--gap`,
-  cadrage téléphone via `--mobile-width` / `--mobile-gap` / `--mobile-scale`).
+  cadrage téléphone via `--mobile-width` / `--mobile-gap` / `--mobile-scale` ; griffe rouge
+  au sol via `--claw`, calque à part qui rougeoie la nuit).
   `?decor=village` réaffiche l'ancien village dessiné.
-- **Halloween** : en octobre (désactivable dans le menu), le décor Blackops est remplacé par
-  `blackops-halloween` (source `scripts/art/decor-src/blackops-halloween.png`, même cadrage) ;
-  `public/js/halloween.js` ajoute brume, fantômes, chauves-souris et toiles ; les personnages sont costumés.
+- **Halloween** : en octobre (désactivable dans le menu), toutes les lumières du village virent
+  au rouge ; `public/js/halloween.js` ajoute brume, fantômes, chauves-souris et toiles ; les personnages sont costumés.
 - **Téléphone** : la marge au-dessus du plateau prolonge la couleur du ciel
   (`--sky-top` / `--sky-mid` fournis par `DayNight`), le narrateur s'y affiche.
 - **Personnages** (`public/js/art/characters.js`) : tenues modernes décrites par

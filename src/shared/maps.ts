@@ -1,6 +1,6 @@
 /** Maps (décors) au choix dans le lobby. `id` = fichier public/assets/decor/<id>.json ; 'village' = village dessiné. */
 export const MAPS = [
-  { id: 'blackops', name: 'Le Village des Blackops' },
+  { id: 'blackops', name: 'La Meute Noire' },
   { id: 'clairiere', name: 'La Clairière' },
 ] as const;
 

@@ -11,6 +11,8 @@ Usage (outil ponctuel, hors dépendances du jeu : pip install pillow) :
                                [--gap degrés] [--mobile-width px] [--mobile-scale k] [--mobile-top y]
   --mobile-top : téléphone en plein écran ; y (pixels du PLATEAU 1536×1024) sous lequel
                  commencent les joueurs (ex. bas de l'enseigne).
+  --claw x0,y0,x1,y1 : emblème rouge (griffe) au sol, éclairé en rouge : ses pixels rouges
+                 forment un calque à part (<nom>-claw.webp), qui rougeoie et palpite la nuit.
 
 --glow : zone (ex. une enseigne) dont les parties claires s'illuminent la nuit.
 Coordonnées de --plaza et --glow en pixels de l'IMAGE SOURCE : centre et rayons du cercle
@@ -24,7 +26,7 @@ from pathlib import Path
 from PIL import Image, ImageFilter
 
 W, H = 1536, 1024
-VERSION = 3  # à augmenter quand on remplace le décor (force le rechargement chez les joueurs)
+VERSION = 4  # à augmenter quand on remplace le décor (force le rechargement chez les joueurs)
 OUT = Path(__file__).resolve().parents[2] / 'public' / 'assets' / 'decor'
 
 
@@ -34,6 +36,7 @@ def main():
     if '--plaza' in sys.argv:
         plaza = [float(v) for v in sys.argv[sys.argv.index('--plaza') + 1].split(',')]
     glows = [[int(v) for v in sys.argv[i + 1].split(',')] for i, a in enumerate(sys.argv) if a == '--glow']
+    claw = [int(v) for v in sys.argv[sys.argv.index('--claw') + 1].split(',')] if '--claw' in sys.argv else None
     # Disposition : --gap (degrés laissés libres en haut du cercle, ex. devant une enseigne),
     # --mobile-width (largeur de plateau visible sur téléphone), --mobile-scale (taille des pions sur téléphone).
     layout = {}
@@ -113,6 +116,28 @@ def main():
         cx, cy = (x0 + x1) / 2 * s + offx, (y0 + y1) / 2 * s
         spots.append({'x': round(cx / W, 4), 'y': round(cy / H, 4), 'r': round((x1 - x0) * s * 0.75 / W, 4), 'kind': 'sign'})
 
+    # --- Griffe rouge : calque recadré sur l'emblème (petit calque, animé sans alourdir l'écran)
+    claw_cfg = None
+    if claw:
+        x0, y0, x1, y1 = claw
+        cm = Image.new('L', (x1 - x0, y1 - y0), 0)
+        cp = cm.load()
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                r, g, b, a = px[x, y]
+                if a > 200 and r > 140 and r - g > 70 and r - b > 60:
+                    cp[x - x0, y - y0] = min(255, int((r - max(g, b)) * 2.2))
+        cm = cm.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.GaussianBlur(1))
+        part = im.crop((x0, y0, x1, y1))
+        part.putalpha(cm)
+        part.save(OUT / f'{name}-claw.webp', 'WEBP', quality=90, method=6)
+        claw_cfg = {
+            'image': f'/assets/decor/{name}-claw.webp?v={VERSION}',
+            'x': round(x0 * s + offx, 1), 'y': round(y0 * s, 1), 'w': round((x1 - x0) * s, 1), 'h': round((y1 - y0) * s, 1),
+        }
+        cx, cy = (x0 + x1) / 2 * s + offx, (y0 + y1) / 2 * s
+        spots.append({'x': round(cx / W, 4), 'y': round(cy / H, 4), 'r': round((x1 - x0) * s * 0.6 / W, 4), 'kind': 'claw'})
+
     if plaza:
         pcx, pcy, prx, pry = plaza
         # computeLayout : centre = cy*H + 20, rayons = rx*W*0.8 et ry*H*0.78
@@ -129,6 +154,8 @@ def main():
         'layout': layout,
         'lights': spots,
     }
+    if claw_cfg:
+        cfg['claw'] = claw_cfg
     (OUT / f'{name}.json').write_text(json.dumps(cfg))
     print(f'{name} : {len(spots)} lumières, place {square}')
 

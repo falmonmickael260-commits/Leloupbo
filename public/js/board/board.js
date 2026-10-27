@@ -35,6 +35,7 @@ export class Board extends EventTarget {
           <div class="night"></div>
           <div class="moonlight"><div class="moon"></div></div>
           <img class="lights" alt="" draggable="false"/>
+          <div class="claw-glow" hidden><img alt="" draggable="false"/></div>
           <div class="glows"></div>
         </div>
         <div class="pions"></div>
@@ -74,8 +75,6 @@ export class Board extends EventTarget {
     this.decorWanted = name;
     const forced = new URLSearchParams(location.search).get('decor'); // ?decor=… pour tester
     let decor = forced || name || DEFAULT_DECOR;
-    // Halloween 🎃 : le décor Blackops a sa version Halloween (même cadrage, même place).
-    if (decor === 'blackops' && document.documentElement.classList.contains('halloween')) decor = 'blackops-halloween';
     if (decor === this.decor) return;
     this.decor = decor;
     this.loadLights(decor);
@@ -107,6 +106,13 @@ export class Board extends EventTarget {
           if (src) img.src = src;
         }
         this.stage.classList.add('custom-decor');
+      }
+      // Emblème au sol éclairé en rouge (griffe) : petit calque à part, qui rougeoie la nuit.
+      const claw = this.stage.querySelector('.claw-glow');
+      claw.hidden = !data.claw;
+      if (data.claw) {
+        Object.assign(claw.style, { left: `${data.claw.x}px`, top: `${data.claw.y}px`, width: `${data.claw.w}px`, height: `${data.claw.h}px` });
+        claw.firstElementChild.src = data.claw.image;
       }
       this.square = data.square;
       this.decorLayout = data.layout ?? {};
