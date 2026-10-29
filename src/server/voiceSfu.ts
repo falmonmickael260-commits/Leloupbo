@@ -3,15 +3,9 @@
  *
  * Chaque joueur n'a qu'UNE connexion audio (vers LiveKit) au lieu d'une par
  * joueur. Stabilité avant tout : la connexion audio n'est PAS refaite à chaque phase.
- *   - canPublish   : toujours accordé. Le micro est publié une fois pour toute la partie ;
- *                    le client l'ouvre / le coupe instantanément selon son tour (canSpeak).
- *                    (Retirer ce droit supprime la piste côté LiveKit → renégociation chez
- *                    tous les joueurs à chaque tour de parole : coupures, micros muets.)
- *   - canSubscribe : retiré par le serveur uniquement quand la confidentialité l'exige
- *                    (phase des Loups : les autres ne reçoivent AUCUN son) — une fois par nuit.
- * Hors de son tour, la voix d'un joueur est de toute façon coupée chez chaque auditeur
- * (liste `hearFrom` calculée par le serveur) : un client modifié qui parlerait hors de son
- * tour ne serait entendu par personne, et personne ne peut espionner le canal des Loups.
+ * Les droits de publication suivent le moteur : hors tour ou mort, aucune piste
+ * ne peut être publiée. Le client conserve sa capture locale et la republie
+ * lorsque LiveKit lui rend la parole. Les non-loups ne peuvent pas écouter la nuit.
  *
  * Configuration (variables d'environnement, jamais dans le code) :
  *   LIVEKIT_URL         wss://mon-projet.livekit.cloud   (ou ws://localhost:7880 en dev)
@@ -137,20 +131,23 @@ export class LiveKitBridge {
    * joueur qui n'est pas dans la meute vivante : il ne reçoit alors AUCUN flux audio.
    */
   permissionsFor(engine: GameEngine, playerId: string): Perm {
+    const player = engine.state.players.find((p) => p.id === playerId);
+    if (!player || !player.connected || player.abandoned || player.isBot) return { canPublish: false, canSubscribe: false };
     const ch = voiceChannel(engine.state);
     const privateChannel = ch.mode === 'wolves';
-    return { canPublish: true, canSubscribe: !privateChannel || ch.listeners.includes(playerId) };
+    return { canPublish: ch.speakers.includes(playerId), canSubscribe: !privateChannel || ch.listeners.includes(playerId) };
   }
 
   /** Jeton d'accès LiveKit (10 min) : identité = joueur authentifié par sa session, droits actuels. */
   async token(engine: GameEngine, playerId: string, name: string): Promise<{ url: string; token: string }> {
-    const perm = this.permissionsFor(engine, playerId);
+    // Un jeton rejoué ne peut jamais restaurer des droits d'une ancienne phase.
+    // Les droits actuels sont accordés après admission par reconcile().
     const at = new AccessToken(this.cfg.apiKey, this.cfg.apiSecret, { identity: playerId, name, ttl: VOICE_TOKEN_TTL_S });
     at.addGrant({
       roomJoin: true,
       room: this.roomName(engine.state.code),
-      canPublish: perm.canPublish,
-      canSubscribe: perm.canSubscribe,
+      canPublish: false,
+      canSubscribe: false,
       canPublishData: false,
       canUpdateOwnMetadata: false,
     });
@@ -173,12 +170,12 @@ export class LiveKitBridge {
   }
 
   /**
-   * Appelé chaque seconde par le serveur : contrôle toutes les secondes pendant la phase des
-   * Loups (canal privé), toutes les 10 s sinon (ou tout de suite après un nouveau jeton).
+   * Appelé chaque seconde, dans le lobby comme en partie : couvre aussi les connexions
+   * audio arrivées après l'émission du jeton et les reprises de session.
    */
   enforce(engine: GameEngine, now = Date.now()): void {
     const code = engine.state.code;
-    const every = voiceChannel(engine.state).mode === 'wolves' ? 1000 : 10_000;
+    const every = 1000;
     if (now - (this.lastEnforced.get(code) ?? 0) < every) return;
     void this.enforceNow(engine, now);
   }
@@ -215,28 +212,43 @@ export class LiveKitBridge {
       if (/not found|does not exist|404/i.test(String((e as Error)?.message ?? e))) return; // personne en audio
       throw e;
     }
-    const failures: unknown[] = [];
-    await Promise.all(
-      participants.map(async (part) => {
-        const player = engine.state.players.find((p) => p.id === part.identity);
-        try {
-          // Connexion audio qui ne correspond à aucun joueur actif de la partie : expulsée.
-          if (!player || player.abandoned || player.isBot) {
-            await this.rooms.removeParticipant(room, part.identity);
-            return;
-          }
-          const perm = this.permissionsFor(engine, player.id);
-          const actual = part.permission ?? {};
-          if (actual.canSubscribe === perm.canSubscribe && actual.canPublish === perm.canPublish) return;
-          await this.rooms.updateParticipant(room, part.identity, {
-            permission: { canPublish: perm.canPublish, canSubscribe: perm.canSubscribe, canPublishData: false },
-          });
-        } catch (e) {
-          if (!/not found|does not exist|404/i.test(String((e as Error)?.message ?? e))) failures.push(e); // parti entre-temps : rien à faire
+    const seq = engine.state.phase.seq;
+    // Retirer tous les anciens droits AVANT d'ouvrir les micros du nouveau canal.
+    // Si une révocation échoue, aucune nouvelle publication n'est autorisée.
+    for (const part of participants) {
+      const player = engine.state.players.find((p) => p.id === part.identity);
+      try {
+        if (!player || player.abandoned || player.isBot) {
+          await this.rooms.removeParticipant(room, part.identity);
+          continue;
         }
-      }),
-    );
-    if (failures.length) throw failures[0];
+        const desired = this.permissionsFor(engine, player.id);
+        const actual = part.permission ?? {};
+        const reduced = {
+          canPublish: actual.canPublish === true && desired.canPublish,
+          canSubscribe: actual.canSubscribe === true && desired.canSubscribe,
+        };
+        if (actual.canPublish !== reduced.canPublish || actual.canSubscribe !== reduced.canSubscribe) {
+          await this.rooms.updateParticipant(room, part.identity, { permission: { ...reduced, canPublishData: false } });
+          part.permission = reduced;
+        }
+      } catch (e) {
+        if (!/not found|does not exist|404/i.test(String((e as Error)?.message ?? e))) throw e;
+      }
+    }
+    if (engine.state.phase.seq !== seq) { this.rerun.add(engine.state.code); return; }
+    for (const part of participants) {
+      const player = engine.state.players.find((p) => p.id === part.identity);
+      if (!player || player.abandoned || player.isBot) continue;
+      if (engine.state.phase.seq !== seq) { this.rerun.add(engine.state.code); return; }
+      const desired = this.permissionsFor(engine, player.id);
+      if (part.permission?.canPublish === desired.canPublish && part.permission?.canSubscribe === desired.canSubscribe) continue;
+      try {
+        await this.rooms.updateParticipant(room, part.identity, { permission: { ...desired, canPublishData: false } });
+      } catch (e) {
+        if (!/not found|does not exist|404/i.test(String((e as Error)?.message ?? e))) throw e;
+      }
+    }
   }
 
   forget(code: string): void {

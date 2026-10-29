@@ -14,6 +14,7 @@ export class Voice extends EventTarget {
     this.client = client;
     this.impl = null;
     this.starting = null;
+    this.generation = 0;
     try {
       this.selfMuted = sessionStorage.getItem('blackops:selfMute') === '1';
     } catch {
@@ -23,24 +24,38 @@ export class Voice extends EventTarget {
 
   async start() {
     if (this.impl?.active) return;
-    this.starting ??= (async () => {
+    if (this.starting) {
+      if (this.startingGeneration === this.generation) return this.starting;
+      // Une ancienne demande de permission peut rester ouverte après avoir quitté.
+      // Attendre sa libération, puis démarrer pour la nouvelle session.
+      const generation = this.generation;
+      await this.starting.catch(() => {});
+      if (generation !== this.generation) return;
+      return this.start();
+    }
+    const generation = this.generation;
+    this.startingGeneration = generation;
+    let impl;
+    this.starting = (async () => {
       const join = await this.client.request('voice:join');
-      const impl = join.mode === 'sfu' ? new VoiceSFU(this.client) : new VoiceMesh(this.client);
+      if (generation !== this.generation) return;
+      impl = join.mode === 'sfu' ? new VoiceSFU(this.client) : new VoiceMesh(this.client);
       for (const type of ['change', 'talking', 'audio']) impl.addEventListener(type, (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail })));
       this.impl = impl;
       impl.selfMuted = this.selfMuted;
       this.lastError = null;
       await impl.start(join);
+      if (generation !== this.generation) impl.stop();
     })()
       .catch((e) => {
         this.lastError = `${e?.name || 'Erreur'} ${e?.message || ''}`.slice(0, 80);
         // Essai raté : tout est libéré (micro compris) pour que le prochain essai reparte de zéro.
         try {
-          this.impl?.stop();
+          impl?.stop();
         } catch {
           /* rien à libérer */
         }
-        this.impl = null;
+        if (this.impl === impl) this.impl = null;
         throw e;
       })
       .finally(() => (this.starting = null));
@@ -53,6 +68,7 @@ export class Voice extends EventTarget {
   }
 
   stop() {
+    this.generation++;
     this.impl?.stop();
     this.impl = null;
     this.dispatchEvent(new CustomEvent('change', { detail: IDLE }));
@@ -76,6 +92,11 @@ export class Voice extends EventTarget {
       this.impl.applyPermissions?.();
     }
     this.dispatchEvent(new CustomEvent('change', { detail: this.state() }));
+  }
+
+  async setInputDevice(deviceId) {
+    if (this.impl?.setInputDevice) return this.impl.setInputDevice(deviceId);
+    if (this.impl?.recoverMicrophone) return this.impl.recoverMicrophone(deviceId);
   }
 
   level() {

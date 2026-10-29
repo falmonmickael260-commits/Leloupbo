@@ -1,3 +1,4 @@
+import { VILLAGERS } from './villagers.js';
 /**
  * Personnages jouables — style bande dessinée (2D, encrage + aplats + ombres franches).
  * Purement cosmétique. Les identifiants doivent correspondre à src/shared/avatars.ts.
@@ -8,6 +9,7 @@
 const INK = '#1b130e';
 
 export const CHARACTERS = [
+  ...VILLAGERS,
   // top : hoodie | bomber | leather | puffer | tee | track | blazer — bottom : jeans | joggers | cargo | leggings | pants
   { id: 'm-brun', name: 'Ryan', gender: 'm', skin: '#f1c9a0', hair: '#3a2416', style: 'short', top: 'hoodie', topColor: '#26262b', accent: '#e0b23a', bottom: 'jeans', bottomColor: '#3d5f8f', shoe: '#ffffff', shoeAccent: '#d23b3b', acc: ['headphones-neck'], age: 'young' },
   { id: 'm-blond', name: 'Enzo', gender: 'm', skin: '#f6d2ae', hair: '#e6c15c', style: 'swept', top: 'bomber', topColor: '#4f5b3a', inner: '#f2efe8', accent: '#e8833a', bottom: 'joggers', bottomColor: '#2a2a2e', shoe: '#f4f4f4', shoeAccent: '#2a2a2e', acc: ['chain'], age: 'young' },
@@ -320,6 +322,8 @@ function costume(kind) {
 
 export function characterSVG(id, { pose = 'idle', title = '', halloween = halloweenActive() } = {}) {
   const c = getCharacter(id);
+  const label = String(title || c.name).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+  if (c.image) return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" class="character illustrated" role="img" aria-label="${label}"><image href="${c.image}" x="0" y="0" width="120" height="200" preserveAspectRatio="xMidYMax meet"/></svg>`;
   const skin = c.skin;
   const skinSh = shade(skin, 0.8);
   const covered = c.acc?.some((a) => a === 'beanie' || a === 'cap' || a === 'cap-back');
@@ -341,5 +345,5 @@ export function characterSVG(id, { pose = 'idle', title = '', halloween = hallow
   else s += hairFront(c);
   s += accessoriesHead(c);
   if (halloween) s += costume(costumeOf(c.id));
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" class="character" role="img" aria-label="${title || c.name}">${s}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" class="character" role="img" aria-label="${label}">${s}</svg>`;
 }

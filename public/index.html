@@ -69,6 +69,15 @@
             <button id="btn-make-profile" class="lux-link" hidden>Créer mon profil pour garder mes statistiques</button>
           </div>
         </div>
+        <details class="mic-preflight">
+          <summary>Vérifier mon microphone</summary>
+          <div id="mic-preflight">
+            <label>Entrée audio <select aria-label="Microphone à tester"><option value="">Microphone par défaut</option></select></label>
+            <meter min="0" max="1" value="0" aria-label="Niveau du microphone"></meter>
+            <button type="button" class="btn small">Tester mon micro</button>
+            <output aria-live="polite">Test local : ta voix n’est ni enregistrée ni transmise.</output>
+          </div>
+        </details>
         <p class="home-tag">Loup-Garou en ligne · jusqu’à 18 joueurs</p>
         <button id="btn-install" class="install-chip" hidden>📲 Installer l’appli</button>
         <p id="ios-install" class="install-hint" hidden>📲 Pour l’installer comme une appli : touche <b>Partager</b> puis <b>Sur l’écran d’accueil</b></p>
@@ -89,7 +98,8 @@
       <div class="lobby">
         <div class="panel lobby-players">
           <p class="voice-hint">🎙️ Micro ouvert pour tout le monde : parlez librement avant la partie !</p>
-          <div id="my-voice" class="my-voice"></div>
+          <div id="my-voice" class="my-voice" aria-live="polite"></div>
+          <label class="voice-device">Microphone <select id="voice-input" aria-label="Microphone de la partie"><option value="default">Microphone par défaut</option></select></label>
           <h2>Les villageois <span id="lobby-count" class="muted"></span></h2>
           <div class="code-chip">Code : <b id="lobby-code"></b></div>
           <ul id="lobby-players" class="plist"></ul>

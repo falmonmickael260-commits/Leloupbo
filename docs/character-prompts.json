@@ -1,0 +1,126 @@
+{
+  "tool": "image_gen built-in",
+  "style": "Semi-realistic stylized 2D hand painted dark fantasy medieval village. Single adult full body, front three quarter view, portrait 2:3, isolated transparent alpha background, detailed clothing, muted earth colors, warm bronze rim light. No text, no role card or werewolf symbols.",
+  "characters": [
+    {
+      "id": "v-forgeron",
+      "name": "Le forgeron",
+      "description": "broad blacksmith, leather apron, hammer and tool belt",
+      "file": "public/assets/characters/v-forgeron.png"
+    },
+    {
+      "id": "v-guerisseuse",
+      "name": "La guérisseuse",
+      "description": "middle aged woman, silver-streaked braided hair, layered sage linen dress, embroidered shawl, leather medicine satchel, holding a folded cloth, calm compassionate face",
+      "file": "public/assets/characters/v-guerisseuse.png"
+    },
+    {
+      "id": "v-chasseur",
+      "name": "Le chasseur",
+      "description": "lean adult man, tied dark hair, weathered olive cloak, leather bracers, bow lowered and quiver, alert posture",
+      "file": "public/assets/characters/v-chasseur.png"
+    },
+    {
+      "id": "v-taverniere",
+      "name": "La tavernière",
+      "description": "strong cheerful adult woman with auburn curls, burgundy bodice, cream sleeves, patched apron, tankard and key ring",
+      "file": "public/assets/characters/v-taverniere.png"
+    },
+    {
+      "id": "v-garde",
+      "name": "Le garde du village",
+      "description": "tall adult man with dark skin, modest steel helmet and worn chainmail, navy padded tunic, spear pointing upward, vigilant stance",
+      "file": "public/assets/characters/v-garde.png"
+    },
+    {
+      "id": "v-paysanne",
+      "name": "La paysanne",
+      "description": "young adult woman, freckles, wheat blond braid, ochre linen skirt and earth green bodice, basket of wheat",
+      "file": "public/assets/characters/v-paysanne.png"
+    },
+    {
+      "id": "v-bucheron",
+      "name": "Le bûcheron",
+      "description": "burly adult man with red beard, fur-lined brown vest over checked earth linen, heavy boots, axe lowered at side, wood bundle",
+      "file": "public/assets/characters/v-bucheron.png"
+    },
+    {
+      "id": "v-herboriste",
+      "name": "L’herboriste",
+      "description": "slender adult woman with dark skin and long braids, moss hood and layered green robe, herb pouches and woven basket of plants",
+      "file": "public/assets/characters/v-herboriste.png"
+    },
+    {
+      "id": "v-voyageur",
+      "name": "Le voyageur",
+      "description": "lanky middle aged man, tan face, broad felt hat, dusty ochre travel cloak and bulky backpack, walking staff",
+      "file": "public/assets/characters/v-voyageur.png"
+    },
+    {
+      "id": "v-noble",
+      "name": "La noble mystérieuse",
+      "description": "tall elegant adult woman, pale face and black hair, richly embroidered muted plum velvet gown, brooch and gloves, composed expression",
+      "file": "public/assets/characters/v-noble.png"
+    },
+    {
+      "id": "v-pecheur",
+      "name": "Le pêcheur",
+      "description": "older rugged man, wool cap and sea blue coat, rope belt, rolled net and creel basket, weathered boots",
+      "file": "public/assets/characters/v-pecheur.png"
+    },
+    {
+      "id": "v-boulangere",
+      "name": "La boulangère",
+      "description": "sturdy adult woman, warm brown skin, linen head scarf, cream apron with flour, rust dress, basket of bread",
+      "file": "public/assets/characters/v-boulangere.png"
+    },
+    {
+      "id": "v-mercenaire",
+      "name": "Le mercenaire",
+      "description": "athletic adult man with shaved head and scar, worn leather and steel shoulder armor, dark gray travel trousers, sheathed sword, calm stance",
+      "file": "public/assets/characters/v-mercenaire.png"
+    },
+    {
+      "id": "v-couturiere",
+      "name": "La couturière",
+      "description": "adult woman with chestnut bob, layered teal dress with stitched seams, measuring ribbon, pincushion belt and fabric roll",
+      "file": "public/assets/characters/v-couturiere.png"
+    },
+    {
+      "id": "v-erudit",
+      "name": "Le vieil érudit",
+      "description": "elderly slender man with long silver beard, round spectacles, worn indigo scholarly robe, leather book held at chest and ink satchel",
+      "file": "public/assets/characters/v-erudit.png"
+    },
+    {
+      "id": "v-marchande",
+      "name": "La marchande",
+      "description": "confident middle aged woman with curly black hair and brown skin, terracotta travel coat, patterned scarf, belt purses and basket of goods",
+      "file": "public/assets/characters/v-marchande.png"
+    },
+    {
+      "id": "v-berger",
+      "name": "Le berger",
+      "description": "young adult man with wavy brown hair, sheepskin shoulder cloak, moss linen tunic, wooden crook, satchel and rugged boots",
+      "file": "public/assets/characters/v-berger.png"
+    },
+    {
+      "id": "v-exploratrice",
+      "name": "L’exploratrice",
+      "description": "athletic adult woman with dark blond ponytail, ochre hooded cloak, green fitted travel tunic, compass and map case, walking boots",
+      "file": "public/assets/characters/v-exploratrice.png"
+    },
+    {
+      "id": "v-mineur",
+      "name": "Le mineur",
+      "description": "short stocky adult man with gray beard and soot on cheeks, battered leather cap with simple lantern, dark patched work clothes, pickaxe held low and ore pouch",
+      "file": "public/assets/characters/v-mineur.png"
+    },
+    {
+      "id": "v-mysterieuse",
+      "name": "La villageoise mystérieuse",
+      "description": "adult woman with black wavy hair, subtly hooded midnight blue shawl, layered muted mauve linen skirt, silver pendant and small antique lantern, reserved expression",
+      "file": "public/assets/characters/v-mysterieuse.png"
+    }
+  ]
+}

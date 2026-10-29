@@ -1,3 +1,4 @@
+import { mountMicrophoneTest, microphoneMessage } from './microphoneTest.js';
 /**
  * Interface du Village des Blackops (direction artistique BD).
  *
@@ -24,8 +25,30 @@ const params = new URLSearchParams(location.search);
 const profile = params.get('profile') || 'default';
 const client = new GameClient({ profile });
 const voice = new Voice(client);
+const stopMicrophoneTest = mountMicrophoneTest(document.getElementById('mic-preflight'));
+client.addEventListener('view', (e) => { if (e.detail) stopMicrophoneTest(); });
 const board = new Board(document.getElementById('board'));
 const narrator = new Narrator(document.getElementById('narrator'));
+let voiceDeviceKey = '';
+async function refreshVoiceDevices() {
+  if (!voice.state().hasMic || !navigator.mediaDevices?.enumerateDevices) return;
+  const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
+  const key = devices.map((d) => `${d.deviceId}:${d.label}`).join('|');
+  if (key === voiceDeviceKey) return;
+  voiceDeviceKey = key;
+  const select = document.getElementById('voice-input');
+  const selected = select.value;
+  select.replaceChildren(new Option('Microphone par défaut', 'default'));
+  for (const d of devices) if (d.deviceId !== 'default') select.add(new Option(d.label || 'Microphone', d.deviceId));
+  select.value = devices.some((d) => d.deviceId === selected) ? selected : 'default';
+}
+voice.addEventListener('change', () => refreshVoiceDevices().catch(() => {}));
+navigator.mediaDevices?.addEventListener?.('devicechange', () => refreshVoiceDevices().catch(() => {}));
+document.getElementById('voice-input').addEventListener('change', async (e) => {
+  try { await voice.setInputDevice(e.target.value); }
+  catch (error) { toast(microphoneMessage(error)); }
+});
+
 window.blackops = { client, voice, board };
 
 const $ = (id) => document.getElementById(id);
@@ -467,6 +490,7 @@ function renderMyVoice() {
     }</span>`;
   else if (st.selfMuted) html = '🔇 <b>Tu as coupé ton micro</b> : personne ne t’entend. <button class="btn small btn-gold" data-mute="0">Réactiver mon micro</button>';
   else if (!st.micLive) html = '⚠️ Ton micro est coupé par le téléphone (appel en cours ou autre appli qui utilise le micro ?). Ferme-les puis <button class="btn small btn-gold" data-retry>Réessayer</button>';
+  else if (st.mode !== 'sfu' && st.peers === 0) html = '🎙️ Micro prêt. En attente d’un autre joueur humain. <span class="lvl"><i></i></span>';
   else if (st.sending === false && Date.now() - (ui.voiceSince ?? 0) > 6000) html = '⚠️ Ton micro n’arrive pas jusqu’aux autres. <button class="btn small btn-gold" data-retry>Réessayer</button>';
   else if (st.sending === false) html = '⏳ Envoi de ton micro aux autres…';
   else if (Date.now() - ui.heardAt < 20000) html = '✅ <b>Les autres t’entendent</b> (ton nom s’allume quand tu parles). <span class="lvl"><i></i></span>';
@@ -477,7 +501,7 @@ function renderMyVoice() {
   if (el.dataset.html === html) return;
   el.dataset.html = html;
   el.innerHTML = html;
-  el.className = `my-voice ${st.active && st.hasMic && st.micLive && (st.sending !== false || st.selfMuted) && !IN_APP ? 'ok' : 'ko'}`;
+  el.className = `my-voice ${st.active && st.hasMic && st.micLive && (st.sending !== false || st.selfMuted || (st.mode !== 'sfu' && st.peers === 0)) && !IN_APP ? 'ok' : 'ko'}`;
   el.querySelector('[data-mute]')?.addEventListener('click', (e) => voice.setSelfMute(e.currentTarget.dataset.mute === '1'));
   el.querySelector('[data-unlock]')?.addEventListener('click', () => {
     primeAudio();
@@ -555,9 +579,9 @@ setInterval(() => {
   const v = client.view;
   if (!v || v.status === 'finished') return;
   const st = voice.state();
-  audioStatus.connected = !!st.active;
+  audioStatus.connected = !!(st.active && (!st.connectionState || st.connectionState === 'connected'));
   // Vert seulement si le micro capte vraiment (et, dans le lobby, arrive jusqu'au serveur).
-  audioStatus.mic = !!(st.active && st.hasMic && !st.selfMuted && st.micLive !== false && (v.status !== 'lobby' || st.sending !== false));
+  audioStatus.mic = !!(st.active && st.hasMic && !st.selfMuted && st.micLive !== false && (v.status !== 'lobby' || st.sending !== false || (st.mode !== 'sfu' && st.peers === 0)));
   audioStatus.speaker = !!(st.active && st.speakerOk !== false);
   reportAudio();
 }, 150);
@@ -746,19 +770,28 @@ function renderMic(v = client.view) {
     setHTML(btn, '<i>⏳</i><span>Connexion de la voix…</span>');
   } else if (!st.hasMic) {
     btn.className = 'mic-btn muted';
-    setHTML(btn, '<i>⚠️</i><span>Micro refusé<small> · autorise-le</small></span>');
+    setHTML(btn, `<i>⚠️</i><span>${esc(microphoneMessage({ name: st.micError }))}<small> · toucher pour réessayer</small></span>`);
   } else if (client.stale || client.status !== 'connected') {
     btn.className = 'mic-btn muted';
     setHTML(btn, '<i>⏳</i><span>Reconnexion… micro fermé</span>');
+  } else if (st.connectionState && st.connectionState !== 'connected') {
+    btn.className = 'mic-btn muted';
+    setHTML(btn, '<i>⏳</i><span>Reconnexion audio…</span>');
   } else if (st.micLive === false) {
     btn.className = 'mic-btn muted self';
     setHTML(btn, '<i>⚠️</i><span>Micro pris par le téléphone<small> · toucher</small></span>');
-  } else if (v.status === 'running' && !v.me.alive) {
+  } else if (v.status === 'running' && !v.me.alive && !v.voice.canSpeak) {
     btn.className = 'mic-btn muted dead';
     setHTML(btn, '<i>💀</i><span>Tu es mort<small> · tu écoutes en silence</small></span>');
   } else if (st.selfMuted) {
     btn.className = 'mic-btn muted self';
     setHTML(btn, '<i>🔇</i><span>Tu t’es coupé<small> · toucher pour réactiver</small></span>');
+  } else if (v.voice.canSpeak && st.mode !== 'sfu' && st.peers === 0) {
+    btn.className = 'mic-btn muted';
+    setHTML(btn, '<i>🎙️</i><span>Micro prêt<small> · aucun autre joueur en voix</small></span>');
+  } else if (v.voice.canSpeak && st.sending === false) {
+    btn.className = 'mic-btn muted';
+    setHTML(btn, '<i>⏳</i><span>Publication du micro…<small> · toucher pour couper</small></span>');
   } else if (v.voice.canSpeak) {
     btn.className = 'mic-btn live';
     setHTML(btn, '<i>🎙️</i><span>Micro ouvert<small> · toucher pour couper</small></span>');
