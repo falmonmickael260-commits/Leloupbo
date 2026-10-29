@@ -24,8 +24,17 @@ export class Voice extends EventTarget {
 
   async start() {
     if (this.impl?.active) return;
-    if (this.starting) return this.starting;
+    if (this.starting) {
+      if (this.startingGeneration === this.generation) return this.starting;
+      // Une ancienne demande de permission peut rester ouverte après avoir quitté.
+      // Attendre sa libération, puis démarrer pour la nouvelle session.
+      const generation = this.generation;
+      await this.starting.catch(() => {});
+      if (generation !== this.generation) return;
+      return this.start();
+    }
     const generation = this.generation;
+    this.startingGeneration = generation;
     let impl;
     this.starting = (async () => {
       const join = await this.client.request('voice:join');

@@ -21,6 +21,7 @@ Aucune valeur de secret n'a été requise, affichée ou ajoutée au dépôt. Les
 - Les reprises mesh en échec sont réessayées avec temporisation croissante, sans reprises concurrentes.
 - Changer de périphérique mesh libère l'ancienne capture et applique les droits à la nouvelle, sans recréer les connexions.
 - LiveKit : reprise de capture sérialisée, retour au périphérique par défaut après arrêt du micro, reconstruction de la jauge après remplacement de la piste, nettoyage des écouteurs et ressources à l'arrêt.
+- Quitter puis revenir pendant la demande de permission pouvait réutiliser la tentative annulée et laisser la nouvelle session sans voix : la nouvelle connexion attend désormais la libération de l’ancienne capture puis redémarre. Le test reproduit l’échec avant correction et réussit après.
 - Une connexion/capture achevée après avoir quitté pouvait réactiver l'audio : l'annulation est prise en compte et les captures tardives sont arrêtées.
 - Un échec de téléchargement du SDK LiveKit restait mémorisé et empêchait les nouveaux essais : le chargement est désormais réessayable.
 - L'état affiché ne confond plus permission de parler, piste publiée et transport connecté. La dernière parole reste possible pour le mort concerné. Un salon avec uniquement des bots n'affiche plus une panne d'envoi imaginaire.
@@ -76,7 +77,7 @@ Aperçus issus du navigateur de validation :
 ## Commandes et preuves
 
 - État initial : **102 tests réussis**.
-- Validation finale : `npm test` → **116 réussis, 0 échec, 0 ignoré**.
+- Validation finale : `npm test` → **117 réussis, 0 échec, 0 ignoré**.
 - `npm run typecheck` → succès.
 - `npm run simulate -- 18 20 901` → 20 parties terminées ; aucune phase bloquée.
 - `node --check` sur les scripts audio, interface et scripts de validation → succès.

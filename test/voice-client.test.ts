@@ -131,6 +131,23 @@ describe('Navigateur voix — régressions avec transports simulés', () => {
     v.stop(); release(stream(t)); await starting;
     assert.equal(t.readyState, 'ended'); assert.equal(v.state().active, false);
   });
+  it('quitter puis revenir pendant la permission micro relance une nouvelle connexion', async () => {
+    let release: any; let captures = 0;
+    const oldTrack = track(); const newTrack = track();
+    capture = () => ++captures === 1 ? new Promise((resolve) => { release = resolve; }) : Promise.resolve(stream(newTrack));
+    const v = new Voice(new Client());
+    const oldStart = v.start(); await settle();
+    v.stop();
+    const newStart = v.start();
+    release(stream(oldTrack));
+    await Promise.all([oldStart, newStart]);
+    try {
+      assert.equal(oldTrack.readyState, 'ended');
+      assert.equal(captures, 2);
+      assert.equal(v.state().active, true);
+      assert.equal(v.state().hasMic, true);
+    } finally { v.stop(); }
+  });
   it('test préalable annulé : capture tardive arrêtée sans analyser ni transmettre', async () => {
     let release: any; const t = track();
     capture = () => new Promise((resolve) => { release = resolve; });
