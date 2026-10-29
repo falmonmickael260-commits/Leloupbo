@@ -1,0 +1,20 @@
+{
+  "tool": "image_gen built-in",
+  "characters": [
+    {
+      "id": "veil",
+      "prompt": "Premium indie dark fantasy game environmental apparition: a tall spectral adult woman in a weathered translucent medieval veil and long flowing linen dress, face partly hidden, pale silvery blue material dissolving into delicate wisps at the hem, calm unsettling presence. One single entire full body ghost, semi-realistic stylized 2D hand painted illustration matching a mature mysterious medieval village. Natural anatomy, rich detailed draped cloth, subtle spectral transparency and restrained cold luminous edges. Front three quarter view, portrait 2:3, centered with margins. Truly transparent background isolated cutout. No scenery, no ground, no border, no text, no cartoon sheet ghost, no emoji, no goofy eyes, no gore, no horror jump scare, no giant glow cloud. Elegant eerie and believable.",
+      "file": "public/assets/specters/veil.png"
+    },
+    {
+      "id": "pilgrim",
+      "prompt": "Premium indie dark fantasy game environmental apparition: an elderly spectral hooded pilgrim with a long layered travelling cloak, faint weathered face, arms lowered, desaturated moonlit gray fabric dissolving into wisps, solemn mysterious presence. One single entire full body ghost, semi-realistic stylized 2D hand painted illustration matching a mature mysterious medieval village. Natural anatomy, rich detailed draped cloth, subtle spectral transparency and restrained cold luminous edges. Front three quarter view, portrait 2:3, centered with margins. Truly transparent background isolated cutout. No scenery, no ground, no border, no text, no cartoon sheet ghost, no emoji, no goofy eyes, no gore, no horror jump scare, no giant glow cloud. Elegant eerie and believable.",
+      "file": "public/assets/specters/pilgrim.png"
+    },
+    {
+      "id": "sentinel",
+      "prompt": "Premium indie dark fantasy game environmental apparition: a spectral adult village sentinel in a torn long coat, broad distinct silhouette and bowed head, faint antique lantern held at side, translucent pale silver teal cloth dissolving into mist. One single entire full body ghost, semi-realistic stylized 2D hand painted illustration matching a mature mysterious medieval village. Natural anatomy, rich detailed draped cloth, subtle spectral transparency and restrained cold luminous edges. Front three quarter view, portrait 2:3, centered with margins. Truly transparent background isolated cutout. No scenery, no ground, no border, no text, no cartoon sheet ghost, no emoji, no goofy eyes, no gore, no horror jump scare, no giant glow cloud. Elegant eerie and believable.",
+      "file": "public/assets/specters/sentinel.png"
+    }
+  ]
+}

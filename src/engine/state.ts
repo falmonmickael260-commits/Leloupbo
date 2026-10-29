@@ -169,9 +169,9 @@ export function formatNames(names: string[]): string {
   return `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}`;
 }
 
-export function announce(ctx: Ctx, kind: Announcement['kind'], text: string): void {
+export function announce(ctx: Ctx, kind: Announcement['kind'], text: string, effect?: Announcement['effect']): void {
   const list = ctx.state.announcements;
-  list.push({ id: nextId(ctx, 'a'), at: ctx.now, kind, text });
+  list.push({ id: nextId(ctx, 'a'), at: ctx.now, kind, text, ...(effect ? { effect } : {}) });
   if (list.length > MAX_LOG) list.splice(0, list.length - MAX_LOG);
 }
 

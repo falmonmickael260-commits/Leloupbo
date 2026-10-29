@@ -1,3 +1,4 @@
+import { audioSettings, setAudioSetting, onAudioSettings, setVoiceActivity } from './audioMix.js';
 import { mountMicrophoneTest, microphoneMessage } from './microphoneTest.js';
 /**
  * Interface du Village des Blackops (direction artistique BD).
@@ -496,6 +497,7 @@ function renderMyVoice() {
   else if (Date.now() - ui.heardAt < 20000) html = '✅ <b>Les autres t’entendent</b> (ton nom s’allume quand tu parles). <span class="lvl"><i></i></span>';
   else html = '🎙️ Micro prêt. <b>Parle pour tester</b> : quand ton nom s’allume en vert, les autres t’entendent. <span class="lvl"><i></i></span>';
   if (st.active && st.hasMic && st.micLive && !st.selfMuted) html += ' <button class="btn small" data-mute="1">🔇 Me couper</button>';
+  if (st.active && st.outputVolume === 0) html += '<br><span class="hint">🔈 Le volume des voix est à zéro. Utilise le réglage « Voix reçues » ci-dessous.</span>';
   if (st.active && st.speakerOk === false) html += '<br>🔇 Ton haut-parleur est bloqué. <button class="btn small btn-gold" data-unlock>Activer le son</button>';
   else if (st.active) html += '<br><span class="hint">🔊 Tu n’entends rien ? Monte le volume et enlève le mode silencieux.</span>';
   if (el.dataset.html === html) return;
@@ -529,6 +531,7 @@ async function retryVoice() {
   renderMyVoice();
 }
 voice.addEventListener('change', () => {
+  ui.voiceState = voice.state();
   if (voice.state().active && !ui.voiceSince) ui.voiceSince = Date.now();
   renderMyVoice();
 });
@@ -582,7 +585,7 @@ setInterval(() => {
   audioStatus.connected = !!(st.active && (!st.connectionState || st.connectionState === 'connected'));
   // Vert seulement si le micro capte vraiment (et, dans le lobby, arrive jusqu'au serveur).
   audioStatus.mic = !!(st.active && st.hasMic && !st.selfMuted && st.micLive !== false && (v.status !== 'lobby' || st.sending !== false || (st.mode !== 'sfu' && st.peers === 0)));
-  audioStatus.speaker = !!(st.active && st.speakerOk !== false);
+  audioStatus.speaker = !!(st.active && st.speakerOk !== false && st.outputVolume > 0);
   reportAudio();
 }, 150);
 
@@ -642,6 +645,7 @@ board.addEventListener('sfx', (e) => {
     sfx.gunshot();
     impact('large'); // coup de fusil : le plateau encaisse
   }
+  else if (e.detail === 'ghost' && st === 'running' && nightSoundsOn()) sfx.ghostMoan(.035);
   else if (e.detail === 'rack' && st && st !== 'lobby') sfx.shotgunRack();
   else if (e.detail === 'splat') sfx.splat();
   else if (e.detail === 'chime') sfx.chime();
@@ -716,6 +720,8 @@ board.addEventListener('pick', (e) => {
 });
 voice.addEventListener('talking', (e) => {
   ui.talking = e.detail;
+  ui.voiceState = voice.state();
+  setVoiceActivity([...ui.talking].some((id) => id === client.view?.me.id ? voice.state().sending : client.view?.voice.hearFrom.includes(id)));
   // Dernier joueur entendu (cible des réactions pendant la discussion libre).
   const heard = [...ui.talking].filter((id) => client.view?.voice.hearFrom.includes(id));
   if (heard.length) {
@@ -866,10 +872,8 @@ $('btn-mic').onclick = () => {
 voice.addEventListener('change', () => {
   renderMic();
   const muted = !!voice.state().selfMuted;
-  if (muted !== !!ui.selfMuted) {
-    ui.selfMuted = muted;
-    if (client.view) board.update(client.view, ui);
-  }
+  ui.selfMuted = muted;
+  if (client.view) board.update(client.view, ui);
 });
 // Certains téléphones bloquent le son tant qu'on n'a pas touché l'écran.
 voice.addEventListener('audio', (e) => $('audio-unlock').classList.toggle('show', !!e.detail.blocked));
@@ -1215,10 +1219,20 @@ $('dead-form').onsubmit = (e) => {
   const text = $('dead-input').value.trim();
   if (text) safe(client.chat('dead', text).then(() => ($('dead-input').value = '')));
 };
+function renderAudioControls(settings = audioSettings()) {
+  for (const input of document.querySelectorAll('[data-audio-level]')) {
+    input.value = Math.round(settings[input.dataset.audioLevel] * 100);
+    input.nextElementSibling.textContent = `${input.value} %`;
+  }
+}
+renderAudioControls();
+onAudioSettings((settings) => { renderAudioControls(settings); voice.setOutputVolume(settings.voice); });
+for (const input of document.querySelectorAll('[data-audio-level]')) input.addEventListener('input', () => setAudioSetting(input.dataset.audioLevel, Number(input.value) / 100));
+
 $('btn-menu').onclick = () => $('menu').classList.toggle('open');
 const motionLabel = () => ($('btn-motion').textContent = reducedMotion() ? '✨ Animations : réduites' : '✨ Animations : normales');
 motionLabel();
-const nightSoundsLabel = () => ($('btn-nightsounds').textContent = nightSoundsOn() ? '🌙 Bruits de nuit : activés' : '🌙 Bruits de nuit : désactivés');
+const nightSoundsLabel = () => ($('btn-nightsounds').textContent = nightSoundsOn() ? '🌙 Ambiance : activée' : '🌙 Ambiance : désactivée');
 nightSoundsLabel();
 $('btn-nightsounds').onclick = () => {
   toggleNightSounds();
@@ -1319,13 +1333,22 @@ const PHASE_LINES = {
 
 function onTransitions(v, prev) {
   const ph = v.phase;
+  if (prev?.code === v.code && v.me.role?.id === 'witch' && prev.me.role?.id === 'witch') {
+    for (const [key, kind] of [['potionVie', 'heal'], ['potionMort', 'poison']]) {
+      if (prev.me.roleState?.[key] === true && v.me.roleState?.[key] === false) board.potionEffect(v.me.id, kind);
+    }
+  }
   // Écran de victoire (5 s) : le narrateur se tait pour laisser voir le vainqueur.
   if (v.status === 'finished') {
-    if (prev?.status !== 'finished') narrator.hush();
+    if (prev?.status !== 'finished') {
+      narrator.hush();
+      if (prev) sfx.outcome(v.winner?.winnerIds.includes(v.me.id));
+    }
     ui.lastAnn = v.announcements.length ? v.announcements[v.announcements.length - 1].id : '';
   } else if (prev && prev.phase.seq !== ph.seq) {
     const line = PHASE_LINES[ph.id];
     const urgent = { urgent: true };
+    if (ph.id === 'VOTING') sfx.votePulse();
     if (line) narrator.say(line[0], line[1], urgent);
     else if (NIGHT_PHASES.has(ph.id) && ph.id !== 'NIGHT_RESOLUTION') narrator.say(`${ph.label}…`, 'night', urgent);
     else if (ph.id === 'PLAYER_SPEECH') narrator.say(`${numName(v, ph.speakerId)} a la parole`, 'info', urgent);
@@ -1341,9 +1364,10 @@ function onTransitions(v, prev) {
     if (ph.id === 'SUNRISE' && fresh.some((a) => a.kind === 'death' && a.text.startsWith('💀') && /cette nuit/.test(a.text))) {
       ui.noBirdsUntil = Date.now() + 8000;
       sfx.nightDeath();
-      // Annonce des victimes de la nuit : coup de griffe sanglant au milieu de l'écran.
+      // Trace spectrale commune à toutes les causes nocturnes : aucune information privée.
       // (Toutes les morts de la nuit, sans distinguer la cause : on ne trahit pas la Sorcière.)
       setTimeout(() => {
+        if (client.view?.code !== v.code) return;
         if (clawSlash()) sfx.claw();
       }, 350);
     }
@@ -1358,7 +1382,10 @@ function onTransitions(v, prev) {
   }
   if (prev?.phase.id === 'HUNTER_SHOT' && prev.phase.subjectId && ph.seq !== prev.phase.seq) {
     const shooter = prev.phase.subjectId;
-    const victim = v.players.find((p) => !p.alive && prev.players.find((q) => q.id === p.id)?.alive && p.id !== shooter);
+    const lastSeen = prev.announcements.at(-1)?.id;
+    const previousIndex = v.announcements.findIndex((a) => a.id === lastSeen);
+    const shot = v.announcements.slice(previousIndex + 1).find((a) => a.effect?.kind === 'hunter_shot' && a.effect.actorId === shooter)?.effect;
+    const victim = shot ? v.players.find((p) => p.id === shot.targetId) : null;
     if (victim) {
       ui.deferDeath.add(victim.id);
       board.hunterShot(shooter, victim.id).then(async () => {
@@ -1433,6 +1460,7 @@ function render() {
     show('lobby');
     halloweenNight(false);
     nightAmbience(false);
+    setVoiceActivity(false);
     board.update(v, ui);
     renderLobby(v);
     renderReactions(v);
@@ -1445,7 +1473,7 @@ function render() {
   // Bruits de nuit (vent, loup au loin, hibou, fantômes…) : jamais pendant qu'on parle.
   // Phase des loups : silence pour TOUT le monde (les loups parlent ; un téléphone muet les trahirait).
   const quietNight = v.status === 'running' && NIGHT_PHASES.has(v.phase.id) && !['NIGHT_RESOLUTION', 'WEREWOLF_PHASE'].includes(v.phase.id);
-  nightAmbience(quietNight, !!v.voice?.canSpeak || !!v.voice?.hearFrom?.length);
+  nightAmbience(quietNight, !!v.voice?.canSpeak || !!v.voice?.hearFrom?.length, v.phase.sky === 'day' && v.status === 'running');
   renderMe(v);
   renderAction(v);
   renderChats(v);

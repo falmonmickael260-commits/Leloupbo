@@ -1,3 +1,4 @@
+import { audioSettings } from './audioMix.js';
 /**
  * Point d'entrée unique de la voix pour l'interface.
  * Le serveur choisit le mode : serveur audio LiveKit (si configuré) ou
@@ -43,6 +44,7 @@ export class Voice extends EventTarget {
       for (const type of ['change', 'talking', 'audio']) impl.addEventListener(type, (e) => this.dispatchEvent(new CustomEvent(type, { detail: e.detail })));
       this.impl = impl;
       impl.selfMuted = this.selfMuted;
+      impl.outputVolume = audioSettings().voice;
       this.lastError = null;
       await impl.start(join);
       if (generation !== this.generation) impl.stop();
@@ -76,7 +78,7 @@ export class Voice extends EventTarget {
 
   state() {
     const st = this.impl ? this.impl.state() : { ...IDLE };
-    return { ...st, selfMuted: this.selfMuted };
+    return { ...st, selfMuted: this.selfMuted, outputVolume: this.impl?.outputVolume ?? audioSettings().voice };
   }
 
   /** Coupure volontaire de MON micro (bouton « Me couper »). Les règles du serveur restent prioritaires. */
@@ -92,6 +94,12 @@ export class Voice extends EventTarget {
       this.impl.applyPermissions?.();
     }
     this.dispatchEvent(new CustomEvent('change', { detail: this.state() }));
+  }
+
+  setOutputVolume(value) {
+    if (!this.impl) return;
+    this.impl.outputVolume = Math.max(0, Math.min(1, value));
+    this.impl.applyPermissions?.();
   }
 
   async setInputDevice(deviceId) {

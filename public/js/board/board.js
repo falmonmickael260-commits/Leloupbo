@@ -6,6 +6,8 @@
  * Repère interne fixe 1536×1024, mis à l'échelle selon l'écran.
  */
 import { characterSVG } from '../art/characters.js';
+import { SpectralVillage } from './specters.js';
+import { VillageEffects, deathPresentation } from './effects.js';
 import { DayNight } from './daynight.js';
 
 export const BOARD_W = 1536;
@@ -31,6 +33,10 @@ export class Board extends EventTarget {
         <div class="scenery">
           <div class="sky"><div class="stars"></div><div class="sun"></div><div class="moon"></div></div>
           <img class="village" alt="Le Village des Blackops" draggable="false"/>
+          <div class="town-sign" aria-label="La Meute Noire">
+            <svg class="sign-claw" viewBox="0 0 72 70" aria-hidden="true"><path d="M12 3 Q12 25 33 65 Q27 31 12 3 M32 1 Q30 27 48 64 Q44 28 32 1 M52 4 Q46 29 62 63 Q60 26 52 4"/></svg>
+            <span>La Meute Noire</span><i></i><i></i>
+          </div>
           <div class="tint"></div>
           <div class="night"></div>
           <div class="moonlight"><div class="moon"></div></div>
@@ -38,14 +44,20 @@ export class Board extends EventTarget {
           <div class="claw-glow" hidden><img alt="" draggable="false"/></div>
           <div class="glows"></div>
         </div>
+        <div class="village-atmosphere" aria-hidden="true"><div class="village-mist"></div><div class="village-mist far"></div><div class="embers">${Array.from({length:16},(_,i)=>`<i style="--i:${i};left:${8+(i*37)%84}%;top:${40+(i*17)%45}%"></i>`).join('')}</div></div>
         <div class="pions"></div>
         <div class="fx"></div>
       </div>`;
     this.stage = root.querySelector('.stage');
+    this.stage.querySelector('.scenery').appendChild(this.stage.querySelector('.town-sign'));
     this.pionLayer = root.querySelector('.pions');
     this.fx = root.querySelector('.fx');
+    this.effects = new VillageEffects(this.stage, this.fx);
+    document.addEventListener('visibilitychange', () => this.stage.classList.toggle('scene-paused', document.hidden));
     this.stars();
     this.daynight = new DayNight(this.stage);
+    this.specters = new SpectralVillage(this.stage);
+    this.specters.onAppear = () => this.dispatchEvent(new CustomEvent('sfx', { detail: 'ghost' }));
     this.decor = null;
     // Le jour bascule vers la nuit : la meute hurle au loin pendant le coucher du soleil.
     this.daynight.onSegment = (from, to) => {
@@ -98,6 +110,7 @@ export class Board extends EventTarget {
         data = await (await fetch(`/assets/decor/${data.mobileDecor}.json`)).json();
         if (token !== this.loadToken) return;
       }
+      this.stage.dataset.decor = decor;
       if (!data.image) {
         village.src = '/assets/village.svg';
         lightsImg.src = '/assets/village-lights.svg';
@@ -150,7 +163,7 @@ export class Board extends EventTarget {
     // La place (cercle des joueurs) vient d'être chargée : on replace les pions et le cadrage.
     this.layoutKey = null;
     this.fit();
-    if (this.lastView) this.update(this.lastView);
+    if (this.lastView) this.update(this.lastView, this.lastUI);
   }
 
   /** Mise à l'échelle : plateau entier (ordinateur) ou recadré sur la place (mobile portrait). */
@@ -171,7 +184,7 @@ export class Board extends EventTarget {
     if (portrait !== this.portrait) {
       this.portrait = portrait;
       this.layoutKey = null; // taille des pions différente sur téléphone
-      if (this.lastView) queueMicrotask(() => this.update(this.lastView));
+      if (this.lastView) queueMicrotask(() => this.update(this.lastView, this.lastUI));
     }
     const fill = portrait && this.decorLayout?.mobileTop != null;
     if (fill) {
@@ -186,7 +199,7 @@ export class Board extends EventTarget {
       if (Math.abs(visibleW - (this.visibleW ?? 0)) > 4) {
         this.visibleW = visibleW;
         this.layoutKey = null;
-        if (this.lastView) queueMicrotask(() => this.update(this.lastView));
+        if (this.lastView) queueMicrotask(() => this.update(this.lastView, this.lastUI));
       }
     } else if (portrait) {
       // Mobile : on cadre la place centrale (cercle des joueurs sur toute la largeur).
@@ -205,7 +218,7 @@ export class Board extends EventTarget {
     // Écran large redimensionné : la remontée du cercle dépend de l'échelle → on le recalcule.
     if (!portrait && this.scale && Math.abs(s - this.scale) > 0.02) {
       this.layoutKey = null;
-      if (this.lastView) queueMicrotask(() => this.update(this.lastView));
+      if (this.lastView) queueMicrotask(() => this.update(this.lastView, this.lastUI));
     }
     this.scale = s;
     // Position du haut du plateau à l'écran : l'interface mobile se place au-dessus.
@@ -216,6 +229,7 @@ export class Board extends EventTarget {
 
   setSky(sky, animate = true) {
     const target = sky === 'moon' ? 'night' : sky;
+    this.specters.setNight(target === 'night');
     if (animate) this.daynight.goTo(target);
     else this.daynight.snap(target);
   }
@@ -275,8 +289,11 @@ export class Board extends EventTarget {
    * joueurs qui parlent réellement d'après le micro).
    */
   update(v, ui = {}) {
+    const previous = this.lastView;
+    this.lastUI = ui;
     this.lastView = v;
-    if (!v) return;
+    if (!v) { this.effects.clear(); return; }
+    if (previous?.code !== v.code || v.status === 'lobby' && previous?.status !== 'lobby') this.effects.clear();
     this.setDecor(v.settings?.map);
     const key = `${v.players.map((p) => `${p.id}:${p.seat}`).join(',')}|${v.me.id}`;
     if (key !== this.layoutKey) {
@@ -350,7 +367,7 @@ export class Board extends EventTarget {
         el.querySelector('.badges').innerHTML = badgeHtml;
       }
       // Micro : autorisé (vert) ou coupé (barré), selon les permissions serveur.
-      const micOn = running && p.alive !== false && (p.isMe ? v.voice.canSpeak && !ui.selfMuted : v.voice.hearFrom.includes(p.id));
+      const micOn = (running || v.status === 'lobby') && (p.isMe ? v.voice.canSpeak && !ui.selfMuted && ui.voiceState?.sending === true : v.voice.hearFrom.includes(p.id) && p.audio?.mic !== false);
       const micKey = `${micOn ? 1 : 0}${running || v.status === 'lobby' ? 1 : 0}`;
       if (el.dataset.mic !== micKey) {
         el.dataset.mic = micKey;
@@ -379,6 +396,9 @@ export class Board extends EventTarget {
       if (!shownAlive && !el.classList.contains('dead')) {
         if (el.dataset.alive === '1') {
           el.classList.add('dying');
+          const kind = deathPresentation(v, previous);
+          el.dataset.death = kind;
+          this.effects.eliminate(this.center(p.id), kind);
           setTimeout(() => el.classList.remove('dying'), 1600);
           // Retour visuel au moment de la chute (tremblement, voile) : géré par l'interface.
           this.dispatchEvent(new CustomEvent('death', { detail: p.id }));
@@ -406,28 +426,10 @@ export class Board extends EventTarget {
     const a = this.center(shooterId);
     const b = this.center(targetId);
     if (!a || !b) return;
-    // Il épaule : recharge du fusil à pompe, puis le coup part.
-    this.dispatchEvent(new CustomEvent('sfx', { detail: 'rack' }));
-    await wait(650);
-    // Le coup part : bruitage au moment exact du flash, avant le projectile.
-    this.dispatchEvent(new CustomEvent('sfx', { detail: 'shot' }));
-    const flash = document.createElement('div');
-    flash.className = 'muzzle';
-    flash.style.transform = `translate(${a.x + 40}px, ${a.y - 10}px)`;
-    this.fx.appendChild(flash);
-    const bullet = document.createElement('div');
-    bullet.className = 'bullet';
-    const ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
-    bullet.style.transform = `translate(${a.x}px, ${a.y}px) rotate(${ang}deg)`;
-    this.fx.appendChild(bullet);
-    await wait(30);
-    bullet.style.transition = 'transform 380ms cubic-bezier(.3,.0,.6,1)';
-    bullet.style.transform = `translate(${b.x}px, ${b.y}px) rotate(${ang}deg)`;
-    await wait(400);
-    bullet.remove();
-    flash.remove();
-    this.boom(b.x, b.y, 'PAN !');
+    await this.effects.shot(a, b, this.pions.get(shooterId), (detail) => this.dispatchEvent(new CustomEvent('sfx', { detail })));
   }
+
+  potionEffect(playerId, kind) { this.effects.potion(this.center(playerId), kind); }
 
   /**
    * Réaction sociale : une 🍅 (en vrille, éclaboussure à l'arrivée) ou une 🌸 (vol doux,

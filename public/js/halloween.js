@@ -4,7 +4,7 @@
  *  - brume au sol (légère le jour, violette et épaisse la nuit) ;
  *  - personnages costumés (voir art/characters.js) ;
  *  - toiles d'araignée dans les coins, chauves-souris qui traversent le ciel de temps en temps,
- *    petit fantôme qui passe la nuit.
+ *    les apparitions spectrales sont gérées séparément par le plateau.
  *
  * Active automatiquement en période d'Halloween (octobre → 2 novembre) ; chacun peut la couper
  * dans le menu (réglage gardé sur son appareil).
@@ -41,20 +41,16 @@ const WEB = `<svg viewBox="0 0 120 120" aria-hidden="true" fill="none" stroke="r
   <path d="M92 0 Q85 33 84 34 Q62 58 78 74 Q46 78 36 84 Q34 85 0 92"/>
 </svg>`;
 
-const GHOST = `<svg viewBox="0 0 60 70" aria-hidden="true"><path d="M30 2 C14 2 6 15 6 30 L6 66 L14 60 L22 67 L30 60 L38 67 L46 60 L54 66 L54 30 C54 15 46 2 30 2z" fill="rgba(240,240,255,.85)"/><ellipse cx="22" cy="28" rx="4" ry="6" fill="#1b130e"/><ellipse cx="38" cy="28" rx="4" ry="6" fill="#1b130e"/><ellipse cx="30" cy="44" rx="5" ry="4" fill="#1b130e"/></svg>`;
-
 let stageLayer = null;
 let frontLayer = null;
 let screenLayer = null;
 let batTimer = 0;
-let ghostTimer = 0;
 let nightNow = false;
 
 /** Installe (ou retire) l'ambiance. `stage` = élément .stage du plateau. */
 export function setHalloween(stage, on) {
   document.documentElement.classList.toggle('halloween', on);
   clearTimeout(batTimer);
-  clearTimeout(ghostTimer);
   stageLayer?.remove();
   frontLayer?.remove();
   screenLayer?.remove();
@@ -79,7 +75,6 @@ export function setHalloween(stage, on) {
   if (board) board.after(screenLayer);
   else document.body.prepend(screenLayer);
   scheduleBats();
-  scheduleGhosts(4000);
 }
 
 /** La nuit tombe / se lève : plus de chauves-souris et de fantômes la nuit. */
@@ -87,18 +82,6 @@ export function halloweenNight(night) {
   if (night === nightNow) return;
   nightNow = night;
   if (!screenLayer) return;
-  clearTimeout(ghostTimer);
-  scheduleGhosts(1500);
-}
-
-/** Fantômes qui se baladent : jour et nuit (plus souvent la nuit), un ou deux à la fois. */
-function scheduleGhosts(first) {
-  const delay = first ?? (nightNow ? 4000 : 9000) + Math.random() * 6000;
-  ghostTimer = setTimeout(() => {
-    ghost();
-    if (Math.random() < (nightNow ? 0.5 : 0.25)) setTimeout(ghost, 1800 + Math.random() * 2500);
-    scheduleGhosts();
-  }, delay);
 }
 
 function scheduleBats() {
@@ -125,66 +108,6 @@ function bats() {
     screenLayer.appendChild(b);
     setTimeout(() => b.remove(), 7500);
   }
-}
-
-/** Point au hasard sur un bord de l'écran (un peu en dehors), en pixels. */
-function edgePoint(W, H, side) {
-  const m = 80;
-  if (side === 0) return { x: -m, y: Math.random() * H }; // gauche
-  if (side === 1) return { x: W + m, y: Math.random() * H }; // droite
-  if (side === 2) return { x: Math.random() * W, y: -m }; // haut
-  return { x: Math.random() * W, y: H + m }; // bas
-}
-
-/**
- * Fantôme qui se balade PARTOUT : il traverse l'écran d'un bord à un autre (gauche ↔ droite,
- * haut ↔ bas, en diagonale) en zigzaguant, ou apparaît au milieu, flotte puis s'évanouit.
- */
-function ghost() {
-  if (!screenLayer || reducedMotion() || document.hidden) return;
-  const W = window.innerWidth;
-  const H = window.innerHeight;
-  const g = document.createElement('div');
-  g.className = 'hw-ghost';
-  const size = 34 + Math.random() * 26;
-  g.style.width = `${size.toFixed(0)}px`;
-  g.innerHTML = `<div class="hw-ghost-bob">${GHOST}</div>`;
-  screenLayer.appendChild(g);
-  const op = nightNow ? 0.72 : 0.45;
-  const pts = [];
-  let frames;
-  if (Math.random() < 0.25) {
-    // Apparition : surgit quelque part, dérive doucement, disparaît.
-    const x = W * (0.1 + Math.random() * 0.8);
-    const y = H * (0.1 + Math.random() * 0.75);
-    const dx = (Math.random() - 0.5) * 160;
-    const dy = (Math.random() - 0.5) * 120;
-    frames = [
-      { transform: `translate(${x}px, ${y}px) scale(.6)`, opacity: 0 },
-      { transform: `translate(${x + dx * 0.3}px, ${y + dy * 0.3}px) scale(1)`, opacity: op, offset: 0.25 },
-      { transform: `translate(${x + dx * 0.7}px, ${y + dy * 0.7}px) scale(1)`, opacity: op, offset: 0.7 },
-      { transform: `translate(${x + dx}px, ${y + dy}px) scale(1.3)`, opacity: 0 },
-    ];
-  } else {
-    // Traversée : d'un bord vers un autre bord différent, avec deux crochets en route.
-    const from = Math.floor(Math.random() * 4);
-    let to = Math.floor(Math.random() * 4);
-    if (to === from) to = from ^ 1;
-    const a = edgePoint(W, H, from);
-    const z = edgePoint(W, H, to);
-    pts.push(a);
-    for (const t of [0.33, 0.66]) pts.push({ x: a.x + (z.x - a.x) * t + (Math.random() - 0.5) * W * 0.35, y: a.y + (z.y - a.y) * t + (Math.random() - 0.5) * H * 0.3 });
-    pts.push(z);
-    // Le fantôme regarde où il va ; au dernier point, il garde le sens du dernier trajet
-    // (sinon il se retournerait en s'écrasant pendant la fin de sa course).
-    const facing = (i) => (i < 3 ? pts[i + 1].x < pts[i].x : pts[3].x < pts[2].x) ? -1 : 1;
-    frames = pts.map((p, i) => ({ transform: `translate(${p.x.toFixed(0)}px, ${p.y.toFixed(0)}px) scaleX(${facing(i)})`, opacity: i === 0 || i === 3 ? 0 : op }));
-    frames[1].offset = 0.18;
-    frames[2].offset = 0.75;
-  }
-  const dur = 9000 + Math.random() * 7000;
-  const anim = g.animate(frames, { duration: dur, easing: 'ease-in-out', fill: 'forwards' });
-  anim.finished.finally(() => g.remove());
 }
 
 /** Toggle du menu. */

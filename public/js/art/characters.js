@@ -323,7 +323,7 @@ function costume(kind) {
 export function characterSVG(id, { pose = 'idle', title = '', halloween = halloweenActive() } = {}) {
   const c = getCharacter(id);
   const label = String(title || c.name).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
-  if (c.image) return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" class="character illustrated" role="img" aria-label="${label}"><image href="${c.image}" x="0" y="0" width="120" height="200" preserveAspectRatio="xMidYMax meet"/></svg>`;
+  if (c.image) return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 200" class="character illustrated" role="img" aria-label="${label}"><image href="${c.image}" x="0" y="0" width="120" height="200" preserveAspectRatio="xMidYMax meet"/>${pose === 'aim' ? `<g class="hunter-rifle" transform="translate(26 87) rotate(-8)"><path d="M0 13 L17 4 L26 11 L76 8 L91 5 L93 10 L33 18 L24 24 L15 19 L7 27 Z" fill="#765034" stroke="#201914" stroke-width="2"/><path d="M22 9 L90 4 L96 6 L96 10 L23 16 Z" fill="#3a4147" stroke="#171c20" stroke-width="2"/><path d="M40 6 L81 3" stroke="#a3aeb1" stroke-width="1.4"/><path d="M36 17 Q43 28 50 17" fill="none" stroke="#262527" stroke-width="2"/><ellipse cx="58" cy="15" rx="7" ry="4" fill="#63472e" stroke="#29231d" stroke-width="2"/></g>` : ''}</svg>`;
   const skin = c.skin;
   const skinSh = shade(skin, 0.8);
   const covered = c.acc?.some((a) => a === 'beanie' || a === 'cap' || a === 'cap-back');

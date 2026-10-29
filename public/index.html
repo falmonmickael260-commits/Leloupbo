@@ -100,6 +100,7 @@
           <p class="voice-hint">🎙️ Micro ouvert pour tout le monde : parlez librement avant la partie !</p>
           <div id="my-voice" class="my-voice" aria-live="polite"></div>
           <label class="voice-device">Microphone <select id="voice-input" aria-label="Microphone de la partie"><option value="default">Microphone par défaut</option></select></label>
+          <label class="voice-volume">Voix reçues <input type="range" min="0" max="100" step="1" data-audio-level="voice" aria-label="Volume des voix dans le salon"><output></output></label>
           <h2>Les villageois <span id="lobby-count" class="muted"></span></h2>
           <div class="code-chip">Code : <b id="lobby-code"></b></div>
           <ul id="lobby-players" class="plist"></ul>
@@ -179,6 +180,12 @@
         <button id="btn-motion" class="btn ghost"></button>
         <button id="btn-halloween" class="btn ghost"></button>
         <button id="btn-nightsounds" class="btn ghost"></button>
+        <fieldset class="sound-settings"><legend>Mixage audio</legend>
+          <label>Voix des joueurs <input type="range" min="0" max="100" step="1" data-audio-level="voice" aria-label="Volume des voix"><output></output></label>
+          <label>Ambiance <input type="range" min="0" max="100" step="1" data-audio-level="ambience" aria-label="Volume de l’ambiance"><output></output></label>
+          <label>Effets <input type="range" min="0" max="100" step="1" data-audio-level="effects" aria-label="Volume des effets"><output></output></label>
+          <small>Les effets baissent automatiquement quand un joueur parle.</small>
+        </fieldset>
         <button id="btn-leave-game" class="btn ghost">Quitter la partie</button>
       </div>
     </section>

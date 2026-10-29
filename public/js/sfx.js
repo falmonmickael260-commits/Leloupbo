@@ -1,5 +1,6 @@
+import { audioBuses } from './audioMix.js';
 /**
- * Bruitages du jeu, synthétisés en direct (Web Audio) : aucun fichier à charger.
+ * Bruitages Web Audio : enregistrements CC0 pour fusil/manipulation, synthèse pour les autres effets.
  *
  *   howlPack()  — meute de loups au loin, au coucher du soleil (~9 s).
  *   gunshot()   — tir du Chasseur, court et puissant.
@@ -10,19 +11,20 @@
 let ctx = null;
 let master = null;
 let reverb = null;
+let ambientReverb = null;
 
 function audio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return null;
   ctx ??= window.__blackopsAudio ??= new Ctx();
   if (!master) {
-    master = ctx.createDynamicsCompressor(); // évite toute saturation quand les sons se superposent
-    master.threshold.value = -10;
-    master.ratio.value = 6;
-    master.connect(ctx.destination);
+    master = audioBuses(ctx).effects;
     reverb = ctx.createConvolver();
     reverb.buffer = impulse(ctx, 3.2, 2.6);
     reverb.connect(master);
+    ambientReverb = ctx.createConvolver();
+    ambientReverb.buffer = reverb.buffer;
+    ambientReverb.connect(audioBuses(ctx).ambience);
   }
   return ctx;
 }
@@ -68,7 +70,7 @@ function ready() {
 }
 
 /** Un hurlement : montée, longue tenue avec léger vibrato, descente. */
-function howl(c, out, t0, { base, peak, dur, pan, level }) {
+function howl(c, out, t0, { base, peak, dur, pan, level }, space = reverb) {
   const osc = c.createOscillator();
   const osc2 = c.createOscillator(); // harmonique : timbre plus « gorge »
   osc.type = 'sine';
@@ -117,7 +119,7 @@ function howl(c, out, t0, { base, peak, dur, pan, level }) {
   const wet = c.createGain();
   wet.gain.value = 0.9;
   tail.connect(dry).connect(out);
-  tail.connect(wet).connect(reverb);
+  tail.connect(wet).connect(space);
 
   for (const o of [osc, osc2, vib]) {
     o.start(t0);
@@ -189,7 +191,7 @@ function drive(c, amount = 2.5) {
 }
 
 /** Tir du Chasseur : claquement sec, détonation grave saturée, coup sourd, échos sur les maisons. */
-export function gunshot(volume = 0.95) {
+export function gunshot(volume = 0.8) {
   if (playRecorded('fusil', volume)) return;
   const c = ready();
   if (!c) return;
@@ -249,7 +251,7 @@ export function gunshot(volume = 0.95) {
 }
 
 /** Recharge du fusil à pompe (« tchk… tchk ») quand le Chasseur épaule. */
-export function shotgunRack(volume = 1.1) {
+export function shotgunRack(volume = 0.45) {
   if (playRecorded('recharge', volume)) return;
   const c = ready();
   if (!c) return;
@@ -369,26 +371,28 @@ export function dawn(volume = 0.85) {
 // Un vrai enregistrement déposé dans public/assets/sfx/<nom>.mp3 remplace le bruitage
 // synthétisé correspondant (fusil, recharge, jour, meute). Préchargé pour rester synchronisé.
 const recorded = new Map();
+let preloadFlight = null;
+let nextPreload = 0;
 export function preloadRecorded() {
   const c = audio();
-  if (!c) return;
-  if (recorded.size) return;
-  for (const name of ['fusil', 'recharge', 'jour', 'meute', 'coeur', 'cloche']) recorded.set(name, null);
-  // Le serveur dit quels enregistrements existent : aucune requête pour un fichier absent.
-  fetch('/api/sfx')
-    .then((r) => (r.ok ? r.json() : []))
-    .then((names) => {
-      for (const name of names) {
-        if (!recorded.has(name)) continue;
-        fetch(`/assets/sfx/${name}.mp3`)
-          .then((r) => (r.ok ? r.arrayBuffer() : null))
-          .then((b) => b && new Promise((res, rej) => c.decodeAudioData(b, res, rej)))
-          .then((buf) => buf && recorded.set(name, buf))
-          .catch(() => {});
-      }
-    })
-    .catch(() => recorded.clear()); // réseau indisponible : nouvel essai au prochain appel
+  if (!c || preloadFlight || Date.now() < nextPreload) return preloadFlight;
+  const supported = new Set(['fusil', 'recharge', 'jour', 'meute', 'coeur', 'cloche']);
+  preloadFlight = fetch('/api/sfx')
+    .then((r) => { if (!r.ok) throw new Error('Chargement audio indisponible'); return r.json(); })
+    .then((names) => Promise.all(names.filter((name) => supported.has(name) && !recorded.get(name)).map(async (name) => {
+      try {
+        const r = await fetch(`/assets/sfx/${name}.mp3`);
+        if (!r.ok) return;
+        const data = await r.arrayBuffer();
+        const buffer = await new Promise((resolve, reject) => c.decodeAudioData(data, resolve, reject));
+        recorded.set(name, buffer);
+      } catch { /* Un échec individuel doit rester réessayable au prochain geste. */ }
+    })))
+    .catch(() => {})
+    .finally(() => { preloadFlight = null; nextPreload = Date.now() + 3000; });
+  return preloadFlight;
 }
+
 function playRecorded(name, volume) {
   const buf = recorded.get(name);
   const c = buf && ready();
@@ -616,7 +620,7 @@ function amb(c) {
   if (!ambBus) {
     ambBus = c.createGain();
     ambBus.gain.value = 1;
-    ambBus.connect(master);
+    ambBus.connect(audioBuses(c).ambience);
   }
   return ambBus;
 }
@@ -679,7 +683,7 @@ export function distantHowl(volume = 0.16) {
   const c = ready();
   if (!c) return;
   const base = 330 + Math.random() * 60;
-  howl(c, amb(c), c.currentTime + 0.05, { base, peak: base * (1.55 + Math.random() * 0.2), dur: 3.2 + Math.random() * 1.2, pan: Math.random() < 0.5 ? -0.75 : 0.75, level: volume });
+  howl(c, amb(c), c.currentTime + 0.05, { base, peak: base * (1.55 + Math.random() * 0.2), dur: 3.2 + Math.random() * 1.2, pan: Math.random() < 0.5 ? -0.75 : 0.75, level: volume }, ambientReverb);
 }
 
 /** Gémissement de fantôme : « ouuuh » qui glisse, tremble et se perd dans l'écho. */
@@ -723,7 +727,7 @@ export function ghostMoan(volume = 0.09) {
   const wet = c.createGain();
   wet.gain.value = 1.1;
   tail.connect(amb(c));
-  tail.connect(wet).connect(reverb);
+  tail.connect(wet).connect(ambientReverb);
   for (const x of [o, vib, n]) {
     x.start(t);
     x.stop(t + dur + 0.2);
@@ -753,7 +757,7 @@ export function owl(volume = 0.07) {
     const wet = c.createGain();
     wet.gain.value = 0.7;
     tail.connect(amb(c));
-    tail.connect(wet).connect(reverb);
+    tail.connect(wet).connect(ambientReverb);
     o.start(t);
     o.stop(t + d + 0.05);
   });
@@ -790,7 +794,7 @@ export function creak(volume = 0.05) {
   o.connect(g).connect(bp).connect(env).connect(amb(c));
   const wet = c.createGain();
   wet.gain.value = 0.4;
-  env.connect(wet).connect(reverb);
+  env.connect(wet).connect(ambientReverb);
   for (const x of [o, am]) {
     x.start(t);
     x.stop(t + dur + 0.05);
@@ -818,4 +822,38 @@ export function gust(volume = 0.08) {
   src.connect(bp).connect(g).connect(amb(c));
   src.start(t);
   src.stop(t + dur + 0.2);
+}
+
+/** Oiseaux lointains de jour ; volume très faible sur le bus ambiance. */
+export function birds(volume = .035) {
+  const c = ready(); if (!c) return;
+  for (let i = 0; i < 3; i++) {
+    const at = c.currentTime + i * .18;
+    const o = c.createOscillator(); const env = c.createGain();
+    o.frequency.setValueAtTime(2700 + i * 350, at);
+    o.frequency.exponentialRampToValueAtTime(4100 - i * 220, at + .12);
+    env.gain.setValueAtTime(.0001, at); env.gain.exponentialRampToValueAtTime(volume, at + .02); env.gain.exponentialRampToValueAtTime(.0001, at + .16);
+    o.connect(env).connect(amb(c)); o.start(at); o.stop(at + .2);
+  }
+}
+
+/** Début du vote : un battement discret, sans masquer les voix. */
+export function votePulse(volume = .12) {
+  const c = ready(); if (!c) return;
+  const o = c.createOscillator(); const env = c.createGain(); const t = c.currentTime;
+  o.type = 'sine'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(75, t + .3);
+  env.gain.setValueAtTime(.0001, t); env.gain.exponentialRampToValueAtTime(volume, t + .012); env.gain.exponentialRampToValueAtTime(.0001, t + .4);
+  o.connect(env).connect(master); o.start(t); o.stop(t + .42);
+}
+
+/** Cadence de fin, courte et retenue : aucune musique continue au-dessus des conversations. */
+export function outcome(won, volume = .12) {
+  const c = ready(); if (!c) return;
+  const notes = won ? [392, 494, 587] : [330, 294, 247];
+  notes.forEach((frequency, i) => {
+    const t = c.currentTime + i * .22; const o = c.createOscillator(); const env = c.createGain();
+    o.type = 'sine'; o.frequency.value = frequency;
+    env.gain.setValueAtTime(.0001, t); env.gain.exponentialRampToValueAtTime(volume, t + .025); env.gain.exponentialRampToValueAtTime(.0001, t + .9);
+    o.connect(env).connect(master); o.start(t); o.stop(t + 1);
+  });
 }

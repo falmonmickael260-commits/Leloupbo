@@ -1,0 +1,13 @@
+{
+  "recordedRifleAfterRetry": true,
+  "spectral": {
+    "count": 1,
+    "assets": true
+  },
+  "shotSynchronized": true,
+  "reducedMotionClearsSpecters": true,
+  "volumePersists": true,
+  "mobileOverflow": false,
+  "vfxCleaned": true,
+  "errors": []
+}

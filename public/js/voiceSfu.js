@@ -192,6 +192,7 @@ export class VoiceSFU extends EventTarget {
     el.lkTrack = track;
     el.setAttribute('playsinline', '');
     el.autoplay = true;
+    el.volume = this.outputVolume ?? 1;
     el.style.display = 'none';
     document.body.appendChild(el);
     this.audioEls.set(identity, el);
@@ -241,13 +242,25 @@ export class VoiceSFU extends EventTarget {
     const room = this.room;
     if (!this.active || !room) return;
     if (room.state === 'disconnected') return this.#scheduleRejoin(500);
-    if (room.state !== 'connected') return;
+    if (room.state !== 'connected' || document.hidden) return;
     const track = this.micTrack;
     if (track) {
       if (track.mediaStreamTrack?.readyState === 'ended') {
         this.recoverMicrophone().catch(() => {});
         return;
       }
+      // Certains téléphones gardent une piste « live » mais muette après un appel.
+      // Trois observations avant de reprendre, puis au plus un essai toutes les 15 s.
+      if (track.mediaStreamTrack?.muted) {
+        this.mutedChecks = (this.mutedChecks ?? 0) + 1;
+        if (this.mutedChecks >= 3 && !['NotAllowedError', 'SecurityError'].includes(this.micError) && (!this.lastMicRecovery || Date.now() - this.lastMicRecovery >= 15000)) {
+          this.lastMicRecovery = Date.now();
+          this.recoverMicrophone().catch(() => {});
+        }
+        this.#emit();
+        return;
+      }
+      this.mutedChecks = 0;
       const published = [...room.localParticipant.audioTrackPublications.values()].some((p) => p.track === track);
       if (!published || track.isMuted === this.micOn) this.#syncMic();
     }
@@ -308,7 +321,7 @@ export class VoiceSFU extends EventTarget {
     if (!allowed && this.micTrack?.mediaStreamTrack) this.micTrack.mediaStreamTrack.enabled = false;
     this.#syncMic();
     // Chez moi, seuls les joueurs que j'ai le droit d'entendre sont audibles (règles du serveur).
-    for (const [id, el] of this.audioEls) el.muted = !v.hearFrom.includes(id);
+    for (const [id, el] of this.audioEls) { el.muted = !v.hearFrom.includes(id); el.volume = this.outputVolume ?? 1; }
     this.#emit();
   }
 

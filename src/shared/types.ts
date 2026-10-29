@@ -203,6 +203,8 @@ export interface Announcement {
   at: number;
   kind: 'info' | 'death' | 'vote' | 'night' | 'day' | 'victory' | 'system';
   text: string;
+  /** Événement déjà annoncé publiquement ; jamais de cause nocturne privée. */
+  effect?: { kind: 'hunter_shot'; actorId: string; targetId: string };
 }
 
 export interface PrivateMessage {
