@@ -1,3 +1,4 @@
+import { reducedMotion } from '../juice.js';
 /**
  * Cycle jour / nuit du plateau — la SEULE animation permanente du décor.
  *
@@ -56,6 +57,7 @@ export class DayNight {
     this.raf = 0;
     this.queue = [];
     this.state = state;
+    this.stage.dataset.sky = state;
     this.values = { ...KEYS[state] };
     this.apply(this.values);
   }
@@ -63,7 +65,7 @@ export class DayNight {
   /** Avance dans le cycle jusqu'à `target` en passant par les états intermédiaires. */
   goTo(target, segmentMs = 3400) {
     if (!KEYS[target]) return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { this.snap(target); return; }
+    if (reducedMotion()) { this.snap(target); return; }
     const last = this.queue.length ? this.queue[this.queue.length - 1] : this.state;
     if (last === target) return;
     let i = CYCLE.indexOf(last);

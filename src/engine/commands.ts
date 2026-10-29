@@ -126,7 +126,7 @@ export function handleCommand(ctx: Ctx, playerId: string, raw: unknown): void {
       const [target] = validateTargets(cmd.targets, prompt.targets, 0, 1);
       ph.data.done = true;
       if (target) {
-        announce(ctx, 'death', `🏹 Dans un dernier souffle, ${p.name} abat ${playerName(s, target)}.`);
+        announce(ctx, 'death', `🏹 Dans un dernier souffle, ${p.name} abat ${playerName(s, target)}.`, { kind: 'hunter_shot', actorId: p.id, targetId: target });
         kill(ctx, target, 'hunter');
       } else announce(ctx, 'death', `🏹 ${p.name} baisse son arme et ne tire pas.`);
       runPipeline(ctx);

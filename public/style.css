@@ -1064,3 +1064,121 @@ input[type='checkbox'] { accent-color: #e2b450; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Immersion : uniquement des calques superposés aux fonds protégés. */
+.scenery .town-sign { inset: auto; left: 50%; top: 36%; width: 350px; height: 82px; transform: translateX(-50%) rotate(-1.3deg); display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px 20px;
+  background: repeating-linear-gradient(0deg, transparent 0 8px, #0002 9px 10px), linear-gradient(170deg, #433125, #241c19 58%, #38281e); border: 4px solid #77553a; outline: 1px solid #16100d; border-radius: 8px 3px 6px 4px; box-shadow: inset 0 2px 0 #c098573d, inset 0 -5px 12px #0008, 0 8px 10px #0009;
+}
+.town-sign::before, .town-sign::after { content: ''; position: absolute; width: 3px; height: 34px; background: #302b29; top: -37px; box-shadow: 1px 0 #b5a18c44; }
+.town-sign::before { left: 28px; } .town-sign::after { right: 28px; }
+.town-sign span { color: #e0c392; font: 600 30px/1 Georgia, serif; letter-spacing: .02em; text-shadow: 0 2px 1px #000; white-space: nowrap; }
+.sign-claw { width: 42px; height: 56px; overflow: visible; fill: #82271f; filter: drop-shadow(0 0 calc(var(--night) * 10px) #ff261b); }
+.town-sign i { position: absolute; top: 50%; width: 5px; height: 5px; background: #9c8062; border-radius: 50%; box-shadow: 0 1px 2px #000; }
+.town-sign i:nth-last-child(1) { right: 9px; } .town-sign i:nth-last-child(2) { left: 9px; }
+.stage[data-sky='night'] .sign-claw { fill: #f75b45; animation: signature-glow 6s ease-in-out infinite; }
+.stage[data-sky='night'] .town-sign { box-shadow: inset 0 0 28px #b7281726, 0 8px 10px #0009; }
+.stage[data-sky='night'] .town-sign span { color: #eed3a1; text-shadow: 0 1px 2px #000, 0 0 10px #dd351530; }
+.sun { background: radial-gradient(circle, #fffbe6 0 30%, #ffe4a3 45%, #f7c56a22 65%, transparent 72%); }
+.sun::after { border: 0; }
+.stage .moon::after { border: 1px solid #dce2f4aa; box-shadow: inset -12px -8px 20px #5c6a8d55, 0 0 20px #c3d5f444; background: radial-gradient(ellipse at 30% 35%, #a9b7c33d, transparent 22%), radial-gradient(ellipse at 63% 60%, #8f9cac44, transparent 21%), radial-gradient(circle at 38% 30%, #faf5db, #d1dae3 75%); }
+.village-atmosphere, .specter-layer { pointer-events: none; overflow: hidden; }
+.village-mist { position: absolute; left: -5%; right: -5%; bottom: 3%; height: 24%; background: radial-gradient(ellipse at 30% 55%, #c7dbdc38, transparent 57%), radial-gradient(ellipse at 70% 70%, #9aacbd30, transparent 65%); opacity: calc(.15 + var(--night) * .6); animation: ground-drift 36s ease-in-out infinite alternate; }
+.village-mist.far { height: 13%; bottom: 37%; opacity: calc(var(--night) * .35); animation-duration: 43s; animation-direction: alternate-reverse; }
+.embers { position: absolute; inset: 0; opacity: calc(.08 + var(--night) * .52); }
+.embers i { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #eed49c; box-shadow: 0 0 7px #f1c67577; animation: mote-drift calc(12s + var(--i) * .7s) ease-in-out infinite; animation-delay: calc(var(--i) * -1.7s); }
+.village-specter { position: absolute; transform-origin: 50% 85%; pointer-events: none; }
+.village-specter img { display: block; width: 100%; height: auto; filter: drop-shadow(0 0 6px #b4d2db66); animation: spectral-breathe 7s ease-in-out infinite; }
+.pion .figure .character.illustrated { filter: brightness(calc(1 - var(--night) * .24)) saturate(calc(1 - var(--night) * .18)) drop-shadow(1px 2px 1px #0006); }
+.pion.floor .figure .character, .pion.talking .figure .character { filter: brightness(1.06) drop-shadow(0 0 4px #e4d4ae44); }
+.pion .halo { transition: box-shadow .3s, background .3s, border-color .3s; }
+.pion.targetable .halo { border: 2px solid #d9c29299; animation: choice-breathe 2.8s ease-in-out infinite; }
+.pion .wave i { background: #b3e7d2; border: 0; width: 3px; border-radius: 3px; }
+.pion .mic.on { background: #90d9b6; }
+.pion.talking .plate { border-color: #aadfca; box-shadow: 0 0 12px #80c7ac55, 0 4px 12px #0008; }
+.pion[data-death='vote'].dying .figure { animation: verdict-fade 1.6s ease-out both; }
+.pion[data-death='night'].dying .figure { animation: soul-fade 1.8s ease-out both; }
+.pion.dead .tomb { display: none; }
+.pion.dead .plate::after { content: '✧'; color: #9db7c9; }
+.pion.hunter-ready .figure { filter: drop-shadow(0 0 10px #d1b87f99); }
+.hunter-rifle { transform-origin: 60px 110px; animation: rifle-raise .5s ease-out both; }
+.pion.hunter-recoil .figure { animation: hunter-recoil .3s ease-out; }
+.pion.hunter-ready .hunter-rifle { scale: var(--aim-facing, 1) 1; }
+.vfx { position: absolute; width: 0; height: 0; pointer-events: none; color: #b8d6df; }
+.vfx-ring { position: absolute; width: 90px; height: 35px; left: -45px; top: 40px; border: 1px solid currentColor; border-radius: 50%; box-shadow: 0 0 20px currentColor; animation: vfx-ring 1.8s ease-out both; }
+.vfx-column { position: absolute; left: -55px; top: -100px; width: 110px; height: 180px; background: radial-gradient(ellipse, currentColor, transparent 66%); opacity: .15; animation: soul-column 2s ease-out both; }
+.vfx b { position: absolute; width: 3px; height: 5px; border-radius: 50%; background: currentColor; animation: spirit-mote 1.7s calc(var(--i) * .035s) ease-out both; }
+.vfx-verdict { color: #e3bc7d; } .vfx-impact { color: #e5cd9d; } .vfx-heal { color: #87dcbb; } .vfx-potion { color: #b694e3; }
+.vfx-heal .vfx-column, .vfx-potion .vfx-column { animation-duration: 1.4s; }
+.vfx-muzzle { color: #fff0ba; }
+.vfx-muzzle .vfx-ring, .vfx-muzzle b { display: none; }
+.vfx-muzzle .vfx-column { left: -25px; top: -25px; width: 50px; height: 50px; opacity: 1; background: radial-gradient(circle, #fff 0 8%, #ffe9ac 18%, #f9b75a55 40%, transparent 70%); animation: muzzle-light .18s ease-out both; }
+.vfx-smoke .vfx-ring, .vfx-smoke b { display: none; }
+.vfx-smoke .vfx-column { opacity: .2; left: -20px; top: -30px; width: 70px; height: 70px; animation: muzzle-smoke 1.4s ease-out both; }
+.vfx-tracer { position: absolute; height: 1px; transform-origin: 0 50%; background: linear-gradient(90deg, transparent, #f7d997a0, transparent); animation: tracer .18s ease-out both; }
+.vfx.still { opacity: .4; } .vfx.still * { animation: none; } .vfx.still .vfx-column { opacity: .08; }
+.sound-settings { border: 1px solid #c69a6044; border-radius: 12px; padding: 12px; margin: 4px 0; min-width: 0; }
+.sound-settings legend { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #cdb68c; padding: 0 5px; }
+.sound-settings label { display: grid; grid-template-columns: 1fr 90px 34px; align-items: center; gap: 8px; margin: 10px 0; font-size: 12px; }
+.sound-settings input { width: 100%; accent-color: #d7b57b; min-height: 24px; }
+.sound-settings output { font-size: 10px; color: #c8bda9; white-space: nowrap; }
+.sound-settings small { display: block; font-size: 10px; line-height: 1.5; color: #a99c87; }
+.menu { max-height: min(84dvh, 700px); overflow-y: auto; min-width: min(320px, 88vw); }
+.scene-paused *, .scene-paused *::before, .scene-paused *::after { animation-play-state: paused !important; }
+.reduce-motion .village-mist, .reduce-motion .embers i, .reduce-motion .sign-claw, .reduce-motion .village-specter img, .reduce-motion .hunter-rifle { animation: none !important; }
+@keyframes ground-drift { from { transform: translateX(-25px); } to { transform: translateX(30px); } }
+@keyframes mote-drift { 0%, 100% { transform: translate(0, 0); opacity: 0; } 30%, 65% { opacity: .65; } 75% { transform: translate(18px, -60px); opacity: 0; } }
+@keyframes spectral-breathe { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-8px) rotate(1deg); } }
+@keyframes signature-glow { 0%, 100% { filter: drop-shadow(0 0 4px #f33b24); } 50% { filter: drop-shadow(0 0 9px #ef251c); } }
+@keyframes choice-breathe { 50% { border-color: #f2d491; box-shadow: 0 0 15px #e6b96430; } }
+@keyframes vfx-ring { from { opacity: .5; transform: scale(.5); } to { opacity: 0; transform: scale(2.3); } }
+@keyframes soul-column { from { opacity: 0; transform: translateY(30px) scale(.7); } 25% { opacity: .2; } to { opacity: 0; transform: translateY(-80px) scale(1.3); } }
+@keyframes spirit-mote { from { opacity: 0; transform: rotate(var(--angle)) translateY(0); } 20% { opacity: .7; } to { opacity: 0; transform: rotate(var(--angle)) translateY(-100px); } }
+@keyframes soul-fade { 25% { filter: brightness(1.4) saturate(.3); } to { opacity: .25; transform: translateY(-10px) scale(.94); filter: grayscale(1) brightness(.7); } }
+@keyframes verdict-fade { 20% { filter: sepia(.7) brightness(1.3); } to { opacity: .3; transform: translateY(5px) scale(.94); filter: grayscale(1); } }
+@keyframes muzzle-light { from { transform: scale(.3); opacity: .9; } to { transform: scale(1.6); opacity: 0; } }
+@keyframes muzzle-smoke { from { transform: scale(.3); opacity: .2; } to { transform: translate(20px, -40px) scale(1.7); opacity: 0; } }
+@keyframes tracer { from { opacity: .7; } to { opacity: 0; } }
+@keyframes rifle-raise { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+@keyframes hunter-recoil { 25% { transform: translateX(-5px) rotate(-3deg); } to { transform: none; } }
+@media (max-width: 760px) { .sound-settings label { grid-template-columns: 1fr 80px 34px; } }
+
+.claw-slash .cm.in { fill: #d2e9f1; opacity: .2; }
+.voice-volume { display: grid; grid-template-columns: 1fr 100px 40px; align-items: center; gap: 8px; color: #c8bda9; font-size: 12px; margin: 8px 0 18px; }
+.voice-volume input { width: 100%; accent-color: #d7b57b; min-height: 28px; }
+.voice-volume output { font-size: 11px; white-space: nowrap; }
+/* La Clairière garde sa cascade dégagée ; l’enseigne est fixée à la façade du village Blackops. */
+.stage[data-decor='clairiere'] .town-sign { display: none; }
+.menu { width: min(330px, calc(100vw - 24px)); min-width: 0; }
+.menu.open { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.menu > .btn { width: 100%; text-align: left; }
+.juice-veil.death { background: radial-gradient(ellipse, transparent 28%, #11182499 100%); }
+.juice-veil.shot { background: radial-gradient(ellipse, #fff1d520 5%, #12131d55 100%); }
+/* Hiérarchie plus calme : les annonces prennent le ton d’un récit, les commandes restent nettes. */
+.phase-label, .narration { font-family: Georgia, 'Times New Roman', serif !important; font-weight: 600 !important; text-transform: none; letter-spacing: .015em; }
+.phase-label { font-size: clamp(18px, 2vw, 26px); }
+.narration { font-size: clamp(18px, 2.2vw, 28px) !important; line-height: 1.25; border-radius: 14px; padding: 13px 24px; }
+.timer span { font-variant-numeric: tabular-nums; }
+.pion .plate { font-size: 17px; }
+.tab-body .text { font-weight: 500; line-height: 1.5; }
+@media (max-width: 760px) { .phase-label { font-size: 17px; } .narration { padding: 10px 16px; font-size: 19px !important; } }
+@media (max-width: 380px) and (orientation: portrait) {
+  .phase-label { font-size: 15px; line-height: 1.12; }
+  .phase-box { padding: 6px 8px; gap: 8px; }
+  .phase-sub { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .hud-top { justify-content: flex-start; padding-left: 12px; }
+  .phase-box { max-width: calc(100vw - 300px); padding: 7px 12px; }
+  .phase-label { font-size: 17px; }
+  .hud-me { left: 12px; bottom: 10px; gap: 6px; }
+  .hud-me .my-card { width: 44px; height: 66px; }
+  .hud-me .me-info { padding: 8px; max-width: 195px; }
+  .hud-me .me-name { font-size: 13px; }
+  .hud-me .me-status { font-size: 10px; }
+  .hud-me .mic-btn { min-height: 30px; font-size: 11px; }
+  .hud-me .mic-btn small { display: none; }
+  .action { left: 275px; right: 64px; width: auto; max-width: none; bottom: 10px; transform: none; max-height: 115px; overflow-y: auto; padding: 10px; }
+  .action h3 { font-size: 16px; }
+  .action p { font-size: 12px; }
+  .narration { font-size: 20px !important; }
+}

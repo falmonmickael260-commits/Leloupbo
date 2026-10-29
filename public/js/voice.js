@@ -229,6 +229,7 @@ export class VoiceMesh extends EventTarget {
       const sender = peer.pc.getTransceivers()[0]?.sender;
       if (sender && sender.track !== send) sender.replaceTrack(send).then(() => this.#capBitrate(sender)).catch(() => {});
       peer.audio.muted = !voice?.hearFrom.includes(id);
+      peer.audio.volume = this.outputVolume ?? 1;
     }
     this.#emit();
   }

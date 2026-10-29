@@ -60,8 +60,7 @@ export function impact(tier = 'small') {
 }
 
 /**
- * Mort d'un joueur : trois coups de griffe sanglants au milieu de l'écran, des gouttes qui
- * coulent, puis tout s'efface (≈ 1,8 s). L'écran, lui, ne bouge pas. Plusieurs morts au
+ * Mort d'un joueur : trois traces de lumière spectrale au milieu de l’écran, puis tout s'efface (≈ 1,8 s). L'écran, lui, ne bouge pas. Plusieurs morts au
  * même moment = un seul coup de griffe.
  */
 let lastClaw = 0;
@@ -76,17 +75,7 @@ export function clawSlash() {
   const mark = (x, d) =>
     `<path class="cm" style="--d:${d}s" d="M${x} 18 C ${x + 14} 90, ${x + 34} 170, ${x + 66} 286 C ${x + 72} 170, ${x + 50} 92, ${x} 18 Z"/>` +
     `<path class="cm in" style="--d:${d}s" d="M${x + 8} 50 C ${x + 20} 110, ${x + 36} 175, ${x + 58} 260 C ${x + 52} 172, ${x + 36} 108, ${x + 8} 50 Z"/>`;
-  const drip = (x, y, d, h) => `<g class="cd" style="--d:${d}s;transform-origin:${x}px ${y}px"><rect x="${x - 3}" y="${y}" width="6" height="${h}" rx="3"/><circle cx="${x}" cy="${y + h}" r="5"/></g>`;
-  el.innerHTML = `<svg viewBox="0 0 300 320">
-    <defs><linearGradient id="claw-blood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff2a1a"/><stop offset=".55" stop-color="#b30d06"/><stop offset="1" stop-color="#5e0200"/></linearGradient></defs>
-    <g fill="url(#claw-blood)" stroke="#2a0000" stroke-width="2">
-      ${mark(40, 0)}${mark(108, 0.06)}${mark(176, 0.12)}
-    </g>
-    <g fill="#9e0b05">${drip(86, 170, 0.32, 55)}${drip(152, 205, 0.42, 70)}${drip(222, 245, 0.38, 45)}${drip(122, 130, 0.52, 36)}${drip(196, 160, 0.6, 28)}</g>
-    <g fill="#c4140a" class="cs">
-      <circle cx="40" cy="60" r="5"/><circle cx="262" cy="250" r="7"/><circle cx="250" cy="120" r="4"/><circle cx="70" cy="230" r="6"/><circle cx="205" cy="40" r="3.5"/>
-    </g>
-  </svg>`;
+  el.innerHTML = `<svg viewBox="0 0 300 320" aria-hidden="true"><defs><linearGradient id="claw-light"><stop stop-color="#aacbd4" stop-opacity=".1"/><stop offset=".5" stop-color="#e7f5f4" stop-opacity=".8"/><stop offset="1" stop-color="#91b9c8" stop-opacity=".1"/></linearGradient></defs><g fill="url(#claw-light)">${mark(40, 0)}${mark(108, .06)}${mark(176, .12)}</g></svg>`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 2000);
   return true;

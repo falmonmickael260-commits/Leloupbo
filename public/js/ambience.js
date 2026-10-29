@@ -1,5 +1,5 @@
 /**
- * Ambiance sonore de la nuit 🌙 : vent en fond + petits bruits au hasard (loup au loin, hibou,
+ * Ambiance du village : oiseaux le jour, vent et bruits lointains la nuit (loup, hibou,
  * craquement, rafale ; gémissements de fantôme quand Halloween est activé).
  *
  * - Joués pareil chez tout le monde, au hasard : ils ne révèlent rien (aucun lien avec les rôles).
@@ -9,7 +9,7 @@
 import * as sfx from './sfx.js';
 
 const KEY = 'blackops:nightSounds';
-let active = false;
+let active = null;
 let timer = 0;
 
 export function nightSoundsOn() {
@@ -32,20 +32,21 @@ export function toggleNightSounds() {
 }
 
 /** À appeler à chaque état de la partie : `night` = phase de nuit, `voice` = quelqu'un parle (moi ou ceux que j'entends). */
-export function nightAmbience(night, voice = false) {
-  const want = night && !voice && nightSoundsOn();
-  if (want && !active) start();
-  else if (!want && active) stop();
+export function nightAmbience(night, voice = false, day = false) {
+  const want = nightSoundsOn() ? night && !voice ? 'night' : day ? 'day' : null : null;
+  if (want === active) return;
+  stop();
+  if (want) start(want);
 }
 
-function start() {
-  active = true;
-  sfx.windStart();
+function start(mode) {
+  active = mode;
+  sfx.windStart(mode === 'night' ? .05 : .015);
   schedule(2500 + Math.random() * 3000);
 }
 
 function stop() {
-  active = false;
+  active = null;
   clearTimeout(timer);
   sfx.windStop();
 }
@@ -61,6 +62,7 @@ function schedule(delay) {
 
 let last = '';
 function playOne() {
+  if (active === 'day') { sfx.birds(); return; }
   const halloween = document.documentElement.classList.contains('halloween');
   const pool = ['howl', 'howl', 'owl', 'creak', 'gust'];
   if (halloween) pool.push('ghost', 'ghost', 'ghost');
@@ -72,4 +74,4 @@ function playOne() {
 }
 
 /** L'ambiance joue-t-elle en ce moment ? (pour les vérifications) */
-export const nightAmbienceActive = () => active;
+export const nightAmbienceActive = () => active === 'night';

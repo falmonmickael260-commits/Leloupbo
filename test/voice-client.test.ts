@@ -15,7 +15,7 @@ class Client extends EventTarget {
   status = 'connected';
   socket = new EventEmitter();
   view = { me: { id: 'a' }, voice: { canSpeak: true, speakTo: ['b'], hearFrom: ['b'] } };
-  request = async () => ({ mode: 'mesh', peers: [] });
+  request = async () => ({ mode: 'mesh', peers: [] as string[] });
   resume = async () => {};
 }
 class PC {
@@ -124,6 +124,16 @@ describe('Navigateur voix — régressions avec transports simulés', () => {
     assert.equal(old.readyState, 'ended'); assert.equal(v.stream.getAudioTracks()[0].enabled, false);
     assert.equal(v.state().sending, false); v.stop();
   });
+  it('volume des voix : coupe la lecture sans modifier émission ni permissions', async () => {
+    capture = async () => stream(); const c = new Client(); const v = new Voice(c);
+    c.request = async () => ({ mode: 'mesh', peers: ['b'] });
+    await v.start(); await settle();
+    v.setOutputVolume(0);
+    assert.equal(v.impl.peers.get('b').audio.volume, 0);
+    assert.equal(v.state().sending, true);
+    assert.equal(c.view.voice.canSpeak, true);
+    v.stop();
+  });
   it('annulation pendant la demande de permission : aucun micro conservé après arrêt', async () => {
     let release: any; const t = track();
     capture = () => new Promise((resolve) => { release = resolve; });
@@ -153,6 +163,20 @@ describe('Navigateur voix — régressions avec transports simulés', () => {
     capture = () => new Promise((resolve) => { release = resolve; });
     const test = new MicrophoneTest(); const pending = test.start(); test.stop(); release(stream(t));
     assert.equal(await pending, false); assert.equal(t.readyState, 'ended');
+  });
+  it('SFU : capture encore vivante mais muette après interruption du téléphone : reprise sans fausse émission', async (t) => {
+    t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] });
+    let restarts = 0;
+    localTrack = { mediaStreamTrack: track(), isMuted: false,
+      async mute() { this.isMuted = true; }, async unmute() { this.isMuted = false; },
+      async restartTrack() { restarts++; this.mediaStreamTrack = track(); }, stop() { this.mediaStreamTrack.stop(); },
+    };
+    const v = new VoiceSFU(new Client()); await v.start({}); await settle();
+    localTrack.mediaStreamTrack.muted = true;
+    assert.equal(v.state().sending, false);
+    t.mock.timers.tick(9000); await settle();
+    try { assert.equal(restarts, 1); assert.equal(v.state().sending, true); }
+    finally { v.stop(); }
   });
   it('SFU : publication, refus serveur, changement de phase et reconnexion reflètent l’état réel', async () => {
     localTrack = { mediaStreamTrack: track(), isMuted: false,

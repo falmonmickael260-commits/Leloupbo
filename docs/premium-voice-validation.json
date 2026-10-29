@@ -1,0 +1,22 @@
+{
+  "participants": 3,
+  "isolatedRoom": true,
+  "bidirectionalRtp": {
+    "p39epl": {
+      "state": "connected",
+      "sentBytes": 1485,
+      "receivedBytes": 1114,
+      "relay": false
+    },
+    "p5iidc": {
+      "state": "connected",
+      "sentBytes": 918,
+      "receivedBytes": 819,
+      "relay": false
+    }
+  },
+  "mute": true,
+  "offlineClosed": true,
+  "reconnected": true,
+  "errors": []
+}
