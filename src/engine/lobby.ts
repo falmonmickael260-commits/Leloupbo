@@ -84,7 +84,7 @@ export function addPlayer(ctx: Ctx, rawName: unknown, tokenHash: string, isBot =
     abandoned: false,
     loverId: null,
     roleData: {},
-    avatar: isBot ? AVATAR_IDS[ctx.rng.int(AVATAR_IDS.length)] : defaultAvatar(seat),
+    avatar: isBot ? defaultAvatar(ctx.rng.int(AVATAR_IDS.filter((id) => id.startsWith('v-')).length)) : defaultAvatar(seat),
   };
   s.players.push(p);
   if (!s.hostId) s.hostId = p.id;

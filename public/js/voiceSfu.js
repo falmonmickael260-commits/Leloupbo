@@ -17,7 +17,7 @@ function loadLiveKit() {
     const s = document.createElement('script');
     s.src = '/vendor/livekit-client.umd.js';
     s.onload = () => resolve(window.LivekitClient);
-    s.onerror = () => reject(new Error('Impossible de charger le module audio.'));
+    s.onerror = () => { loading = null; s.remove(); reject(new Error('Impossible de charger le module audio.')); };
     document.head.appendChild(s);
   });
   return loading;
@@ -36,13 +36,13 @@ export class VoiceSFU extends EventTarget {
     this.onView = () => this.applyPermissions();
     // Connexion au jeu perdue : l'état connu peut être périmé (la phase a pu changer) → personne
     // n'est audible jusqu'au prochain état envoyé par le serveur.
-    client.addEventListener('status', (e) => {
-      if (e.detail !== 'connected') this.applyPermissions();
-    });
+    this.onStatus = () => this.applyPermissions();
   }
 
   async start(join) {
+    this.stopped = false;
     const LK = await loadLiveKit();
+    if (this.stopped) return;
     // UN SEUL micro capturé pour toute la partie : il sert à émettre (quand c'est notre tour)
     // et reste « en capture » le reste du temps (simplement coupé). Sur iPhone, une 2e capture
     // du micro rend la première muette, et Safari n'autorise la lecture du son que pendant une
@@ -56,6 +56,7 @@ export class VoiceSFU extends EventTarget {
     }
     try {
       this.micTrack = await LK.createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 });
+      if (this.stopped) { this.micTrack.stop(); this.micTrack = null; return; }
       this.hasMic = true;
       // Jauge locale du micro — pas sur iPhone, où brancher le micro sur un 2e moteur audio
       // peut le rendre muet : on y utilise le niveau mesuré par LiveKit.
@@ -63,7 +64,8 @@ export class VoiceSFU extends EventTarget {
         this.meterCtx = new (window.AudioContext || window.webkitAudioContext)();
         this.meter = this.meterCtx.createAnalyser();
         this.meter.fftSize = 256;
-        this.meterCtx.createMediaStreamSource(new MediaStream([this.micTrack.mediaStreamTrack])).connect(this.meter);
+        this.meterSource = this.meterCtx.createMediaStreamSource(new MediaStream([this.micTrack.mediaStreamTrack]));
+        this.meterSource.connect(this.meter);
       } catch {
         this.meter = null;
       }
@@ -72,6 +74,7 @@ export class VoiceSFU extends EventTarget {
       this.hasMic = false;
       this.micError = e?.name || 'Error';
     }
+    if (this.stopped) { this.micTrack?.stop(); return; }
     const room = new LK.Room({
       adaptiveStream: false,
       // Si la piste est un jour retirée (reconnexion…), on la garde pour la republier.
@@ -102,6 +105,9 @@ export class VoiceSFU extends EventTarget {
     room.on(E.ParticipantConnected, () => this.#emit());
     room.on(E.ParticipantDisconnected, () => this.#emit());
     room.on(E.Reconnected, () => this.applyPermissions());
+    room.on(E.Reconnecting, () => { this.micOn = false; this.#syncMic(); this.#emit(); });
+    room.on(E.ConnectionStateChanged, () => this.#emit());
+    room.on(E.MediaDevicesError, (e) => { this.micError = e?.name || 'Error'; this.#emit(); });
     // Piste retirée (reconnexion du serveur audio…) : on la republie aussitôt.
     room.on(E.LocalTrackUnpublished, () => setTimeout(() => this.applyPermissions(), 200));
     room.on(E.Disconnected, () => {
@@ -114,7 +120,7 @@ export class VoiceSFU extends EventTarget {
     this.onVisible = () => {
       if (document.visibilityState !== 'visible' || !this.active) return;
       const mst = this.micTrack?.mediaStreamTrack;
-      if (mst && mst.readyState === 'ended') this.micTrack.restartTrack().catch(() => {});
+      if (mst && mst.readyState === 'ended') this.recoverMicrophone().catch(() => {});
       this.room?.startAudio().catch(() => {});
       for (const el of this.audioEls.values()) el.play?.().catch(() => {});
       this.applyPermissions();
@@ -134,14 +140,45 @@ export class VoiceSFU extends EventTarget {
       this.meter = null;
       throw e;
     }
+    if (this.stopped) { room.disconnect(); this.micTrack?.stop(); return; }
     await room.startAudio().catch(() => {});
+    if (this.stopped) { room.disconnect(); return; }
     this.active = true;
     this.#audioState();
     this.client.addEventListener('view', this.onView);
+    this.client.addEventListener('status', this.onStatus);
+    this.onDeviceChange = () => {
+      if (this.micTrack?.mediaStreamTrack?.readyState === 'ended') this.recoverMicrophone().catch(() => {});
+    };
+    navigator.mediaDevices?.addEventListener?.('devicechange', this.onDeviceChange);
     this.applyPermissions();
     // Surveillance : répare toute seule les pannes de son / micro (voir #watch).
     this.watchdog = setInterval(() => this.#watch(), 3000);
     this.#emit();
+  }
+
+  /** Une seule reprise de capture, y compris lors de retours simultanés du téléphone. */
+  async recoverMicrophone(deviceId = 'default') {
+    if (!this.active || this.recovering || !this.micTrack) return;
+    this.recovering = true;
+    try {
+      await this.micTrack.restartTrack({ deviceId });
+      if (!this.active) { this.micTrack?.stop(); return; }
+      if (this.meterCtx && this.meter) {
+        this.meterSource?.disconnect();
+        this.meterSource = this.meterCtx.createMediaStreamSource(new MediaStream([this.micTrack.mediaStreamTrack]));
+        this.meterSource.connect(this.meter);
+      }
+      this.micError = null;
+      this.hasMic = true;
+      this.applyPermissions();
+    } catch (e) {
+      this.micError = e?.name || 'Error';
+      throw e;
+    } finally {
+      this.recovering = false;
+      this.#emit();
+    }
   }
 
   /** Branche la voix reçue d'un joueur sur un élément audio (une seule par joueur). */
@@ -176,8 +213,9 @@ export class VoiceSFU extends EventTarget {
     this.rejoining = true;
     try {
       const r = await this.client.request('voice:join');
-      if (r.mode !== 'sfu') return;
+      if (!this.active || r.mode !== 'sfu') return;
       await this.room.connect(r.url, r.token, { autoSubscribe: true });
+      if (!this.active) { await this.room.disconnect(); return; }
       this.rejoinFails = 0;
       this.applyPermissions();
     } catch (e) {
@@ -207,7 +245,7 @@ export class VoiceSFU extends EventTarget {
     const track = this.micTrack;
     if (track) {
       if (track.mediaStreamTrack?.readyState === 'ended') {
-        track.restartTrack().catch(() => {});
+        this.recoverMicrophone().catch(() => {});
         return;
       }
       const published = [...room.localParticipant.audioTrackPublications.values()].some((p) => p.track === track);
@@ -250,21 +288,24 @@ export class VoiceSFU extends EventTarget {
   }
 
   applyPermissions() {
-    const v = this.client.stale ? null : this.client.view?.voice;
+    const v = this.client.stale || this.client.status !== 'connected' ? null : this.client.view?.voice;
     const room = this.room;
     // État de la partie inconnu ou périmé (reconnexion en cours) : on n'entend personne.
     if (!v) {
       for (const el of this.audioEls.values()) el.muted = true;
+      if (this.micTrack?.mediaStreamTrack) this.micTrack.mediaStreamTrack.enabled = false;
       if (room && this.active && this.micOn) {
         this.micOn = false; // et mon micro reste fermé
         this.#syncMic();
       }
+      this.#emit();
       return;
     }
     if (!room || !this.active) return;
-    // Micro ouvert seulement quand le serveur donne la parole ; la piste, elle, reste publiée.
-    const allowed = !!this.micTrack && v.canSpeak && !this.selfMuted;
+    // Capture conservée ; publication autorisée et micro ouvert seulement à notre tour.
+    const allowed = !!this.micTrack && room.state === 'connected' && v.canSpeak && !this.selfMuted;
     this.micOn = allowed;
+    if (!allowed && this.micTrack?.mediaStreamTrack) this.micTrack.mediaStreamTrack.enabled = false;
     this.#syncMic();
     // Chez moi, seuls les joueurs que j'ai le droit d'entendre sont audibles (règles du serveur).
     for (const [id, el] of this.audioEls) el.muted = !v.hearFrom.includes(id);
@@ -272,13 +313,13 @@ export class VoiceSFU extends EventTarget {
   }
 
   /**
-   * Le micro est publié UNE fois puis simplement coupé / rouvert (instantané, sans
-   * renégociation). Ne jamais recapturer le micro (iPhone) ni republier à chaque tour.
+   * Réutilise la même capture locale après toute révocation serveur ou reconnexion.
+   * La piste est republiée quand le serveur rend le droit de parler.
    */
   async #syncMic() {
     const track = this.micTrack;
     const room = this.room;
-    if (!track || !room) return;
+    if (!track || !room || !this.active) return;
     if (this.syncing) {
       this.resync = true;
       return;
@@ -294,7 +335,8 @@ export class VoiceSFU extends EventTarget {
         if (!published && room.state === 'connected' && lp.permissions?.canPublish !== false) {
           await lp.publishTrack(track, { source: window.LivekitClient.Track.Source.Microphone });
         }
-        if (this.micOn && track.isMuted) await track.unmute();
+        if (this.active && this.micOn && room.state === 'connected' && lp.permissions?.canPublish !== false && track.isMuted) await track.unmute();
+        track.mediaStreamTrack.enabled = !!(this.active && this.micOn && room.state === 'connected' && lp.permissions?.canPublish !== false);
       } while (this.resync && this.active);
     } catch (e) {
       console.warn('[voice] micro', e);
@@ -313,13 +355,15 @@ export class VoiceSFU extends EventTarget {
     const mst = this.micTrack?.mediaStreamTrack;
     const micLive = !!mst && mst.readyState === 'live' && !mst.muted;
     const published = !!room && [...room.localParticipant.audioTrackPublications.values()].some((p) => p.track === this.micTrack);
+    const canSend = this.micOn && published && micLive && mst.enabled !== false && !this.micTrack?.isMuted && room?.state === 'connected' && room.localParticipant.permissions?.canPublish !== false;
     return {
       active: this.active,
+      connectionState: room?.state ?? 'disconnected',
       hasMic: this.hasMic,
       micError: this.micError ?? null,
       micLive,
-      transmitting: this.micOn,
-      sending: this.micOn && published && micLive && !this.micTrack.isMuted && room?.state === 'connected',
+      transmitting: !!canSend,
+      sending: !!canSend,
       speakerOk: !room || room.canPlaybackAudio !== false,
       peers: n,
       connected,
@@ -352,13 +396,16 @@ export class VoiceSFU extends EventTarget {
   }
 
   stop() {
-    if (!this.active) return;
+    this.stopped = true;
     this.active = false;
     this.client.removeEventListener('view', this.onView);
+    this.client.removeEventListener('status', this.onStatus);
+    navigator.mediaDevices?.removeEventListener?.('devicechange', this.onDeviceChange);
     document.removeEventListener('visibilitychange', this.onVisible);
     clearInterval(this.watchdog);
     clearTimeout(this.rejoinTimer);
     this.rejoinTimer = null;
+    this.room?.removeAllListeners?.();
     this.room?.disconnect();
     this.micTrack?.stop();
     this.micTrack = null;

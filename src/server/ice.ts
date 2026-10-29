@@ -15,13 +15,22 @@ export interface IceServer {
   credential?: string;
 }
 
+function validIceServer(value: unknown): value is IceServer {
+  if (!value || typeof value !== 'object') return false;
+  const server = value as IceServer;
+  const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+  return urls.length > 0 && urls.every((url) => typeof url === 'string' && /^(stun|stuns|turn|turns):[^\s]+$/i.test(url))
+    && (server.username === undefined || typeof server.username === 'string')
+    && (server.credential === undefined || typeof server.credential === 'string');
+}
+
 const DEFAULT_STUN: IceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
 
 export function iceServersFromEnv(env: NodeJS.ProcessEnv = process.env): IceServer[] {
   if (env.ICE_SERVERS) {
     try {
       const parsed = JSON.parse(env.ICE_SERVERS);
-      if (Array.isArray(parsed) && parsed.every((s) => s && (typeof s.urls === 'string' || Array.isArray(s.urls)))) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(validIceServer)) return parsed;
       console.warn('[ice] ICE_SERVERS invalide, valeurs par défaut utilisées');
     } catch {
       console.warn('[ice] ICE_SERVERS n’est pas du JSON valide, valeurs par défaut utilisées');
@@ -29,11 +38,13 @@ export function iceServersFromEnv(env: NodeJS.ProcessEnv = process.env): IceServ
   }
   const servers = [...DEFAULT_STUN];
   if (env.TURN_URLS) {
-    servers.push({
+    const relay = {
       urls: env.TURN_URLS.split(',').map((u) => u.trim()).filter(Boolean),
       username: env.TURN_USERNAME,
       credential: env.TURN_CREDENTIAL,
-    });
+    };
+    if (validIceServer(relay)) servers.push(relay);
+    else console.warn('[ice] TURN_URLS invalide, relais ignoré ; vérifiez la configuration réseau');
   }
   return servers;
 }

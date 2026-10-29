@@ -54,6 +54,7 @@ export class VoiceMesh extends EventTarget {
     this.active = false;
     this.iceServers = DEFAULT_ICE;
     this.onView = () => this.applyPermissions();
+    this.onStatus = () => this.applyPermissions();
     // Le pair existant attend l'offre du nouvel arrivant (pas d'offres croisées).
     this.onJoined = () => {};
     this.onLeft = ({ id }) => this.#closePeer(id);
@@ -71,6 +72,7 @@ export class VoiceMesh extends EventTarget {
   /** `join` : réponse déjà obtenue de 'voice:join' (mode pair-à-pair). */
   async start(join) {
     if (this.active) return;
+    this.stopped = false;
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
@@ -80,19 +82,28 @@ export class VoiceMesh extends EventTarget {
       this.stream = null;
       this.micError = e?.name || 'Error';
     }
+    if (this.stopped) { this.stream?.getTracks().forEach((t) => t.stop()); this.stream = null; return; }
     this.active = true;
+    this.onDeviceChange = () => {
+      if (this.stream?.getAudioTracks().some((t) => t.readyState === 'ended')) this.setInputDevice().catch(() => {});
+    };
+    navigator.mediaDevices?.addEventListener?.('devicechange', this.onDeviceChange);
+    this.onDeviceChange();
     this.socket.on('voice:peer-joined', this.onJoined);
     this.socket.on('voice:peer-left', this.onLeft);
     this.socket.on('voice:signal', this.onSignal);
     this.socket.on('connect', this.onReconnect);
     this.client.addEventListener('view', this.onView);
+    this.client.addEventListener('status', this.onStatus);
     await this.#join(join);
+    if (!this.active) return;
     this.#startMeter();
     this.#emit();
   }
 
   async #join(join) {
     const { peers, iceServers } = join ?? (await this.client.request('voice:join'));
+    if (!this.active) return;
     if (Array.isArray(iceServers) && iceServers.length) this.iceServers = iceServers;
     // Le nouvel arrivant initie la connexion vers chaque pair déjà présent.
     for (const id of peers) this.#ensurePeer(id, true);
@@ -101,14 +112,19 @@ export class VoiceMesh extends EventTarget {
 
   async #rejoin() {
     if (!this.active) return;
+    if (this.rejoining) return;
+    this.rejoining = true;
     for (const id of [...this.peers.keys()]) this.#closePeer(id);
     try {
       // La session de jeu est reprise par GameClient ; on attend qu'elle soit rattachée.
       await this.client.resume().catch(() => {});
-      await this.#join();
+      if (this.active) await this.#join();
+      this.rejoinFailures = 0;
     } catch (e) {
-      console.warn('[voice] reconnexion audio impossible', e);
-    }
+      this.rejoinFailures = (this.rejoinFailures ?? 0) + 1;
+      clearTimeout(this.rejoinTimer);
+      if (this.active) this.rejoinTimer = setTimeout(() => this.#rejoin(), Math.min(20000, 1000 * 2 ** this.rejoinFailures));
+    } finally { this.rejoining = false; }
     this.#emit();
   }
 
@@ -157,6 +173,7 @@ export class VoiceMesh extends EventTarget {
   }
 
   stop() {
+    this.stopped = true;
     if (!this.active) return;
     this.active = false;
     this.socket.emit('voice:leave', {});
@@ -165,8 +182,11 @@ export class VoiceMesh extends EventTarget {
     this.socket.off('voice:signal', this.onSignal);
     this.socket.off('connect', this.onReconnect);
     this.client.removeEventListener('view', this.onView);
+    this.client.removeEventListener('status', this.onStatus);
+    navigator.mediaDevices?.removeEventListener?.('devicechange', this.onDeviceChange);
     for (const id of [...this.peers.keys()]) this.#closePeer(id);
     clearInterval(this.meter);
+    clearTimeout(this.rejoinTimer);
     this.ctx?.close().catch(() => {});
     this.ctx = null;
     this.analysers = new Map();
@@ -177,16 +197,38 @@ export class VoiceMesh extends EventTarget {
     this.#emit();
   }
 
+  /** Remplace la capture lors d'un changement de casque, sans refaire les connexions. */
+  async setInputDevice(deviceId = 'default') {
+    if (!this.active || this.recovering) return;
+    this.recovering = true;
+    this.stream?.getTracks().forEach((t) => t.stop());
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: {
+        deviceId: deviceId === 'default' ? 'default' : { exact: deviceId },
+        echoCancellation: true, noiseSuppression: true, autoGainControl: true,
+      } });
+      if (!this.active) { stream.getTracks().forEach((t) => t.stop()); return; }
+      this.stream = stream;
+      this.micError = null;
+      this.#watch(this.myId, stream);
+      this.applyPermissions();
+    } catch (e) {
+      this.micError = e?.name || 'Error';
+      throw e;
+    } finally { this.recovering = false; this.#emit(); }
+  }
+
   /** Applique les permissions serveur à chaque nouvelle vue. */
   applyPermissions() {
-    const voice = this.client.view?.voice;
-    if (!voice || !this.active) return;
+    const voice = this.client.stale || this.client.status !== 'connected' ? null : this.client.view?.voice;
+    if (!this.active) return;
     const track = this.stream?.getAudioTracks()[0] ?? null;
+    if (track) track.enabled = !!(voice?.canSpeak && !this.selfMuted);
     for (const [id, peer] of this.peers) {
-      const send = voice.canSpeak && !this.selfMuted && voice.speakTo.includes(id) && track ? track : null;
+      const send = voice?.canSpeak && !this.selfMuted && voice.speakTo.includes(id) && track ? track : null;
       const sender = peer.pc.getTransceivers()[0]?.sender;
       if (sender && sender.track !== send) sender.replaceTrack(send).then(() => this.#capBitrate(sender)).catch(() => {});
-      peer.audio.muted = !voice.hearFrom.includes(id);
+      peer.audio.muted = !voice?.hearFrom.includes(id);
     }
     this.#emit();
   }
@@ -224,16 +266,17 @@ export class VoiceMesh extends EventTarget {
   }
 
   state() {
-    const voice = this.client.view?.voice;
+    const voice = this.client.stale || this.client.status !== 'connected' ? null : this.client.view?.voice;
     let connected = 0;
     for (const p of this.peers.values()) if (p.pc.connectionState === 'connected') connected++;
     return {
       active: this.active,
-      hasMic: !!this.stream,
+      hasMic: !!this.stream?.getAudioTracks().some((t) => t.readyState === 'live'),
+      connectionState: !this.active ? 'disconnected' : this.peers.size === connected ? 'connected' : 'connecting',
       micError: this.micError ?? null,
       micLive: !!this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted),
-      transmitting: !!(this.active && this.stream && voice?.canSpeak && !this.selfMuted),
-      sending: !!(this.active && this.stream && voice?.canSpeak && !this.selfMuted && connected > 0),
+      transmitting: !!(this.active && this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted) && voice?.canSpeak && !this.selfMuted),
+      sending: !!(this.active && this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted) && voice?.canSpeak && !this.selfMuted && [...this.peers.values()].some((p) => p.pc.connectionState === 'connected' && p.pc.getTransceivers()[0]?.sender.track)),
       speakerOk: !this.audioBlocked,
       peers: this.peers.size,
       connected,
@@ -276,13 +319,14 @@ export class VoiceMesh extends EventTarget {
     audio.autoplay = true;
     audio.setAttribute('playsinline', '');
     audio.muted = true;
-    const peer = { pc, audio, initiator, polite: String(this.myId) > String(id), makingOffer: false, ignoreOffer: false, failures: 0, timer: 0 };
+    const peer = { pc, audio, initiator, polite: String(this.myId) > String(id), makingOffer: false, ignoreOffer: false, failures: 0, timer: 0, candidates: [] };
     this.peers.set(id, peer);
 
     if (initiator) pc.addTransceiver('audio', { direction: 'sendrecv' });
     pc.ontrack = (e) => {
       audio.srcObject = new MediaStream([e.track]);
       this.#watch(id, audio.srcObject);
+      this.applyPermissions();
       audio.play().then(() => this.#audio(false)).catch(() => this.#audio(true));
     };
     pc.onicecandidate = (e) => {
@@ -332,6 +376,7 @@ export class VoiceMesh extends EventTarget {
       peer.ignoreOffer = !peer.polite && offerCollision;
       if (peer.ignoreOffer) return;
       await pc.setRemoteDescription(data.description);
+      for (const candidate of peer.candidates.splice(0)) await pc.addIceCandidate(candidate);
       if (data.description.type === 'offer') {
         // Transceiver créé par l'offre : on l'ouvre en émission pour pouvoir parler.
         for (const t of pc.getTransceivers()) if (t.direction === 'recvonly') t.direction = 'sendrecv';
@@ -342,7 +387,9 @@ export class VoiceMesh extends EventTarget {
       }
     } else if (data?.candidate) {
       try {
-        await pc.addIceCandidate(data.candidate);
+        if (peer.ignoreOffer) return;
+        if (!pc.remoteDescription) peer.candidates.push(data.candidate);
+        else await pc.addIceCandidate(data.candidate);
       } catch (e) {
         if (!peer.ignoreOffer) throw e;
       }

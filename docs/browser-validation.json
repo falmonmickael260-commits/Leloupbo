@@ -1,0 +1,41 @@
+{
+  "errors": [],
+  "failed": [],
+  "desktop": {
+    "players": 18,
+    "overflow": false,
+    "assets": [
+      "/assets/characters/v-forgeron.png",
+      "/assets/characters/v-taverniere.png",
+      "/assets/characters/v-chasseur.png",
+      "/assets/characters/v-marchande.png",
+      "/assets/characters/v-couturiere.png",
+      "/assets/characters/v-herboriste.png",
+      "/assets/characters/v-guerisseuse.png",
+      "/assets/characters/v-exploratrice.png",
+      "/assets/characters/v-forgeron.png",
+      "/assets/characters/v-boulangere.png",
+      "/assets/characters/v-marchande.png",
+      "/assets/characters/v-boulangere.png",
+      "/assets/characters/v-herboriste.png",
+      "/assets/characters/v-exploratrice.png",
+      "/assets/characters/v-voyageur.png",
+      "/assets/characters/v-mercenaire.png",
+      "/assets/characters/v-garde.png",
+      "/assets/characters/v-herboriste.png"
+    ]
+  },
+  "mobile": {
+    "overflow": false,
+    "phase": {
+      "x": 8,
+      "y": 10,
+      "width": 280,
+      "height": 73.390625,
+      "top": 10,
+      "right": 288,
+      "bottom": 83.390625,
+      "left": 8
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "participants": 3,
+  "isolatedRoom": true,
+  "bidirectionalRtp": {
+    "p35hm7": {
+      "state": "connected",
+      "sentBytes": 538,
+      "receivedBytes": 399,
+      "relay": false
+    },
+    "p5hq76": {
+      "state": "connected",
+      "sentBytes": 384,
+      "receivedBytes": 448,
+      "relay": false
+    }
+  },
+  "mute": true,
+  "offlineClosed": true,
+  "reconnected": true,
+  "errors": []
+}

@@ -185,19 +185,19 @@ describe('Voix — serveur audio LiveKit', () => {
     g.until('WEREWOLF_PHASE');
     // Phase des Loups : seuls les loups reçoivent du son (canal privé imposé par LiveKit).
     assert.deepEqual(bridge.permissionsFor(g.engine, g.ids[0]), { canPublish: true, canSubscribe: true });
-    assert.deepEqual(bridge.permissionsFor(g.engine, g.ids[2]), { canPublish: true, canSubscribe: false });
+    assert.deepEqual(bridge.permissionsFor(g.engine, g.ids[2]), { canPublish: false, canSubscribe: false });
     const { token, url } = await bridge.token(g.engine, g.ids[2], 'P2');
     assert.equal(url, 'ws://localhost:7880');
     const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
     assert.equal(claims.sub, g.ids[2]);
     assert.equal(claims.video.room, 'blackops-TEST');
-    assert.equal(claims.video.canPublish, true);
+    assert.equal(claims.video.canPublish, false);
     assert.equal(claims.video.canSubscribe, false);
-    // Hors phase des Loups : connexion audio stable (aucun droit retiré d'une phase à l'autre)…
+    // À l'aube personne ne peut publier ; puis seul l'orateur reçoit ce droit.
     g.until('SUNRISE');
-    for (const id of g.ids) assert.deepEqual(bridge.permissionsFor(g.engine, id), { canPublish: true, canSubscribe: true });
+    for (const id of g.ids) assert.deepEqual(bridge.permissionsFor(g.engine, id), { canPublish: g.engine.view(id, 0).voice.canSpeak, canSubscribe: true });
     g.until('PLAYER_SPEECH');
-    for (const id of g.ids) assert.deepEqual(bridge.permissionsFor(g.engine, id), { canPublish: true, canSubscribe: true });
+    for (const id of g.ids) assert.deepEqual(bridge.permissionsFor(g.engine, id), { canPublish: g.engine.view(id, 0).voice.canSpeak, canSubscribe: true });
     // …et le tour de parole reste imposé par le serveur : seul l'orateur peut parler,
     // tous les autres ne l'entendent que lui (le reste est coupé chez eux).
     const { voiceFor } = await import('../src/engine/voice.ts');

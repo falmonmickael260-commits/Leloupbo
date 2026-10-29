@@ -63,6 +63,7 @@ export class DayNight {
   /** Avance dans le cycle jusqu'à `target` en passant par les états intermédiaires. */
   goTo(target, segmentMs = 3400) {
     if (!KEYS[target]) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { this.snap(target); return; }
     const last = this.queue.length ? this.queue[this.queue.length - 1] : this.state;
     if (last === target) return;
     let i = CYCLE.indexOf(last);

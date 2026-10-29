@@ -317,7 +317,7 @@ export class GameManager {
         (s.status === 'lobby' && s.players.filter((p) => !p.isBot).length === 0);
       if (expired) this.destroy(room);
       // Droits audio réels contrôlés en continu (chaque seconde pendant la phase des Loups).
-      else if (s.status === 'running') this.sfu?.enforce(room.engine, now);
+      else this.sfu?.enforce(room.engine, now);
     }
   }
 
