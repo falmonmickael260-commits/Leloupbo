@@ -25,6 +25,23 @@ import { clearIncomingRoomCode, getIncomingRoomCode } from './platformRoom.js';
 const params = new URLSearchParams(location.search);
 const profile = params.get('profile') || 'default';
 const client = new GameClient({ profile });
+
+/**
+ * Pseudonyme du compte Revanche Games, si la partie est ouverte depuis la
+ * plateforme (lu une seule fois : le jeton est retiré de l'URL au premier
+ * appel, voir platformToken.js). Un compte authentifié n'a PAS besoin du
+ * profil local de cette page (`platform/profiles.js`, un système distinct,
+ * propre à cet appareil, sans rapport avec le compte Revanche Games) : son
+ * identité réelle est vérifiée côté serveur à partir du jeton, indépendamment
+ * de ce profil local — voir `rgToken` dans gameClient.js.
+ *
+ * Avant ce correctif, un compte connecté passait quand même par l'écran
+ * « Choisis ton pseudo », qui crée justement ce profil local inutile — et
+ * qui tombe en panne (ex. backend indisponible), le joueur ne voyait alors
+ * aucune autre issue que « Jouer en invité », sans jamais savoir que son
+ * compte restait de toute façon reconnu.
+ */
+const platformUsername = peekPlatformUsername(getIncomingPlatformToken());
 const voice = new Voice(client);
 const stopMicrophoneTest = mountMicrophoneTest(document.getElementById('mic-preflight'));
 client.addEventListener('view', (e) => { if (e.detail) stopMicrophoneTest(); });
@@ -103,8 +120,9 @@ $('name').value = localStorage.getItem('blackops:name') || '';
 $('join-code').value = params.get('code') || '';
 let addingPlayer = false;
 
-/** Pseudo utilisé en partie : celui du profil, ou celui saisi en invité. */
+/** Pseudo utilisé en partie : celui du compte Revanche Games, du profil local, ou saisi en invité. */
 const myName = () => {
+  if (platformUsername) return platformUsername;
   const active = profiles.active();
   if (active) return active.name;
   const n = $('name').value.trim();
@@ -121,7 +139,19 @@ function renderHome() {
   const list = profiles.list();
   const active = profiles.active();
   const guest = profiles.isGuest();
-  const view = addingPlayer || (!list.length && !guest) ? 'new' : !active && !guest ? 'who' : 'play';
+  // Un compte Revanche Games saute l'écran « Choisis ton pseudo » / « Qui
+  // joue ? » : son identité est déjà connue, et ces deux écrans ne servent
+  // qu'au profil local de cet appareil — un système distinct, inutile ici.
+  // Prioritaire même sur un profil local déjà choisi par le passé sur cet
+  // appareil (même règle que Président/Quiz Master/10000 : le compte
+  // Revanche Games prime toujours sur ce qui est stocké localement).
+  const platformOnly = Boolean(platformUsername) && !guest;
+  const view =
+    addingPlayer || (!list.length && !guest && !platformUsername)
+      ? 'new'
+      : !active && !guest && !platformUsername
+        ? 'who'
+        : 'play';
   for (const v of ['new', 'who', 'play']) $(`hv-${v}`).hidden = v !== view;
   if (view === 'new') {
     $('btn-new-cancel').hidden = !list.length && !addingPlayer;
@@ -138,10 +168,16 @@ function renderHome() {
   if (view === 'play') {
     $('guest-box').hidden = !guest;
     $('btn-make-profile').hidden = !guest;
-    for (const id of ['btn-stats', 'btn-rename']) $(id).hidden = guest;
+    for (const id of ['btn-stats', 'btn-rename']) $(id).hidden = guest || platformOnly;
     $('btn-switch').textContent = guest ? '👥 Choisir un joueur' : '👥 Changer de joueur';
-    $('btn-switch').hidden = guest && !list.length;
-    if (guest) {
+    // Rien à « changer » pour un compte Revanche Games : le profil local
+    // (seul concerné par ce bouton) n'a ici rien à voir avec son identité.
+    $('btn-switch').hidden = platformOnly || (guest && !list.length);
+    if (platformOnly) {
+      $('hello-title').textContent = `Connecté en tant que ${platformUsername} 👋`;
+      $('hello-stats').innerHTML =
+        '<p class="hv-note">Compte Revanche Games — tes statistiques apparaissent sur la plateforme.</p>';
+    } else if (guest) {
       $('hello-title').textContent = 'Tu joues en invité';
       $('hello-stats').innerHTML = '<p class="hv-note">Tes parties ne sont pas enregistrées.</p>';
     } else {
@@ -1719,13 +1755,11 @@ render();
 // vides, et le code de partie est pré-rempli — voire rejoint directement quand
 // un joueur est déjà choisi.
 {
-  const invitedName = peekPlatformUsername(getIncomingPlatformToken());
-
-  if (invitedName) {
+  if (platformUsername) {
     // Seulement les champs vides : un pseudo déjà saisi reste prioritaire.
     for (const id of ['name', 'new-name']) {
       const el = $(id);
-      if (el && !el.value) el.value = invitedName.slice(0, 20);
+      if (el && !el.value) el.value = platformUsername.slice(0, 20);
     }
   }
 
@@ -1734,10 +1768,11 @@ render();
     const codeEl = $('join-code');
     if (codeEl) codeEl.value = invitedRoom;
 
-    // Entrée directe seulement si un joueur est déjà choisi (profil actif ou
-    // mode invité). Sinon on laisse l'écran « Qui joue ? » faire son travail :
-    // le code est prêt, il restera un clic sur « Rejoindre ».
-    const playerChosen = Boolean(profiles.active()) || profiles.isGuest();
+    // Entrée directe seulement si un joueur est déjà choisi (compte Revanche
+    // Games, profil actif, ou mode invité). Sinon on laisse l'écran « Qui
+    // joue ? » faire son travail : le code est prêt, il restera un clic sur
+    // « Rejoindre ».
+    const playerChosen = Boolean(platformUsername) || Boolean(profiles.active()) || profiles.isGuest();
     let resolvedName = null;
     if (playerChosen) {
       try {
