@@ -53,6 +53,35 @@ function loadVariables(target) {
   if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('Format des variables Railway inattendu.');
   return result;
 }
+export function assertPersistentStorage(variables, volumes = {}) {
+  if (Object.hasOwn(variables, 'DATA_DIR') && variables.DATA_DIR !== '/data/games') {
+    throw new Error('DATA_DIR doit viser /data/games. Aucun fichier ni volume modifié.');
+  }
+  // Railway expose le montage attaché dans les variables système résolues.
+  if (variables.RAILWAY_VOLUME_MOUNT_PATH === '/data') return;
+  const serviceIds = new Set(['06684f08-9de1-4951-a367-b21871330f58', 'village-des-blackops']);
+  const environmentIds = new Set(['a67c0f4d-8972-4913-9ed4-e0e72283364f', 'production']);
+  function attached(value, scope = {}) {
+    if (Array.isArray(value)) return value.some((v) => attached(v, scope));
+    if (!value || typeof value !== 'object') return false;
+    const service = value.serviceId ?? value.service?.id ?? (typeof value.service === 'string' ? value.service : scope.service);
+    const environment = value.environmentId ?? value.environment?.id ?? (typeof value.environment === 'string' ? value.environment : scope.environment);
+    if ((value.mountPath ?? value.mount_path) === '/data' && serviceIds.has(service) && environmentIds.has(environment)) return true;
+    return Object.values(value).some((v) => attached(v, { service, environment }));
+  }
+  if (!attached(volumes)) throw new Error('Montage persistant /data non confirmé pour La Meute en production. Aucun volume créé, supprimé ou remplacé.');
+}
+function verifyStorage(variables) {
+  if (variables.RAILWAY_VOLUME_MOUNT_PATH === '/data') return assertPersistentStorage(variables);
+  let volumes;
+  try {
+    volumes = JSON.parse(run('npx', [...cli, 'volume', ...gameTarget, 'list', '--json'], { privateOutput: true }));
+  } catch {
+    throw new Error('Impossible de lire les informations du volume Railway. Aucun déploiement lancé.');
+  }
+  assertPersistentStorage(variables, volumes);
+}
+
 async function verifyPublished() {
   for (let i = 0; i < 24; i++) {
     try {
@@ -62,19 +91,23 @@ async function verifyPublished() {
     console.log('Attente de la nouvelle version sur lameutenoire.fr…');
     await new Promise((resolve) => setTimeout(resolve, 5000));
   }
-  run('npx', [...cli, 'ssh', ...gameTarget, '--', 'node -e \'console.log(require("node:fs").existsSync("public/js/roleWallet.js") ? "FICHIER_PRESENT_DANS_LE_SERVICE" : "FICHIER_ABSENT_DANS_LE_SERVICE")\'']);
-  throw new Error('Le domaine ne sert toujours pas le fichier attendu. Si FICHIER_PRESENT_DANS_LE_SERVICE apparaît, vérifier le rattachement du domaine dans Railway > Networking.');
+  throw new Error('Le domaine ne sert toujours pas le fichier attendu. Vérifier les logs du dernier déploiement et le rattachement de lameutenoire.fr au service village-des-blackops dans Railway > Networking.');
 }
 async function deploy() {
   console.log('1/6 — Vérification de la protection publique de la plateforme');
   run('node', ['scripts/check-public-result-guard.mjs', 'https://revanchegames-production.up.railway.app'], { cwd: web });
   console.log('2/6 — Vérification en lecture seule des migrations Supabase');
   run('npx', ['--yes', 'supabase@2.122.0', 'db', 'query', '--linked', '--file', 'scripts/sql/production-postflight.sql'], { cwd: web });
-  console.log('3/6 — Vérification du stockage persistant existant');
-  run('npx', [...cli, 'ssh', ...gameTarget, '--', 'test "$DATA_DIR" = /data/games && test -d /data/games && test -w /data/games && grep -q " /data " /proc/self/mountinfo']);
+  console.log('3/6 — Vérification du volume persistant via Railway (sans SSH)');
+  const current = loadVariables(gameTarget);
+  // Sans variable DATA_DIR explicite, le Dockerfile doit garantir le chemin.
+  if (!Object.hasOwn(current, 'DATA_DIR') && !/DATA_DIR=\/data\/games(?:\s|$)/.test(readFileSync(path.join(game, 'Dockerfile'), 'utf8'))) {
+    throw new Error('Chemin de stockage non confirmé dans le Dockerfile.');
+  }
+  verifyStorage(current);
+  console.log('Volume /data confirmé.');
   console.log('4/6 — Synchronisation des trois variables Revanche Games, valeurs masquées');
   const platform = loadVariables(webTarget);
-  const current = loadVariables(gameTarget);
   for (const [key, value] of variablesToSynchronize(platform, current)) {
     run('npx', [...cli, 'variable', 'set', '--skip-deploys', '--stdin', key, ...gameTarget], { privateOutput: true, input: value });
     console.log(`${key} synchronisée.`);
