@@ -54,32 +54,51 @@ function loadVariables(target) {
   return result;
 }
 export function assertPersistentStorage(variables, volumes = {}) {
-  if (Object.hasOwn(variables, 'DATA_DIR') && variables.DATA_DIR !== '/data/games') {
-    throw new Error('DATA_DIR doit viser /data/games. Aucun fichier ni volume modifié.');
+  const configured = Object.hasOwn(variables, 'DATA_DIR') ? variables.DATA_DIR : '/data/games';
+  if (typeof configured !== 'string' || !configured.startsWith('/') || configured.includes('\0') || configured.trim() !== configured) {
+    throw new Error(`DATA_DIR actuel invalide ou relatif : ${JSON.stringify(configured)}. Aucun chemin ni fichier modifié.`);
   }
-  // Railway expose le montage attaché dans les variables système résolues.
-  if (variables.RAILWAY_VOLUME_MOUNT_PATH === '/data') return;
+  const dataDir = path.posix.normalize(configured);
+  const mounts = new Set();
+  function addMount(value) {
+    if (typeof value === 'string' && value.startsWith('/') && !value.includes('\0')) {
+      const mount = path.posix.normalize(value);
+      if (mount !== '/') mounts.add(mount);
+    }
+  }
+  addMount(variables.RAILWAY_VOLUME_MOUNT_PATH);
   const serviceIds = new Set(['06684f08-9de1-4951-a367-b21871330f58', 'village-des-blackops']);
   const environmentIds = new Set(['a67c0f4d-8972-4913-9ed4-e0e72283364f', 'production']);
-  function attached(value, scope = {}) {
-    if (Array.isArray(value)) return value.some((v) => attached(v, scope));
-    if (!value || typeof value !== 'object') return false;
-    const service = value.serviceId ?? value.service?.id ?? (typeof value.service === 'string' ? value.service : scope.service);
-    const environment = value.environmentId ?? value.environment?.id ?? (typeof value.environment === 'string' ? value.environment : scope.environment);
-    if ((value.mountPath ?? value.mount_path) === '/data' && serviceIds.has(service) && environmentIds.has(environment)) return true;
-    return Object.values(value).some((v) => attached(v, { service, environment }));
+  function identity(value, idKey, objectKey, previous) {
+    if (Object.hasOwn(value, idKey)) return value[idKey];
+    if (Object.hasOwn(value, objectKey)) return typeof value[objectKey] === 'object' ? value[objectKey]?.id : value[objectKey];
+    return previous;
   }
-  if (!attached(volumes)) throw new Error('Montage persistant /data non confirmé pour La Meute en production. Aucun volume créé, supprimé ou remplacé.');
+  function attached(value, scope = {}) {
+    if (Array.isArray(value)) { value.forEach((v) => attached(v, scope)); return; }
+    if (!value || typeof value !== 'object') return;
+    const service = identity(value, 'serviceId', 'service', scope.service);
+    const environment = identity(value, 'environmentId', 'environment', scope.environment);
+    if (serviceIds.has(service) && environmentIds.has(environment)) addMount(value.mountPath ?? value.mount_path);
+    Object.values(value).forEach((v) => attached(v, { service, environment }));
+  }
+  attached(volumes);
+  for (const mountPath of mounts) {
+    if (dataDir === mountPath || dataDir.startsWith(mountPath.replace(/\/$/, '') + '/')) {
+      return { dataDir, mountPath };
+    }
+  }
+  throw new Error(`DATA_DIR actuel : ${JSON.stringify(configured)} ; volumes confirmés : ${JSON.stringify([...mounts])}. Ce chemin n'est pas confirmé dans un volume persistant. Aucun fichier déplacé.`);
 }
 function verifyStorage(variables) {
-  if (variables.RAILWAY_VOLUME_MOUNT_PATH === '/data') return assertPersistentStorage(variables);
+  try { return assertPersistentStorage(variables); } catch { /* Chercher les montages du service dans l'API. */ }
   let volumes;
   try {
     volumes = JSON.parse(run('npx', [...cli, 'volume', ...gameTarget, 'list', '--json'], { privateOutput: true }));
   } catch {
     throw new Error('Impossible de lire les informations du volume Railway. Aucun déploiement lancé.');
   }
-  assertPersistentStorage(variables, volumes);
+  return assertPersistentStorage(variables, volumes);
 }
 
 async function verifyPublished() {
@@ -104,8 +123,8 @@ async function deploy() {
   if (!Object.hasOwn(current, 'DATA_DIR') && !/DATA_DIR=\/data\/games(?:\s|$)/.test(readFileSync(path.join(game, 'Dockerfile'), 'utf8'))) {
     throw new Error('Chemin de stockage non confirmé dans le Dockerfile.');
   }
-  verifyStorage(current);
-  console.log('Volume /data confirmé.');
+  const storage = verifyStorage(current);
+  console.log(`Stockage conservé : ${storage.dataDir} (volume ${storage.mountPath}).`);
   console.log('4/6 — Synchronisation des trois variables Revanche Games, valeurs masquées');
   const platform = loadVariables(webTarget);
   for (const [key, value] of variablesToSynchronize(platform, current)) {

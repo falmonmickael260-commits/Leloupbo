@@ -28,9 +28,22 @@ test('stockage : montage Railway confirmé sans accès SSH', () => {
   assert.doesNotThrow(() => assertPersistentStorage({ DATA_DIR: '/data/games' }, { volumes: [{ volumeInstances: { edges: [{ node: { mountPath: '/data', serviceId: '06684f08-9de1-4951-a367-b21871330f58', environmentId: 'a67c0f4d-8972-4913-9ed4-e0e72283364f' } }] } }] }));
 });
 test('stockage : mauvais service, montage absent ou chemin incorrect bloquent le déploiement', () => {
-  assert.throws(() => assertPersistentStorage({}), /non confirmé/);
+  assert.throws(() => assertPersistentStorage({}), /pas confirmé/);
   assert.throws(() => assertPersistentStorage({ DATA_DIR: '/app/data', RAILWAY_VOLUME_MOUNT_PATH: '/data' }), /DATA_DIR/);
   assert.throws(() => assertPersistentStorage({ DATA_DIR: '', RAILWAY_VOLUME_MOUNT_PATH: '/data' }), /DATA_DIR/);
-  assert.throws(() => assertPersistentStorage({}, [{ mountPath: '/data', serviceId: 'another', environmentId: 'production' }]), /non confirmé/);
-  assert.throws(() => assertPersistentStorage({}, [{ mountPath: '/data', service: 'village-des-blackops', environment: 'staging' }]), /non confirmé/);
+  assert.throws(() => assertPersistentStorage({}, [{ mountPath: '/data', serviceId: 'another', environmentId: 'production' }]), /pas confirmé/);
+  assert.throws(() => assertPersistentStorage({}, [{ mountPath: '/data', service: 'village-des-blackops', environment: 'staging' }]), /pas confirmé/);
+});
+
+test('stockage : conserve le chemin existant à la racine du volume ou dans un autre montage', () => {
+  assert.deepEqual(assertPersistentStorage({ DATA_DIR: '/data', RAILWAY_VOLUME_MOUNT_PATH: '/data' }), { dataDir: '/data', mountPath: '/data' });
+  assert.deepEqual(assertPersistentStorage({ DATA_DIR: '/app/data/parties', RAILWAY_VOLUME_MOUNT_PATH: '/app/data' }), { dataDir: '/app/data/parties', mountPath: '/app/data' });
+  assert.deepEqual(assertPersistentStorage({ DATA_DIR: '/mnt/parties' }, [{ mountPath: '/mnt', service: 'village-des-blackops', environment: 'production' }]), { dataDir: '/mnt/parties', mountPath: '/mnt' });
+});
+test('stockage : refuse un répertoire hors volume, un chemin relatif et une fausse correspondance de préfixe', () => {
+  for (const dataDir of ['/database', '/data/../app', 'data/games', null, '']) {
+    assert.throws(() => assertPersistentStorage({ DATA_DIR: dataDir, RAILWAY_VOLUME_MOUNT_PATH: '/data' }));
+  }
+  assert.throws(() => assertPersistentStorage({ DATA_DIR: '/app/data', RAILWAY_VOLUME_MOUNT_PATH: '/' }));
+  assert.throws(() => assertPersistentStorage({ DATA_DIR: '/data' }, [{ service: 'village-des-blackops', environment: 'production', volumes: [{ mountPath: '/data', serviceId: null }] }]));
 });
