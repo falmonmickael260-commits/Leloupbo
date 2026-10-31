@@ -273,7 +273,7 @@ function resolveVote(ctx: Ctx): void {
 // ---------------------------------------------------------------- Fin
 
 /** Durée de l'écran de victoire (rôles de chacun) avant le retour automatique au lobby. */
-export const GAME_OVER_RETURN_MS = 20_000;
+export const GAME_OVER_RETURN_MS = 10_000;
 
 export function endGame(ctx: Ctx, win: WinResult): void {
   const s = ctx.state;
