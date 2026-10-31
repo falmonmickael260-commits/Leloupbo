@@ -189,12 +189,69 @@ export function startGame(ctx: Ctx, playerId: string): void {
   s.reactions = null;
   s.lastFirstSpeaker = null;
   s.lastRoles = null;
+  honorRolePurchases(players);
   for (const p of players) {
     const def = requireRole(p.role!);
     tell(ctx, p.id, 'role', `🎴 Votre rôle : ${def.emoji} ${def.name}. ${def.description}`);
   }
   announce(ctx, 'info', `🎴 La partie commence avec ${n} joueurs. Les rôles sont distribués.`);
   enterPhase(ctx, 'ROLE_DISTRIBUTION', s.settings.durations.roleReveal);
+}
+
+/**
+ * Essaie d'honorer les préférences de rôle achetées (boutique de la plateforme
+ * Revanche Games), par échange de cartes entre joueurs déjà distribués —
+ * jamais en ajoutant ou retirant un rôle : la composition choisie par l'Hôte
+ * reste exactement celle tirée au sort, seule l'attribution entre joueurs change.
+ *
+ * Ordre de traitement : l'ordre des sièges (déterministe, pas de favoritisme
+ * caché) — premier arrivé dans le salon, premier servi en cas de double
+ * demande sur le même rôle. Un joueur dont le rôle a déjà été cédé à un autre
+ * acheteur ne peut plus être pioché comme donneur : on ne retire jamais à un
+ * acheteur ce qu'il vient d'obtenir pour satisfaire un autre acheteur.
+ *
+ * Ne modifie rien pour les joueurs sans préférence (invités compris) : ils
+ * gardent exactement le rôle tiré au hasard, comme avant cette fonctionnalité.
+ */
+function honorRolePurchases(players: PlayerState[]): void {
+  const locked = new Set<string>();
+  for (const buyer of players) {
+    const wanted = buyer.roleReservation?.roleKey;
+    if (!wanted) continue;
+    if (buyer.role === wanted) {
+      locked.add(buyer.id);
+      continue;
+    }
+    const donor = players.find((p) => p.id !== buyer.id && p.role === wanted && !locked.has(p.id));
+    if (!donor) continue; // rôle absent de cette composition, ou déjà cédé à un acheteur précédent
+    const role = buyer.role;
+    const originalRole = buyer.originalRole;
+    const roleData = buyer.roleData;
+    buyer.role = donor.role;
+    buyer.originalRole = donor.originalRole;
+    buyer.roleData = donor.roleData;
+    donor.role = role;
+    donor.originalRole = originalRole;
+    donor.roleData = roleData;
+    locked.add(buyer.id);
+  }
+}
+
+/**
+ * À appeler juste après `startGame` : qui a obtenu le rôle qu'il avait acheté
+ * (donc à facturer pour de bon) et qui ne l'a pas obtenu (donc à rembourser).
+ * Lecture seule — ne modifie rien, c'est à l'appelant (gameManager, qui seul
+ * a accès au réseau) de notifier la plateforme centrale.
+ */
+export function roleShopOutcome(players: PlayerState[]): { grantedUserIds: string[]; refundedUserIds: string[] } {
+  const grantedUserIds: string[] = [];
+  const refundedUserIds: string[] = [];
+  for (const p of players) {
+    if (!p.roleReservation || !p.platformUserId) continue;
+    if (p.role === p.roleReservation.roleKey) grantedUserIds.push(p.platformUserId);
+    else refundedUserIds.push(p.platformUserId);
+  }
+  return { grantedUserIds, refundedUserIds };
 }
 
 /**
@@ -259,6 +316,10 @@ export function returnToLobby(ctx: Ctx): void {
       loverId: null,
       infected: false,
       roleData: {},
+      // Une préférence de rôle n'est valable que pour la partie qui vient de
+      // se terminer (déjà facturée ou remboursée) : il faut en racheter une
+      // pour celle-ci, même si le salon garde le même code.
+      roleReservation: null,
     })),
   });
   if (!getPlayer(s, s.hostId)) transferHost(ctx);

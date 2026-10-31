@@ -25,6 +25,16 @@ import { memoryProfileStore, type ProfileStore } from '../platform/profiles.ts';
 import { gameResults, platformGameResults } from './results.ts';
 import { verifyPlatformToken } from './platform-token.ts';
 import { reportMatchResult } from './platform.ts';
+import { roleShopOutcome } from '../engine/lobby.ts';
+import {
+  cancelRoleReservations,
+  getWalletBalance,
+  reserveRole,
+  resolveRoleReservations,
+  RoleShopError,
+  ROLE_SHOP_PRICES,
+} from './roleShop.ts';
+import type { RoleId } from '../shared/types.ts';
 
 type IO = Server<ClientToServerEvents, ServerToClientEvents>;
 type Sock = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -322,6 +332,10 @@ export class GameManager {
   }
 
   private destroy(room: GameRoom): void {
+    // Salon jamais lancé (lobby expiré, vide) : toute préférence de rôle
+    // encore en attente n'aura jamais de partie pour être honorée —
+    // remboursement (best-effort, no-op si aucune n'existe).
+    if (room.engine.state.status === 'lobby') cancelRoleReservations(room.code);
     this.clearTimers(room);
     this.sfu?.forget(room.code);
     this.rooms.delete(room.code);
@@ -480,8 +494,97 @@ export class GameManager {
         }
       }),
     );
-    socket.on('game:start', (_p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.start(id, now)));
+    socket.on('game:start', (_p, ack) =>
+      this.mutate(socket, ack, (room, id, now) => {
+        const wasLobby = room.engine.state.status === 'lobby';
+        room.engine.start(id, now);
+        // Les préférences de rôle achetées viennent d'être honorées (ou pas)
+        // par startGame lui-même (voir honorRolePurchases, engine/lobby.ts) :
+        // on ne fait ici que notifier la plateforme centrale de qui facturer
+        // pour de bon et qui rembourser. `wasLobby` + statut 'running' après
+        // coup = cet appel a bien fait démarrer la partie (pas un appel
+        // refusé par une erreur métier, qui n'a rien changé à l'état).
+        if (wasLobby && room.engine.state.status === 'running') {
+          const { grantedUserIds } = roleShopOutcome(room.engine.state.players);
+          resolveRoleReservations(room.code, grantedUserIds);
+        }
+      }),
+    );
     socket.on('game:reset', (_p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.reset(id, now)));
+    socket.on('role:balance', async (_p, ack) => {
+      const reply = typeof ack === 'function' ? ack : () => undefined;
+      let ctx: { room: GameRoom; playerId: string };
+      try {
+        ctx = this.context(socket);
+      } catch (e) {
+        reply(e instanceof GameError ? { ok: false, error: e.code, message: e.message } : { ok: false, error: 'INTERNAL', message: 'Erreur interne.' });
+        return;
+      }
+      const player = ctx.room.engine.state.players.find((p) => p.id === ctx.playerId);
+      if (!player?.platformUserId) {
+        reply({ ok: true, balance: null });
+        return;
+      }
+      const balance = await getWalletBalance(player.platformUserId);
+      reply({ ok: true, balance });
+    });
+    socket.on('role:buy', async (p, ack) => {
+      const reply = typeof ack === 'function' ? ack : () => undefined;
+      if (!this.limiter.allow(`${socket.id}:roleBuy`, 'roleBuy')) {
+        reply({ ok: false, error: 'RATE_LIMIT', message: 'Trop de requêtes, ralentissez.' });
+        return;
+      }
+      let ctx: { room: GameRoom; playerId: string };
+      try {
+        ctx = this.context(socket);
+      } catch (e) {
+        reply(e instanceof GameError ? { ok: false, error: e.code, message: e.message } : { ok: false, error: 'INTERNAL', message: 'Erreur interne.' });
+        return;
+      }
+      const { room, playerId } = ctx;
+      const s = room.engine.state;
+      if (s.status !== 'lobby') {
+        reply({ ok: false, error: 'GAME_STARTED', message: 'La partie a déjà commencé.' });
+        return;
+      }
+      const player = s.players.find((pl) => pl.id === playerId);
+      if (!player) {
+        reply({ ok: false, error: 'NO_SESSION', message: 'Session introuvable.' });
+        return;
+      }
+      if (!player.platformUserId) {
+        reply({ ok: false, error: 'NOT_AUTHENTICATED', message: 'Réservé aux joueurs connectés à Revanche Games.' });
+        return;
+      }
+      if (player.roleReservation) {
+        reply({ ok: false, error: 'ALREADY_RESERVED', message: 'Tu as déjà réservé un rôle pour cette partie.' });
+        return;
+      }
+      const roleKey = typeof p?.role === 'string' ? (p.role as RoleId) : null;
+      if (!roleKey || !(roleKey in ROLE_SHOP_PRICES)) {
+        reply({ ok: false, error: 'BAD_ROLE', message: 'Rôle invalide.' });
+        return;
+      }
+
+      try {
+        const result = await reserveRole({ roomCode: room.code, userId: player.platformUserId, roleKey });
+        // L'appel réseau prend du temps : la partie a pu démarrer entre-temps.
+        // Les pièces sont déjà débitées — pas de panique, cette réservation
+        // orpheline sera remboursée au ménage du salon (destroy() appelle
+        // cancelRoleReservations), au pire à son expiration naturelle.
+        const stillLobby = room.engine.state.status === 'lobby' && room.engine.hasPlayer(playerId);
+        if (!stillLobby) {
+          reply({ ok: false, error: 'GAME_STARTED', message: 'La partie a déjà commencé — tes pièces seront remboursées.' });
+          return;
+        }
+        const stillPlayer = room.engine.state.players.find((pl) => pl.id === playerId)!;
+        stillPlayer.roleReservation = { roleKey, reservationId: result.reservationId, priceCoins: ROLE_SHOP_PRICES[roleKey]! };
+        this.afterChange(room);
+        reply({ ok: true, balance: result.newBalance, role: roleKey });
+      } catch (e) {
+        reply({ ok: false, error: 'ROLE_SHOP', message: e instanceof RoleShopError ? e.message : 'Achat impossible — réessaie.' });
+      }
+    });
     socket.on('game:command', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.command(id, p, now)));
     socket.on('chat:send', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.chat(id, p?.channel, p?.text, now), 'chat'));
     socket.on('game:leave', (_p, ack) =>

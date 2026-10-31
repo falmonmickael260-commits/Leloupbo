@@ -36,6 +36,10 @@ export interface ClientToServerEvents {
   ) => void;
   'voice:leave': (p: Record<string, never>) => void;
   'voice:signal': (p: { to: string; data: unknown }) => void;
+  /** Solde de pièces Revanche Games du joueur — `null` si non connecté à la plateforme. */
+  'role:balance': (p: Record<string, never>, ack: (r: Ack<{ balance: number | null }>) => void) => void;
+  /** Achète une préférence de rôle pour la partie à venir dans ce salon (voir roleShop.ts). */
+  'role:buy': (p: { role: string }, ack: (r: Ack<{ balance: number; role: string }>) => void) => void;
 }
 
 export interface ServerToClientEvents {

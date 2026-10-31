@@ -51,6 +51,14 @@ export interface PlayerState {
   infected?: boolean;
   /** Données persistantes propres au rôle (potions, dernière protection…). */
   roleData: Record<string, unknown>;
+  /**
+   * Préférence de rôle achetée avec des pièces Revanche Games, pour CETTE
+   * partie du salon uniquement — remise à zéro à chaque retour au lobby
+   * (voir `returnToLobby`). Réservée aux comptes authentifiés (`platformUserId`
+   * présent) : un invité ne peut pas en avoir une. Invisible des autres
+   * joueurs (jamais inclus dans la projection publique, voir view.ts).
+   */
+  roleReservation?: { roleKey: RoleId; reservationId: string; priceCoins: number } | null;
 }
 
 export type NightEffect =
