@@ -106,3 +106,21 @@ test('le portefeuille est relu après attribution et reste visible hors de la s�
   assert.equal(h.node('game-wallet-balance').textContent, '1\u202f450 pièces');
   h.dom.window.close();
 });
+
+test('la carte centrale et la narration ne recouvrent jamais le choix des rôles', async () => {
+  const h = harness();
+  const style = h.dom.window.document.createElement('style');
+  style.textContent = readFileSync(new URL('../public/style.css', import.meta.url), 'utf8');
+  h.dom.window.document.head.appendChild(style);
+  h.node('card-layer').classList.add('show');
+  h.node('card-zoom').classList.add('show');
+  h.wallet.render(view('ROLE_DISTRIBUTION')); await settle();
+  for (const id of ['card-layer', 'card-zoom', 'narrator']) {
+    assert.equal(h.dom.window.getComputedStyle(h.node(id)).display, 'none', id);
+  }
+  assert.equal(h.node('role-shop-panel').hidden, false);
+  assert.equal(h.node('role-shop').querySelector('[data-buy-role="hunter"]').disabled, false);
+  h.wallet.render(view('NIGHT_START')); await settle();
+  assert.equal(h.dom.window.document.body.classList.contains('role-selection'), false);
+  h.dom.window.close();
+});

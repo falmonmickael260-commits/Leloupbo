@@ -1203,3 +1203,7 @@ input[type='checkbox'] { accent-color: #e2b450; }
   .game-wallet { right: 8px; top: 76px; font-size: 12px; }
   #screen-game #role-shop-panel { top: 118px; max-height: calc(100dvh - 138px); padding: 12px; }
 }
+/* Le choix des rôles reste accessible, même si une ancienne carte était ouverte. */
+body.role-selection #card-layer,
+body.role-selection #card-zoom,
+body.role-selection #narrator { display: none !important; }

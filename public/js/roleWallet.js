@@ -89,8 +89,10 @@ export class RoleWallet {
       : this.unavailable ? 'Impossible de lire ton portefeuille. Actualise le solde.'
         : 'Tes pièces Revanche Games permettent de demander un rôle pendant les 10 secondes de distribution.';
     this.node('wallet-refresh').disabled = !connected || this.loading;
+    const selecting = Boolean(v && v.phase.id === 'ROLE_DISTRIBUTION');
+    this.root.body.classList.toggle('role-selection', selecting);
     const panel = this.node('role-shop-panel');
-    panel.hidden = !v || v.phase.id !== 'ROLE_DISTRIBUTION';
+    panel.hidden = !selecting;
     if (panel.hidden) return;
     this.node('screen-game').appendChild(panel);
     this.node('role-shop-balance').textContent = this.balance === null ? '…' : this.balance.toLocaleString('fr-FR');

@@ -10,7 +10,8 @@ import { mountMicrophoneTest, microphoneMessage } from './microphoneTest.js';
 import { CHARACTERS, characterSVG } from './art/characters.js';
 import { cardBackSVG, cardSVG, seerCardSVG } from './art/cards.js';
 import { Board, playerNumbers, wait } from './board/board.js';
-import { Narrator, revealCard } from './board/overlays.js';
+import { Narrator } from './board/overlays.js';
+import { primeGameAudio } from './audioStartup.js';
 import { GameClient } from './gameClient.js';
 import { RoleWallet } from './roleWallet.js';
 import { profiles } from './platform/profiles.js';
@@ -299,28 +300,8 @@ $('stats-close').onclick = () => ($('stats-modal').hidden = true);
 $('stats-modal').onclick = (e) => e.target === $('stats-modal') && ($('stats-modal').hidden = true);
 renderHome();
 
-/**
- * Débloque le son du navigateur pendant le clic (geste exigé par iPhone / Android)
- * et demande l'accès au micro tout de suite, pour que la voix soit prête.
- */
-function primeAudio() {
-  sfx.unlock();
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (Ctx) {
-      const ctx = (window.__blackopsAudio ??= new Ctx());
-      ctx.resume?.();
-      const buf = ctx.createBuffer(1, 1, 22050);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start(0);
-    }
-  } catch {
-    /* sans effet si non supporté */
-  }
-  navigator.mediaDevices?.getUserMedia?.({ audio: true }).then((s) => s.getTracks().forEach((t) => t.stop())).catch(() => {});
-}
+/** Débloque uniquement la lecture ; le système vocal garde la capture du micro. */
+function primeAudio() { primeGameAudio(); }
 $('btn-create').onclick = () => {
   primeAudio();
   safe(Promise.resolve().then(() => client.create(myName(), profiles.credentials())));
@@ -562,12 +543,6 @@ function renderMyVoice() {
 /** Relance la voix depuis un toucher (geste exigé par iPhone pour demander le micro). */
 async function retryVoice() {
   primeAudio();
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-    s.getTracks().forEach((t) => t.stop());
-  } catch (e) {
-    console.warn('[voice] micro refusé', e);
-  }
   voice.stop();
   ui.voiceTried = false;
   ui.voiceError = false;
@@ -1369,7 +1344,6 @@ function renderGameOver(v) {
 
 // ================================================================== NARRATEUR & ÉVÉNEMENTS
 const PHASE_LINES = {
-  ROLE_DISTRIBUTION: ['Les cartes sont distribuées…', 'info'],
   NIGHT_START: ['Le village s’endort…', 'night'],
   SUNRISE: ['Le village se réveille…', 'info'],
   CAPTAIN_ELECTION: ['Le village élit son Capitaine', 'vote'],
@@ -1379,6 +1353,7 @@ const PHASE_LINES = {
 
 function onTransitions(v, prev) {
   const ph = v.phase;
+  if (ph.id === 'ROLE_DISTRIBUTION') narrator.hush();
   if (prev?.code === v.code && v.me.role?.id === 'witch' && prev.me.role?.id === 'witch') {
     for (const [key, kind] of [['potionVie', 'heal'], ['potionMort', 'poison']]) {
       if (prev.me.roleState?.[key] === true && v.me.roleState?.[key] === false) board.potionEffect(v.me.id, kind);
@@ -1447,36 +1422,6 @@ function onTransitions(v, prev) {
       ui.deferDeath.delete(shooter);
     }
   }
-}
-
-async function maybeReveal(v) {
-  const r = v.me.role;
-  if (!r || v.status !== 'running' || ui.revealing) return;
-  const key = `blackops:revealed:${profile}:${v.code}:${v.me.id}`;
-  let done = '';
-  try {
-    done = sessionStorage.getItem(key) ?? '';
-  } catch {
-    /* stockage indisponible */
-  }
-  if (done === r.id) return;
-  try {
-    sessionStorage.setItem(key, r.id);
-  } catch {
-    /* ignore */
-  }
-  ui.revealing = true;
-  renderMe(v);
-  // Rôles en jeu pour le défilement (composition publique de la partie).
-  const pool = Object.keys(v.composition ?? {})
-    .map((id) => v.roleCatalog.find((x) => x.id === id))
-    .filter(Boolean)
-    .map((x) => ({ id: x.id, name: x.name }));
-  // Révélation tardive la nuit (Voleur au temps écoulé, reconnexion…) : sans bruit, pour ne rien trahir.
-  const silent = NIGHT_PHASES.has(v.phase.id);
-  await revealCard($('card-layer'), r, $('my-card'), { pool, onTick: (i, last) => (silent ? null : last ? sfx.revealHit() : sfx.tick(i)) });
-  ui.revealing = false;
-  if (client.view) renderMe(client.view);
 }
 
 // ================================================================== RENDU
@@ -1713,7 +1658,6 @@ client.addEventListener('view', (e) => {
   ui.prev = v;
   render();
   if (v) {
-    maybeReveal(v);
     maybeShowLovers(v);
   }
 });
