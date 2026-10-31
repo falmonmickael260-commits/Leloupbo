@@ -1190,3 +1190,16 @@ input[type='checkbox'] { accent-color: #e2b450; }
   .action p { font-size: 12px; }
   .narration { font-size: 20px !important; }
 }
+
+/* Portefeuille visible dans le salon et pendant la partie. */
+.wallet-summary { margin: 12px 0; padding: 12px; border: 1px solid var(--gold); border-radius: 12px; background: rgba(0,0,0,.2); }
+.wallet-summary strong { display: block; margin-top: 6px; color: var(--gold); font-size: 22px; }
+.game-wallet { position: absolute; right: 12px; top: 82px; z-index: 35; max-width: calc(100vw - 24px); }
+#screen-game #role-shop-panel { position: absolute; top: 132px; left: 50%; transform: translateX(-50%); z-index: 40; width: min(620px, calc(100vw - 24px)); box-sizing: border-box; max-height: calc(100dvh - 156px); overflow-y: auto; pointer-events: auto; }
+#role-shop-panel[hidden] { display: none; }
+#role-shop-panel .role-shop-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+#role-shop-panel .role-shop-grid .btn { white-space: normal; min-height: 48px; }
+@media (max-width: 600px) {
+  .game-wallet { right: 8px; top: 76px; font-size: 12px; }
+  #screen-game #role-shop-panel { top: 118px; max-height: calc(100dvh - 138px); padding: 12px; }
+}

@@ -103,6 +103,12 @@
           <label class="voice-volume">Voix reçues <input type="range" min="0" max="100" step="1" data-audio-level="voice" aria-label="Volume des voix dans le salon"><output></output></label>
           <h2>Les villageois <span id="lobby-count" class="muted"></span></h2>
           <div class="code-chip">Code : <b id="lobby-code"></b></div>
+          <div class="wallet-summary" id="lobby-wallet">
+            <span>🪙 Ton portefeuille Revanche Games</span>
+            <strong id="lobby-wallet-balance" aria-live="polite">…</strong>
+            <p id="wallet-status" class="hint"></p>
+            <button id="wallet-refresh" class="btn small" type="button">Actualiser le solde</button>
+          </div>
           <ul id="lobby-players" class="plist"></ul>
           <div id="last-log"></div>
           <div class="row host-only"><button id="btn-add-bot" class="btn small">+ Ajouter un bot</button></div>
@@ -111,8 +117,8 @@
           <h2>Choisis ton personnage</h2>
           <div id="avatar-grid" class="avatar-grid"></div>
         </div>
-        <div class="panel lobby-role-shop" id="role-shop-panel" hidden>
-          <h2>🪙 Choix du rôle — 10 secondes</h2>
+        <div class="panel lobby-role-shop" id="role-shop-panel" aria-labelledby="role-shop-title" tabindex="-1" hidden>
+          <h2 id="role-shop-title">🪙 Choisis ton rôle — 10 secondes</h2>
           <p class="hint">Demande un rôle avec tes pièces Revanche. Le débit a lieu uniquement si tu obtiens ce rôle.</p>
           <p class="hint"><span id="role-shop-balance">…</span> pièces</p>
           <div id="role-shop" class="role-shop-grid"></div>
@@ -133,6 +139,9 @@
 
     <!-- Interface de jeu (par-dessus le plateau) -->
     <section id="screen-game" class="screen hud">
+      <button id="game-wallet" class="chip game-wallet" type="button" title="Ton portefeuille Revanche Games">
+        🪙 <span id="game-wallet-balance" aria-live="polite">…</span>
+      </button>
       <header class="hud-top">
         <div id="phase" class="phase-box">
           <div class="phase-text"><div id="phase-label" class="phase-label"></div><div id="phase-sub" class="phase-sub"></div></div>
