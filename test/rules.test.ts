@@ -1022,7 +1022,8 @@ describe('Super Loup Noir', () => {
     assert.equal(e.state.players.filter((p) => p.role === 'werewolf' || p.role === 'super_black_wolf').length, 3);
     const sbw = e.state.players.find((p) => p.role === 'super_black_wolf')!;
     assert.deepEqual(sbw.roleData, { lastInfectNight: null });
-    assert.ok(e.view(sbw.id, T0).privateLog.some((m) => m.text.startsWith('🎴 Votre rôle : 🖤 Super Loup Noir.')));
+    e.tick(T0 + 10_000); // Révélation à la fermeture du choix de rôle.
+    assert.ok(e.view(sbw.id, T0 + 10_000).privateLog.some((m) => m.text.startsWith('🎴 Votre rôle : 🖤 Super Loup Noir.')));
   });
 
   it('le Voleur qui prend la carte devient Super Loup Noir et peut infecter dès la nuit 1', () => {

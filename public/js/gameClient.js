@@ -67,7 +67,7 @@ export class GameClient extends EventTarget {
   /** Reprise de session : réessaie tant que l'échec est passager (réseau lent, serveur qui redémarre). */
   #resumeWithRetry(attempt = 0) {
     this.resume().catch((e) => {
-      if (['NO_SESSION', 'NO_GAME', 'ABANDONED'].includes(e?.code) || !this.session) return;
+      if (['NO_SESSION', 'NO_GAME', 'ABANDONED', 'PLATFORM_AUTH'].includes(e?.code) || !this.session) return;
       if (this.socket.connected && attempt < 10) setTimeout(() => this.#resumeWithRetry(attempt + 1), 1500);
     });
   }
@@ -160,7 +160,7 @@ export class GameClient extends EventTarget {
   async resume() {
     if (!this.session) throw new GameError('NO_SESSION', 'Aucune session.');
     try {
-      return await this.request('session:resume', { code: this.session.code, token: this.session.token });
+      return await this.request('session:resume', { code: this.session.code, token: this.session.token, ...(getIncomingPlatformToken() ? { rgToken: getIncomingPlatformToken() } : {}) });
     } catch (e) {
       if (['NO_SESSION', 'NO_GAME', 'ABANDONED'].includes(e.code)) {
         this.#clear();
@@ -201,6 +201,14 @@ export class GameClient extends EventTarget {
 
   reset() {
     return this.request('game:reset');
+  }
+  /** Solde de pièces Revanche Games — `{ balance: number | null }` (null = pas de compte connecté). */
+  roleBalance() {
+    return this.request('role:balance');
+  }
+  /** Achète une préférence de rôle pour cette partie (boutique, voir roleShop.ts côté serveur). */
+  buyRole(role) {
+    return this.request('role:buy', { role });
   }
 
   // ---------------------------------------------------------------- partie

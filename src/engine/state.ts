@@ -96,7 +96,14 @@ export interface BallotBox {
   ballots: Record<string, string>;
 }
 
+/** Tâches financières persistées avec la partie, invisibles aux clients. */
+export type PlatformJob =
+  | { id: string; kind: 'roles'; roomCode: string; reservationIds: string[]; grantedUserIds: string[] }
+  | { id: string; kind: 'cancel'; reservationId: string }
+  | { id: string; kind: 'result'; roomCode: string; finishedAt: number; players: import('../server/results.ts').PlatformResultRow[] };
+
 export interface GameState {
+  platformJobs?: PlatformJob[];
   version: number;
   code: string;
   createdAt: number;

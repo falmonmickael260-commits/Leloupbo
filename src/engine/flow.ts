@@ -12,7 +12,7 @@
  */
 import type { WinResult } from '../shared/types.ts';
 import { isNightPhase, kill, resolveNightEffects } from './deaths.ts';
-import { returnToLobby } from './lobby.ts';
+import { completeRoleDistribution, returnToLobby } from './lobby.ts';
 import { enterPhase } from './phase.ts';
 import { shuffle } from './rng.ts';
 import { getNightStep, getRole, nightSteps, type NightStep } from './roles/index.ts';
@@ -295,6 +295,7 @@ export function finishPhase(ctx: Ctx): void {
   const ph = s.phase;
   switch (ph.id) {
     case 'ROLE_DISTRIBUTION':
+      completeRoleDistribution(ctx);
       return startNight(ctx);
     case 'NIGHT_START':
       return nextNightStep(ctx, -Infinity);

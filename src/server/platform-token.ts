@@ -36,3 +36,11 @@ export function verifyPlatformToken(token: unknown): PlatformIdentity | null {
     return null;
   }
 }
+
+/** Un compte fourni mais invalide ne doit jamais devenir un invité silencieusement. */
+export function requirePlatformIdentity(token: unknown): PlatformIdentity | null {
+  if (token === undefined || token === null || token === '') return null;
+  const identity = verifyPlatformToken(token);
+  if (!identity) throw new Error('Connexion Revanche Games expirée ou indisponible. Relance La Meute depuis Revanche Games.');
+  return identity;
+}

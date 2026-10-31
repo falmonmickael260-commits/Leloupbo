@@ -189,13 +189,23 @@ export function startGame(ctx: Ctx, playerId: string): void {
   s.reactions = null;
   s.lastFirstSpeaker = null;
   s.lastRoles = null;
-  honorRolePurchases(players);
+  announce(ctx, 'info', `🎴 La partie commence avec ${n} joueurs. Choisissez votre rôle pendant la distribution.`);
+  enterPhase(ctx, 'ROLE_DISTRIBUTION', 10_000);
+}
+
+/** Attribution définitive à la fermeture de la sélection. */
+export function completeRoleDistribution(ctx: Ctx): void {
+  const players = ctx.state.players;
+  honorRolePurchases(players, ctx);
+  const reservationIds = players.flatMap((p) => p.roleReservation ? [p.roleReservation.reservationId] : []);
+  if (reservationIds.length) (ctx.state.platformJobs ??= []).push({
+    id: nextId(ctx, 'roles'), kind: 'roles', roomCode: ctx.state.code, reservationIds,
+    grantedUserIds: roleShopOutcome(players).grantedUserIds,
+  });
   for (const p of players) {
     const def = requireRole(p.role!);
     tell(ctx, p.id, 'role', `🎴 Votre rôle : ${def.emoji} ${def.name}. ${def.description}`);
   }
-  announce(ctx, 'info', `🎴 La partie commence avec ${n} joueurs. Les rôles sont distribués.`);
-  enterPhase(ctx, 'ROLE_DISTRIBUTION', s.settings.durations.roleReveal);
 }
 
 /**
@@ -204,18 +214,13 @@ export function startGame(ctx: Ctx, playerId: string): void {
  * jamais en ajoutant ou retirant un rôle : la composition choisie par l'Hôte
  * reste exactement celle tirée au sort, seule l'attribution entre joueurs change.
  *
- * Ordre de traitement : l'ordre des sièges (déterministe, pas de favoritisme
- * caché) — premier arrivé dans le salon, premier servi en cas de double
- * demande sur le même rôle. Un joueur dont le rôle a déjà été cédé à un autre
- * acheteur ne peut plus être pioché comme donneur : on ne retire jamais à un
- * acheteur ce qu'il vient d'obtenir pour satisfaire un autre acheteur.
- *
- * Ne modifie rien pour les joueurs sans préférence (invités compris) : ils
- * gardent exactement le rôle tiré au hasard, comme avant cette fonctionnalité.
+ * Les demandes sont mélangées avec le générateur aléatoire serveur : chaque
+ * demandeur a la même chance, indépendamment du siège ou de sa rapidité.
+ * Les cartes déjà accordées sont verrouillées pour les autres demandes.
  */
-function honorRolePurchases(players: PlayerState[]): void {
+function honorRolePurchases(players: PlayerState[], ctx: Ctx): void {
   const locked = new Set<string>();
-  for (const buyer of players) {
+  for (const buyer of shuffle(players, ctx.rng)) {
     const wanted = buyer.roleReservation?.roleKey;
     if (!wanted) continue;
     if (buyer.role === wanted) {
@@ -238,8 +243,8 @@ function honorRolePurchases(players: PlayerState[]): void {
 }
 
 /**
- * À appeler juste après `startGame` : qui a obtenu le rôle qu'il avait acheté
- * (donc à facturer pour de bon) et qui ne l'a pas obtenu (donc à rembourser).
+ * À appeler après `completeRoleDistribution` : qui a obtenu le rôle qu'il avait acheté
+ * (donc à facturer pour de bon) et qui ne l'a pas obtenu (donc sans débit).
  * Lecture seule — ne modifie rien, c'est à l'appelant (gameManager, qui seul
  * a accès au réseau) de notifier la plateforme centrale.
  */
@@ -293,6 +298,7 @@ export function returnToLobby(ctx: Ctx): void {
   for (const p of keep) if (p.originalRole) previousRoles[p.id] = p.originalRole;
   Object.assign(s, {
     ...fresh,
+    platformJobs: s.platformJobs ?? [],
     previousRoles,
     resultsRecorded: false,
     // Gardés seulement si la partie révélait les rôles à la fin (décidé au moment où elle s'est terminée).

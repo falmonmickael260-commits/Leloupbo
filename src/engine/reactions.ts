@@ -2,7 +2,7 @@
  * Réactions sociales pendant la parole : 🍅 tomate (« tu mens ») et 🌸 fleur (« je te crois »).
  *
  * Purement cosmétiques : aucun effet sur les votes, les rôles, les règles ou les statistiques.
- * Le SERVEUR tient les compteurs : 7 tomates et 7 fleurs par joueur et par tour de vote
+ * Le SERVEUR tient les compteurs : autant de tomates et de fleurs que de participants, par joueur et par tour de vote
  * (un tour = une journée, revote compris), remis à neuf automatiquement chaque jour.
  */
 import { fail } from './errors.ts';
@@ -10,7 +10,9 @@ import { getPlayer, nextId, type Ctx, type GameState } from './state.ts';
 import { voiceChannel } from './voice.ts';
 
 export type ReactionKind = 'tomato' | 'flower';
-export const REACTIONS_PER_ROUND = 7;
+export function reactionsPerRound(state: GameState): number {
+  return state.players.length;
+}
 /** Délai minimal entre deux réactions d'un même joueur (anti double-clic / rafale). */
 export const REACTION_COOLDOWN_MS = 700;
 const MAX_FEED = 30;
@@ -47,8 +49,8 @@ export function reactionsFor(state: GameState, playerId: string) {
   const open = state.status === 'running' && PHASES.has(state.phase.id) && !!me?.alive;
   const targets = open ? voiceChannel(state).speakers.filter((id) => id !== playerId) : [];
   return {
-    tomato: REACTIONS_PER_ROUND - (r?.tomato ?? 0),
-    flower: REACTIONS_PER_ROUND - (r?.flower ?? 0),
+    tomato: Math.max(0, reactionsPerRound(state) - (r?.tomato ?? 0)),
+    flower: Math.max(0, reactionsPerRound(state) - (r?.flower ?? 0)),
     targets,
     feed: state.status === 'running' ? (state.reactions?.feed ?? []).slice(-MAX_FEED) : [],
   };
@@ -65,7 +67,7 @@ export function sendReaction(ctx: Ctx, playerId: string, kind: unknown, targetId
   if (!voiceChannel(s).speakers.includes(targetId)) fail('BAD_TARGET', 'Ce joueur n’a pas la parole.');
   const st = current(s);
   const used = (st.used[playerId] ??= { tomato: 0, flower: 0, lastAt: 0 });
-  if (used[kind] >= REACTIONS_PER_ROUND) fail('NO_REACTION_LEFT', kind === 'tomato' ? 'Plus de tomate pour ce tour.' : 'Plus de fleur pour ce tour.');
+  if (used[kind] >= reactionsPerRound(s)) fail('NO_REACTION_LEFT', kind === 'tomato' ? 'Plus de tomate pour ce tour.' : 'Plus de fleur pour ce tour.');
   if (ctx.now - used.lastAt < REACTION_COOLDOWN_MS) fail('TOO_FAST', 'Doucement !');
   used[kind] += 1;
   used.lastAt = ctx.now;

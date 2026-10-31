@@ -42,6 +42,16 @@ const client = new GameClient({ profile });
  * compte restait de toute façon reconnu.
  */
 const platformUsername = peekPlatformUsername(getIncomingPlatformToken());
+
+/**
+ * Prix de la boutique de rôles — doit rester identique à ROLE_SHOP_PRICES
+ * (src/server/roleShop.ts), seule autorité réelle : ce sont ces prix-là qui
+ * sont débités, ceux-ci ne servent qu'à l'affichage avant l'achat.
+ */
+let roleBalance = null;
+let roleBalanceKey = '';
+let buyingRole = false;
+const ROLE_SHOP_PRICES = { villager: 50, werewolf: 100, witch: 150, seer: 150, black_wolf: 200, white_wolf: 100, hunter: 100 };
 const voice = new Voice(client);
 const stopMicrophoneTest = mountMicrophoneTest(document.getElementById('mic-preflight'));
 client.addEventListener('view', (e) => { if (e.detail) stopMicrophoneTest(); });
@@ -1505,6 +1515,7 @@ function render() {
   show('game');
   $('code').textContent = v.code;
   renderPhase(v);
+  renderRoleSelection(v);
   halloweenNight(v.status === 'running' && NIGHT_PHASES.has(v.phase.id));
   // Bruits de nuit (vent, loup au loin, hibou, fantômes…) : jamais pendant qu'on parle.
   // Phase des loups : silence pour TOUT le monde (les loups parlent ; un téléphone muet les trahirait).
@@ -1788,4 +1799,42 @@ render();
       safe(Promise.resolve().then(() => client.join(invitedRoom, resolvedName, profiles.credentials())));
     }
   }
+}
+
+
+function renderRoleSelection(v) {
+  const panel = $('role-shop-panel');
+  if (!v) { panel.hidden = true; return; }
+  $('screen-game').appendChild(panel);
+  panel.hidden = v.phase.id !== 'ROLE_DISTRIBUTION' || !v.me.platformConnected;
+  if (panel.hidden) return;
+  const key = `${v.code}:${v.phase.seq}:${v.me.id}`;
+  if (roleBalanceKey !== key) {
+    roleBalanceKey = key;
+    roleBalance = null;
+    client.roleBalance().then((r) => {
+      if (roleBalanceKey !== key) return;
+      roleBalance = r.balance;
+      renderRoleSelection(client.view);
+    }).catch((e) => toast(e.message));
+  }
+  $('role-shop-balance').textContent = roleBalance ?? '…';
+  $('role-shop-status').textContent = v.me.reservedRole
+    ? 'Demande enregistrée. Débit uniquement si le rôle est attribué.'
+    : 'En cas de demandes identiques : tirage au sort. Sinon, attribution gratuite habituelle.';
+  $('role-shop').innerHTML = Object.entries(ROLE_SHOP_PRICES)
+    .filter(([role]) => (v.composition?.[role] ?? 0) > 0)
+    .map(([role, price]) => {
+      const names = { villager: 'Villageois', werewolf: 'Loup-Garou', witch: 'Sorcière', seer: 'Voyante', black_wolf: 'Loup Noir', white_wolf: 'Loup Blanc', hunter: 'Chasseur' };
+      return `<button class="btn small" data-buy-role="${role}" ${buyingRole || v.me.reservedRole || roleBalance === null || roleBalance < price ? 'disabled' : ''}>${esc(names[role])} · ${price} pièces</button>`;
+    }).join('');
+  panel.querySelectorAll('[data-buy-role]').forEach((button) => {
+    button.onclick = async () => {
+      buyingRole = true;
+      renderRoleSelection(client.view);
+      try { await client.buyRole(button.dataset.buyRole); }
+      catch (e) { toast(e.message); }
+      finally { buyingRole = false; renderRoleSelection(client.view); }
+    };
+  });
 }

@@ -9,7 +9,7 @@
  * - relais de signalisation WebRTC pour la voix.
  */
 import { CLIENT_BUILD } from './build.ts';
-import { createHash, randomBytes, randomInt } from 'node:crypto';
+import { createHash, randomUUID, randomBytes, randomInt } from 'node:crypto';
 import type { Server, Socket } from 'socket.io';
 import { decideBotCommand } from '../engine/bots.ts';
 import { GameEngine } from '../engine/engine.ts';
@@ -23,11 +23,11 @@ import { LiveKitBridge, missingSfuVars, sfuConfigFromEnv, type SfuConfig } from 
 import type { GameStore } from './store.ts';
 import { memoryProfileStore, type ProfileStore } from '../platform/profiles.ts';
 import { gameResults, platformGameResults } from './results.ts';
-import { verifyPlatformToken } from './platform-token.ts';
+import { requirePlatformIdentity, verifyPlatformToken } from './platform-token.ts';
 import { reportMatchResult } from './platform.ts';
-import { roleShopOutcome } from '../engine/lobby.ts';
+import { platformConfigured } from './platformRpc.ts';
 import {
-  cancelRoleReservations,
+  cancelRoleReservation,
   getWalletBalance,
   reserveRole,
   resolveRoleReservations,
@@ -60,6 +60,11 @@ class GameRoom {
   timer: NodeJS.Timeout | null = null;
   readonly botTimers = new Map<string, NodeJS.Timeout>();
   lastHumanSeenAt: number;
+  syncingPlatform = false;
+  nextPlatformAttempt = 0;
+  platformFailures = 0;
+  readonly activeRoleRequests = new Set<string>();
+  readonly pendingRoleBuy = new Set<string>();
 
   constructor(
     public readonly engine: GameEngine,
@@ -186,6 +191,8 @@ export class GameManager {
 
   joinGame(rawCode: unknown, name: unknown, profileId: string | null = null, platformUserId: string | null = null): { room: GameRoom; session: SessionInfo } {
     const room = this.findRoom(rawCode);
+    if (platformUserId && room.engine.state.players.some((p) => p.platformUserId === platformUserId && !p.abandoned))
+      throw new GameError('ACCOUNT_IN_ROOM', 'Ce compte Revanche Games est déjà présent dans ce salon.');
     const token = randomBytes(24).toString('base64url');
     const p = room.engine.join(name, hashToken(token), this.now());
     this.linkProfile(room, p.id, profileId);
@@ -209,7 +216,8 @@ export class GameManager {
   private linkPlatformUser(room: GameRoom, playerId: string, platformUserId: string | null): void {
     if (!platformUserId) return;
     const players = room.engine.state.players;
-    if (players.some((x) => x.platformUserId === platformUserId && !x.abandoned)) return;
+    if (players.some((x) => x.id !== playerId && x.platformUserId === platformUserId && !x.abandoned))
+      throw new GameError('ACCOUNT_IN_ROOM', 'Ce compte Revanche Games est déjà présent dans ce salon.');
     const p = players.find((x) => x.id === playerId);
     if (p) p.platformUserId = platformUserId;
   }
@@ -223,7 +231,10 @@ export class GameManager {
     if (rows.length) this.profiles.recordGame(s.code, rows).catch((e) => console.error('[profils] échec enregistrement', s.code, e));
     const platformRows = platformGameResults(s);
     // Inutile d'appeler la plateforme centrale si personne n'a de compte Revanche Game dans cette partie.
-    if (platformRows.some((r) => r.user_id)) reportMatchResult({ roomCode: s.code, finishedAt: this.now(), players: platformRows });
+    if (platformRows.some((r) => r.user_id)) (s.platformJobs ??= []).push({
+      id: `result:${s.phase.seq}`, kind: 'result', roomCode: s.code,
+      finishedAt: s.phase.startedAt, players: platformRows,
+    });
   }
 
   private findRoom(rawCode: unknown): GameRoom {
@@ -243,7 +254,35 @@ export class GameManager {
     this.schedule(room, now);
     this.scheduleBots(room);
     this.sfu?.sync(room.engine);
-    this.store.save(room.engine.state).catch((e) => console.error('[store] échec sauvegarde', room.code, e));
+    this.store.save(room.engine.state).then(() => this.flushPlatformJobs(room)).catch((e) => console.error('[store] échec sauvegarde', room.code, e));
+  }
+
+  /** Une tâche est enregistrée AVANT l'appel ; retries et redémarrages gardent le même identifiant. */
+  private async flushPlatformJobs(room: GameRoom): Promise<void> {
+    if (this.stopped || room.syncingPlatform || !platformConfigured() || this.now() < room.nextPlatformAttempt) return;
+    room.syncingPlatform = true;
+    try {
+      const jobs = room.engine.state.platformJobs ?? [];
+      for (const job of [...jobs]) {
+        if (this.stopped) break;
+        if (job.kind === 'cancel' && room.activeRoleRequests.has(job.reservationId)) continue;
+        await this.store.save(room.engine.state);
+        if (job.kind === 'roles') await resolveRoleReservations(job.roomCode, job.grantedUserIds, job.reservationIds);
+        else if (job.kind === 'cancel') await cancelRoleReservation(job.reservationId);
+        else await reportMatchResult(job);
+        // La manche a pu se terminer pendant l'appel réseau : utiliser la file actuelle.
+        room.engine.state.platformJobs = (room.engine.state.platformJobs ?? []).filter((j) => j.id !== job.id);
+        await this.store.save(room.engine.state);
+      }
+      room.platformFailures = 0;
+      room.nextPlatformAttempt = 0;
+    } catch (error) {
+      room.platformFailures++;
+      room.nextPlatformAttempt = this.now() + Math.min(60_000, 1000 * 2 ** Math.min(room.platformFailures, 6));
+      console.error('[platform] tâche conservée pour nouvelle tentative', room.code, error instanceof Error ? error.message : 'Erreur réseau');
+    } finally {
+      room.syncingPlatform = false;
+    }
   }
 
   /** Après une réaction 🍅/🌸 (rien d'autre n'a changé) : état envoyé + sauvegarde, c'est tout. */
@@ -325,17 +364,14 @@ export class GameManager {
         (s.status === 'lobby' && idle > EMPTY_LOBBY_TTL_MS) ||
         (s.status === 'running' && idle > EMPTY_GAME_TTL_MS) ||
         (s.status === 'lobby' && s.players.filter((p) => !p.isBot).length === 0);
-      if (expired) this.destroy(room);
+      void this.flushPlatformJobs(room);
+      if (expired && !(s.platformJobs?.length) && !room.syncingPlatform && !room.pendingRoleBuy.size) this.destroy(room);
       // Droits audio réels contrôlés en continu (chaque seconde pendant la phase des Loups).
       else this.sfu?.enforce(room.engine, now);
     }
   }
 
   private destroy(room: GameRoom): void {
-    // Salon jamais lancé (lobby expiré, vide) : toute préférence de rôle
-    // encore en attente n'aura jamais de partie pour être honorée —
-    // remboursement (best-effort, no-op si aucune n'existe).
-    if (room.engine.state.status === 'lobby') cancelRoleReservations(room.code);
     this.clearTimers(room);
     this.sfu?.forget(room.code);
     this.rooms.delete(room.code);
@@ -426,7 +462,12 @@ export class GameManager {
     // Le profil (facultatif) est vérifié avant d'entrer : clé invalide → joueur invité.
     socket.on('game:create', async (p, ack) => {
       const profileId = await this.profiles.verifyOptional(p?.profile);
-      const platformUserId = verifyPlatformToken(p?.rgToken)?.uid ?? null;
+      let platformUserId: string | null;
+      try { platformUserId = requirePlatformIdentity(p?.rgToken)?.uid ?? null; }
+      catch (error) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'PLATFORM_AUTH', message: (error as Error).message });
+        return;
+      }
       this.run(socket, ack, () => {
         const { room, session } = this.createGame(p?.name, profileId, platformUserId);
         this.attach(socket, room, session.playerId);
@@ -436,7 +477,12 @@ export class GameManager {
 
     socket.on('game:join', async (p, ack) => {
       const profileId = await this.profiles.verifyOptional(p?.profile);
-      const platformUserId = verifyPlatformToken(p?.rgToken)?.uid ?? null;
+      let platformUserId: string | null;
+      try { platformUserId = requirePlatformIdentity(p?.rgToken)?.uid ?? null; }
+      catch (error) {
+        if (typeof ack === 'function') ack({ ok: false, error: 'PLATFORM_AUTH', message: (error as Error).message });
+        return;
+      }
       this.run(socket, ack, () => {
         const { room, session } = this.joinGame(p?.code, p?.name, profileId, platformUserId);
         this.attach(socket, room, session.playerId);
@@ -452,6 +498,19 @@ export class GameManager {
         const player = room.engine.findByTokenHash(hashToken(token));
         if (!player) throw new GameError('NO_SESSION', 'Session expirée.');
         if (player.abandoned) throw new GameError('ABANDONED', 'Vous avez quitté cette partie.');
+        if (p?.rgToken) {
+          // Une session déjà authentifiée reste jouable après expiration du
+          // jeton de lancement ; le secret de session prouve sa continuité.
+          const identity = verifyPlatformToken(p.rgToken);
+          if (!identity && !player.platformUserId)
+            throw new GameError('PLATFORM_AUTH', 'Connexion Revanche Games expirée. Relance La Meute depuis Revanche Games.');
+          if (identity && player.platformUserId && player.platformUserId !== identity.uid)
+            throw new GameError('PLATFORM_AUTH', 'Cette session appartient à un autre compte Revanche Games.');
+          if (identity && !player.platformUserId) {
+            this.linkPlatformUser(room, player.id, identity.uid);
+            this.store.save(room.engine.state).catch(() => undefined);
+          }
+        }
         this.attach(socket, room, player.id);
         return { playerId: player.id };
       }, 'session'),
@@ -496,18 +555,7 @@ export class GameManager {
     );
     socket.on('game:start', (_p, ack) =>
       this.mutate(socket, ack, (room, id, now) => {
-        const wasLobby = room.engine.state.status === 'lobby';
         room.engine.start(id, now);
-        // Les préférences de rôle achetées viennent d'être honorées (ou pas)
-        // par startGame lui-même (voir honorRolePurchases, engine/lobby.ts) :
-        // on ne fait ici que notifier la plateforme centrale de qui facturer
-        // pour de bon et qui rembourser. `wasLobby` + statut 'running' après
-        // coup = cet appel a bien fait démarrer la partie (pas un appel
-        // refusé par une erreur métier, qui n'a rien changé à l'état).
-        if (wasLobby && room.engine.state.status === 'running') {
-          const { grantedUserIds } = roleShopOutcome(room.engine.state.players);
-          resolveRoleReservations(room.code, grantedUserIds);
-        }
       }),
     );
     socket.on('game:reset', (_p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.reset(id, now)));
@@ -530,6 +578,10 @@ export class GameManager {
     });
     socket.on('role:buy', async (p, ack) => {
       const reply = typeof ack === 'function' ? ack : () => undefined;
+      if (this.stopped) {
+        reply({ ok: false, error: 'RESTARTING', message: 'Le jeu redémarre, réessaie dans un instant.' });
+        return;
+      }
       if (!this.limiter.allow(`${socket.id}:roleBuy`, 'roleBuy')) {
         reply({ ok: false, error: 'RATE_LIMIT', message: 'Trop de requêtes, ralentissez.' });
         return;
@@ -543,7 +595,7 @@ export class GameManager {
       }
       const { room, playerId } = ctx;
       const s = room.engine.state;
-      if (s.status !== 'lobby') {
+      if (s.phase.id !== 'ROLE_DISTRIBUTION' || this.now() >= (s.phase.endsAt ?? 0)) {
         reply({ ok: false, error: 'GAME_STARTED', message: 'La partie a déjà commencé.' });
         return;
       }
@@ -556,33 +608,47 @@ export class GameManager {
         reply({ ok: false, error: 'NOT_AUTHENTICATED', message: 'Réservé aux joueurs connectés à Revanche Games.' });
         return;
       }
-      if (player.roleReservation) {
+      if (player.roleReservation || room.pendingRoleBuy.has(playerId)) {
         reply({ ok: false, error: 'ALREADY_RESERVED', message: 'Tu as déjà réservé un rôle pour cette partie.' });
         return;
       }
       const roleKey = typeof p?.role === 'string' ? (p.role as RoleId) : null;
-      if (!roleKey || !(roleKey in ROLE_SHOP_PRICES)) {
+      if (!roleKey || !Object.hasOwn(ROLE_SHOP_PRICES, roleKey) || !((s.composition?.[roleKey] ?? 0) > 0)) {
         reply({ ok: false, error: 'BAD_ROLE', message: 'Rôle invalide.' });
         return;
       }
 
+      room.pendingRoleBuy.add(playerId);
+      const selectionSeq = s.phase.seq;
+      const selectionEndsAt = s.phase.endsAt!;
+      const reservationId = randomUUID();
+      room.activeRoleRequests.add(reservationId);
+      const cancelJob = { id: `cancel:${reservationId}`, kind: 'cancel' as const, reservationId };
+      (s.platformJobs ??= []).push(cancelJob);
       try {
-        const result = await reserveRole({ roomCode: room.code, userId: player.platformUserId, roleKey });
-        // L'appel réseau prend du temps : la partie a pu démarrer entre-temps.
-        // Les pièces sont déjà débitées — pas de panique, cette réservation
-        // orpheline sera remboursée au ménage du salon (destroy() appelle
-        // cancelRoleReservations), au pire à son expiration naturelle.
-        const stillLobby = room.engine.state.status === 'lobby' && room.engine.hasPlayer(playerId);
-        if (!stillLobby) {
-          reply({ ok: false, error: 'GAME_STARTED', message: 'La partie a déjà commencé — tes pièces seront remboursées.' });
+        // Si le processus tombe pendant l'appel, la reprise annulera la demande.
+        await this.store.save(s);
+        const result = await reserveRole({ roomCode: room.code, userId: player.platformUserId, roleKey,
+          reservationId, selectionEndsAt });
+        // Une réponse tardive ne peut plus modifier l'attribution définitive.
+        const stillSelecting = !this.stopped && room.engine.state.phase.seq === selectionSeq && room.engine.state.phase.id === 'ROLE_DISTRIBUTION'
+          && this.now() < (room.engine.state.phase.endsAt ?? 0) && room.engine.hasPlayer(playerId);
+        if (!stillSelecting) {
+          reply({ ok: false, error: 'GAME_STARTED', message: 'La sélection est terminée. Aucune pièce débitée.' });
           return;
         }
+        room.engine.state.platformJobs = (room.engine.state.platformJobs ?? []).filter((j) => j.id !== cancelJob.id);
         const stillPlayer = room.engine.state.players.find((pl) => pl.id === playerId)!;
         stillPlayer.roleReservation = { roleKey, reservationId: result.reservationId, priceCoins: ROLE_SHOP_PRICES[roleKey]! };
+        await this.store.save(room.engine.state);
         this.afterChange(room);
         reply({ ok: true, balance: result.newBalance, role: roleKey });
       } catch (e) {
         reply({ ok: false, error: 'ROLE_SHOP', message: e instanceof RoleShopError ? e.message : 'Achat impossible — réessaie.' });
+      } finally {
+        room.pendingRoleBuy.delete(playerId);
+        room.activeRoleRequests.delete(reservationId);
+        await this.store.save(room.engine.state).then(() => this.flushPlatformJobs(room)).catch(() => undefined);
       }
     });
     socket.on('game:command', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.command(id, p, now)));
