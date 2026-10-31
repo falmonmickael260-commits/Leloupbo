@@ -147,7 +147,7 @@ export interface GameState {
   lastNightLog?: string[];
   /** Rôles de la partie précédente, montrés dans le lobby à côté de chaque joueur (publics : révélés à la fin). */
   lastRoles?: Record<string, LastRole> | null;
-  /** Réactions sociales (🍅/🌸) : compteurs par joueur pour la journée + fil récent. Cosmétique. */
+  /** Réactions sociales (🍅/🌸) : compteurs par joueur pour la partie + fil récent. Cosmétique. */
   reactions?: ReactionState | null;
 }
 

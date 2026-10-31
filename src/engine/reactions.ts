@@ -2,15 +2,15 @@
  * Réactions sociales pendant la parole : 🍅 tomate (« tu mens ») et 🌸 fleur (« je te crois »).
  *
  * Purement cosmétiques : aucun effet sur les votes, les rôles, les règles ou les statistiques.
- * Le SERVEUR tient les compteurs : autant de tomates et de fleurs que de participants, par joueur et par tour de vote
- * (un tour = une journée, revote compris), remis à neuf automatiquement chaque jour.
+ * Le SERVEUR tient les compteurs : autant de tomates et de fleurs que de participants,
+ * par joueur et par partie. Aucun rechargement au changement de journée.
  */
 import { fail } from './errors.ts';
 import { getPlayer, nextId, type Ctx, type GameState } from './state.ts';
 import { voiceChannel } from './voice.ts';
 
 export type ReactionKind = 'tomato' | 'flower';
-export function reactionsPerRound(state: GameState): number {
+export function reactionsPerGame(state: GameState): number {
   return state.players.length;
 }
 /** Délai minimal entre deux réactions d'un même joueur (anti double-clic / rafale). */
@@ -26,8 +26,6 @@ export interface ReactionEvent {
 }
 
 export interface ReactionState {
-  /** Journée à laquelle les compteurs se rapportent : un nouveau jour = compteurs neufs. */
-  day: number;
   used: Record<string, { tomato: number; flower: number; lastAt: number }>;
   feed: ReactionEvent[];
 }
@@ -36,21 +34,19 @@ export interface ReactionState {
 const PHASES = new Set(['PLAYER_SPEECH', 'DEATH_LAST_WORD', 'FREE_DISCUSSION', 'CAPTAIN_ELECTION']);
 
 function current(state: GameState): ReactionState {
-  if (!state.reactions || state.reactions.day !== state.dayNumber) {
-    state.reactions = { day: state.dayNumber, used: {}, feed: state.reactions?.feed ?? [] };
-  }
+  if (!state.reactions) state.reactions = { used: {}, feed: [] };
   return state.reactions;
 }
 
 /** Ce qu'il me reste, et à qui je peux envoyer (personnes qui ont la parole, sauf moi). */
 export function reactionsFor(state: GameState, playerId: string) {
   const me = getPlayer(state, playerId);
-  const r = state.reactions && state.reactions.day === state.dayNumber ? state.reactions.used[playerId] : undefined;
+  const r = state.reactions?.used[playerId];
   const open = state.status === 'running' && PHASES.has(state.phase.id) && !!me?.alive;
   const targets = open ? voiceChannel(state).speakers.filter((id) => id !== playerId) : [];
   return {
-    tomato: Math.max(0, reactionsPerRound(state) - (r?.tomato ?? 0)),
-    flower: Math.max(0, reactionsPerRound(state) - (r?.flower ?? 0)),
+    tomato: Math.max(0, reactionsPerGame(state) - (r?.tomato ?? 0)),
+    flower: Math.max(0, reactionsPerGame(state) - (r?.flower ?? 0)),
     targets,
     feed: state.status === 'running' ? (state.reactions?.feed ?? []).slice(-MAX_FEED) : [],
   };
@@ -67,7 +63,7 @@ export function sendReaction(ctx: Ctx, playerId: string, kind: unknown, targetId
   if (!voiceChannel(s).speakers.includes(targetId)) fail('BAD_TARGET', 'Ce joueur n’a pas la parole.');
   const st = current(s);
   const used = (st.used[playerId] ??= { tomato: 0, flower: 0, lastAt: 0 });
-  if (used[kind] >= reactionsPerRound(s)) fail('NO_REACTION_LEFT', kind === 'tomato' ? 'Plus de tomate pour ce tour.' : 'Plus de fleur pour ce tour.');
+  if (used[kind] >= reactionsPerGame(s)) fail('NO_REACTION_LEFT', kind === 'tomato' ? 'Plus de tomate pour cette partie.' : 'Plus de fleur pour cette partie.');
   if (ctx.now - used.lastAt < REACTION_COOLDOWN_MS) fail('TOO_FAST', 'Doucement !');
   used[kind] += 1;
   used.lastAt = ctx.now;

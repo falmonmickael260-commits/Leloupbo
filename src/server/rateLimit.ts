@@ -2,7 +2,7 @@
 const LIMITS: Record<string, { capacity: number; refillPerSec: number }> = {
   action: { capacity: 20, refillPerSec: 6 },
   chat: { capacity: 6, refillPerSec: 1 },
-  // Réactions 🍅/🌸 (le moteur limite déjà à 7+7 par tour, une toutes les 0,7 s) : protège contre
+  // Réactions 🍅/🌸 (le moteur limite déjà les quantités par partie, une toutes les 0,7 s) : protège contre
   // les rafales sans jamais bloquer un joueur qui tape au rythme permis par le moteur.
   react: { capacity: 4, refillPerSec: 1.5 },
   session: { capacity: 8, refillPerSec: 0.5 },

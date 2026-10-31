@@ -151,7 +151,7 @@ test('annulation orpheline reprise au redémarrage et résultats de victoire per
     await eventually(()=>JSON.parse(store.data.get('ENDED')!).platformJobs.length===0);
     assert.equal(requests.length,2);
     assert.ok(requests[0].url.endsWith('cancel_role_reservation'));
-    assert.ok(requests[1].url.endsWith('record_game_result'));
+    assert.ok(requests[1].url.endsWith('record_la_meute_result'));
     assert.equal(requests[1].body.p_players[0].outcome,'win');
     assert.equal(requests[1].body.p_players[0].user_id,'winner');
   } finally { h.manager.stop();restore(); }
