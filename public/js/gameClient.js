@@ -10,6 +10,7 @@
  */
 /* global io */
 import { getIncomingPlatformToken } from './platformToken.js';
+import { connectPlatform } from './platformConnector.js';
 
 export class GameError extends Error {
   constructor(code, message) {
@@ -32,6 +33,8 @@ export class GameClient extends EventTarget {
       reconnectionDelay: 500,
       reconnectionDelayMax: 4000,
     });
+    this.disconnectPlatform = connectPlatform({ game: 'la-meute', session: () => this.session,
+      adopt: async (session) => { this.#save(session); await this.resume(); } });
     this.socket.on('connect', () => {
       this.#setStatus('connected');
       // Reconnexion automatique : on reprend la session enregistrée (le serveur renvoie l'état complet).
@@ -107,6 +110,7 @@ export class GameClient extends EventTarget {
   }
   #save(s) {
     this.session = s;
+    window.dispatchEvent(new Event('rg:session'));
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(s));
     } catch {
