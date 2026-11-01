@@ -13,7 +13,10 @@ export function platformConnector(manager: GameManager, store: GameStore): Adapt
       const player = room?.engine.findByTokenHash(hashToken(c.proof.token || ''));
       const expected = c.inviter || c.uid;
       if (!room || !player || player.abandoned || (player.platformUserId && expected && player.platformUserId !== expected)) throw new Error('Votre ami ne se trouve plus dans ce salon.');
-      if (!player.platformUserId && expected) { player.platformUserId = expected; void store.save(room.engine.state); }
+      if (!player.platformUserId && expected) {
+        if (room.engine.state.players.some(p => p.id !== player.id && !p.abandoned && p.platformUserId === expected)) throw new Error('Ce compte possède déjà une place dans le salon.');
+        player.platformUserId = expected; void store.save(room.engine.state);
+      }
       const s = room.engine.state;
       return { code: s.code, instance: `${s.code}:${s.createdAt}`, capacity: s.settings.maxPlayers, count: s.players.length, status: s.status === 'lobby' ? 'open' : 'started', ownerUid: player.platformUserId };
     },
