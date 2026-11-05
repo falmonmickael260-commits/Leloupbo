@@ -13,6 +13,7 @@ import { createHash, randomBytes, randomInt } from 'node:crypto';
 import type { Server, Socket } from 'socket.io';
 import { decideBotCommand } from '../engine/bots.ts';
 import { GameEngine } from '../engine/engine.ts';
+import { DURATION_PRESETS } from '../engine/settings.ts';
 import { GameError } from '../engine/errors.ts';
 import { cryptoRng, type Rng } from '../engine/rng.ts';
 import type { GameState } from '../engine/state.ts';
@@ -42,12 +43,17 @@ const FINISHED_TTL_MS = 30 * 60_000;
 const EMPTY_LOBBY_TTL_MS = 10 * 60_000;
 const EMPTY_GAME_TTL_MS = 15 * 60_000;
 const MAX_SIGNAL_BYTES = 32_000;
+const QUICK_MIN_PLAYERS = 4;
+const QUICK_MAX_PLAYERS = 8;
+const QUICK_START_DELAY_MS = 15_000;
+const QUICK_DISCONNECTED_TTL_MS = 30_000;
 
 export const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 class GameRoom {
   readonly sockets = new Map<string, Set<Sock>>();
   timer: NodeJS.Timeout | null = null;
+  quickTimer: NodeJS.Timeout | null = null;
   readonly botTimers = new Map<string, NodeJS.Timeout>();
   lastHumanSeenAt: number;
 
@@ -69,6 +75,8 @@ export interface ManagerOptions {
   /** Délai de réaction des bots (ms). */
   botDelay?: [number, number];
   housekeepingMs?: number;
+  /** Délai avant le départ d'un salon public assez rempli (utile aux tests). */
+  quickStartDelayMs?: number;
   /** Serveur audio LiveKit (par défaut : variables d'environnement LIVEKIT_*). */
   sfu?: SfuConfig | null;
   /** Contrôle périodique de LiveKit (désactivable dans les tests). */
@@ -82,6 +90,7 @@ export class GameManager {
   private readonly now: () => number;
   private readonly rng: Rng;
   private readonly botDelay: [number, number];
+  private readonly quickStartDelayMs: number;
   private housekeeping: NodeJS.Timeout | null = null;
   private stopped = false;
   droppedSignals = 0;
@@ -99,6 +108,7 @@ export class GameManager {
     this.now = opts.now ?? Date.now;
     this.rng = opts.rng ?? cryptoRng;
     this.botDelay = opts.botDelay ?? [900, 2500];
+    this.quickStartDelayMs = opts.quickStartDelayMs ?? QUICK_START_DELAY_MS;
     this.profiles = opts.profiles ?? memoryProfileStore();
     const sfuCfg = opts.sfu === undefined ? sfuConfigFromEnv() : opts.sfu;
     this.sfu = sfuCfg ? new LiveKitBridge(sfuCfg) : null;
@@ -183,6 +193,23 @@ export class GameManager {
     return { room, session: { code: room.code, playerId: p.id, token } };
   }
 
+  /** Matchmaking public : rejoint le salon ouvert le plus rempli, ou en crée un. */
+  quickGame(name: unknown, profileId: string | null = null, platformUserId: string | null = null): { room: GameRoom; session: SessionInfo } {
+    const open = [...this.rooms.values()]
+      .filter((room) => room.engine.state.quickMatch && room.engine.state.status === 'lobby'
+        && room.engine.state.players.length < QUICK_MAX_PLAYERS)
+      .sort((a, b) => b.engine.state.players.length - a.engine.state.players.length)[0];
+    if (open) return this.joinGame(open.code, name, profileId, platformUserId);
+    const result = this.createGame(name, profileId, platformUserId);
+    const state = result.room.engine.state;
+    state.quickMatch = true;
+    state.settings.maxPlayers = QUICK_MAX_PLAYERS;
+    state.settings.roles = { werewolf: 1, seer: 1, witch: 1 };
+    state.settings.durationPreset = 'fast';
+    state.settings.durations = { ...DURATION_PRESETS.fast };
+    return result;
+  }
+
   /**
    * Rattache le joueur à son profil de plateforme (identifiant interne, jamais envoyé aux
    * navigateurs). Un même profil ne compte qu'une fois par partie.
@@ -228,12 +255,42 @@ export class GameManager {
   private afterChange(room: GameRoom): void {
     if (this.stopped) return;
     const now = this.now();
+    this.scheduleQuickMatch(room, now);
     this.recordResults(room);
     this.broadcast(room, now);
     this.schedule(room, now);
     this.scheduleBots(room);
     this.sfu?.sync(room.engine);
     this.store.save(room.engine.state).catch((e) => console.error('[store] échec sauvegarde', room.code, e));
+  }
+
+  private scheduleQuickMatch(room: GameRoom, now: number): void {
+    if (room.quickTimer) clearTimeout(room.quickTimer);
+    room.quickTimer = null;
+    const state = room.engine.state;
+    if (!state.quickMatch || state.status !== 'lobby') return;
+    const connected = state.players.filter((p) => !p.isBot && p.connected).length;
+    if (connected < QUICK_MIN_PLAYERS) {
+      state.quickStartsAt = null;
+      return;
+    }
+    if (!state.quickStartsAt) state.quickStartsAt = now + this.quickStartDelayMs;
+    room.quickTimer = setTimeout(() => {
+      room.quickTimer = null;
+      const current = room.engine.state;
+      if (current.status !== 'lobby' || !current.quickMatch) return;
+      if (current.players.filter((p) => !p.isBot && p.connected).length < QUICK_MIN_PLAYERS) {
+        this.afterChange(room);
+        return;
+      }
+      // Une coupure pendant l'attente ne doit pas imposer un joueur absent à la partie.
+      for (const player of [...current.players]) {
+        if (!player.isBot && !player.connected) room.engine.leave(player.id, this.now());
+      }
+      try { room.engine.start(current.hostId, this.now()); }
+      catch (e) { console.error('[matchmaking] lancement impossible', room.code, e); current.quickStartsAt = null; }
+      this.afterChange(room);
+    }, Math.max(0, state.quickStartsAt - now));
   }
 
   /** Après une réaction 🍅/🌸 (rien d'autre n'a changé) : état envoyé + sauvegarde, c'est tout. */
@@ -299,6 +356,7 @@ export class GameManager {
 
   private clearTimers(room: GameRoom): void {
     if (room.timer) clearTimeout(room.timer);
+    if (room.quickTimer) clearTimeout(room.quickTimer);
     for (const t of room.botTimers.values()) clearTimeout(t);
     room.botTimers.clear();
   }
@@ -307,6 +365,17 @@ export class GameManager {
     const now = this.now();
     for (const room of [...this.rooms.values()]) {
       const s = room.engine.state;
+      if (s.quickMatch && s.status === 'lobby') {
+        let removed = false;
+        for (const player of [...s.players]) {
+          if (!player.isBot && !player.connected && player.disconnectedAt !== null
+            && now - player.disconnectedAt >= QUICK_DISCONNECTED_TTL_MS) {
+            room.engine.leave(player.id, now);
+            removed = true;
+          }
+        }
+        if (removed) this.afterChange(room);
+      }
       if (s.players.some((p) => !p.isBot && p.connected)) room.lastHumanSeenAt = now;
       if (room.engine.tick(now)) this.afterChange(room);
       const idle = now - room.lastHumanSeenAt;
@@ -430,6 +499,16 @@ export class GameManager {
       }, 'session');
     });
 
+    socket.on('game:quick', async (p, ack) => {
+      const profileId = await this.profiles.verifyOptional(p?.profile);
+      const platformUserId = verifyPlatformToken(p?.rgToken)?.uid ?? null;
+      this.run(socket, ack, () => {
+        const { room, session } = this.quickGame(p?.name, profileId, platformUserId);
+        this.attach(socket, room, session.playerId);
+        return session;
+      }, 'session');
+    });
+
     // Reconnexion : le jeton (secret) identifie le joueur, l'état complet est renvoyé.
     socket.on('session:resume', (p, ack) =>
       this.run(socket, ack, () => {
@@ -443,8 +522,14 @@ export class GameManager {
       }, 'session'),
     );
 
-    socket.on('lobby:settings', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.updateSettings(id, p, now)));
-    socket.on('lobby:addBot', (_p, ack) => this.mutate(socket, ack, (room, id, now) => void room.engine.addBot(id, now)));
+    socket.on('lobby:settings', (p, ack) => this.mutate(socket, ack, (room, id, now) => {
+      if (room.engine.state.quickMatch) throw new GameError('QUICK_MATCH', 'Les règles de partie rapide sont fixes.');
+      room.engine.updateSettings(id, p, now);
+    }));
+    socket.on('lobby:addBot', (_p, ack) => this.mutate(socket, ack, (room, id, now) => {
+      if (room.engine.state.quickMatch) throw new GameError('QUICK_MATCH', 'Les bots ne rejoignent pas le matchmaking.');
+      void room.engine.addBot(id, now);
+    }));
     socket.on('player:audio', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.setAudioStatus(id, p, now)));
     // Réaction 🍅/🌸 : purement visuelle → envoi léger (état aux joueurs + sauvegarde), sans
     // revérifier la voix ni les minuteries… sauf si la phase a changé entre-temps.
@@ -472,6 +557,7 @@ export class GameManager {
     socket.on('lobby:avatar', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.setAvatar(id, p?.avatar, now)));
     socket.on('lobby:kick', (p, ack) =>
       this.mutate(socket, ack, (room, id, now) => {
+        if (room.engine.state.quickMatch) throw new GameError('QUICK_MATCH', 'Impossible d’exclure un joueur du matchmaking.');
         const target = typeof p?.playerId === 'string' ? p.playerId : '';
         room.engine.kick(id, target, now);
         for (const s of room.sockets.get(target) ?? []) {
@@ -480,7 +566,10 @@ export class GameManager {
         }
       }),
     );
-    socket.on('game:start', (_p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.start(id, now)));
+    socket.on('game:start', (_p, ack) => this.mutate(socket, ack, (room, id, now) => {
+      if (room.engine.state.quickMatch) throw new GameError('QUICK_MATCH', 'Le départ est automatique en partie rapide.');
+      room.engine.start(id, now);
+    }));
     socket.on('game:reset', (_p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.reset(id, now)));
     socket.on('game:command', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.command(id, p, now)));
     socket.on('chat:send', (p, ack) => this.mutate(socket, ack, (room, id, now) => room.engine.chat(id, p?.channel, p?.text, now), 'chat'));

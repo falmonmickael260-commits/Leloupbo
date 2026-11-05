@@ -95,6 +95,10 @@ export interface GameState {
   updatedAt: number;
   hostId: string;
   status: GameStatus;
+  /** Salon public de partie rapide, géré par le serveur. */
+  quickMatch?: boolean;
+  /** Départ automatique annoncé aux joueurs, annulé si le groupe se réduit. */
+  quickStartsAt?: number | null;
   settings: GameSettings;
   players: PlayerState[];
   /** Cartes distribuées + cartes du Voleur (publiques en tant que composition). */

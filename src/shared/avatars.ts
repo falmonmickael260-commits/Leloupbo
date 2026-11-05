@@ -6,6 +6,7 @@ export const AVATAR_IDS = [
   'v-forgeron', 'v-guerisseuse', 'v-chasseur', 'v-taverniere', 'v-garde', 'v-paysanne', 'v-bucheron', 'v-herboriste', 'v-voyageur', 'v-noble', 'v-pecheur', 'v-boulangere', 'v-mercenaire', 'v-couturiere', 'v-erudit', 'v-marchande', 'v-berger', 'v-exploratrice', 'v-mineur', 'v-mysterieuse',
   'm-brun', 'm-blond', 'm-roux', 'm-barbu', 'm-ancien', 'm-boucle', 'm-forgeron',
   'f-blonde', 'f-brune', 'f-rousse', 'f-courte', 'f-ancienne', 'f-chataine', 'f-foulard',
+  'm-noe', 'm-ibrahim', 'm-eliott', 'f-amira', 'f-luna', 'f-sofia',
 ] as const;
 
 export type AvatarId = (typeof AVATAR_IDS)[number];

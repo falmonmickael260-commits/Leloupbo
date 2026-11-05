@@ -17,6 +17,7 @@ export interface SessionInfo {
 export interface ClientToServerEvents {
   'game:create': (p: { name: string; profile?: { id: string; key: string }; rgToken?: string }, ack: (r: Ack<SessionInfo>) => void) => void;
   'game:join': (p: { code: string; name: string; profile?: { id: string; key: string }; rgToken?: string }, ack: (r: Ack<SessionInfo>) => void) => void;
+  'game:quick': (p: { name: string; profile?: { id: string; key: string }; rgToken?: string }, ack: (r: Ack<SessionInfo>) => void) => void;
   'session:resume': (p: { code: string; token: string }, ack: (r: Ack<{ playerId: string }>) => void) => void;
   'lobby:settings': (p: Partial<GameSettings>, ack: (r: Ack) => void) => void;
   'lobby:addBot': (p: Record<string, never>, ack: (r: Ack) => void) => void;

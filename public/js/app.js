@@ -279,6 +279,12 @@ $('btn-create').onclick = () => {
   primeAudio();
   safe(Promise.resolve().then(() => client.create(myName(), profiles.credentials())));
 };
+$('btn-quick').onclick = () => {
+  primeAudio();
+  const button = $('btn-quick');
+  button.disabled = true;
+  safe(Promise.resolve().then(() => client.quick(myName(), profiles.credentials())).finally(() => { button.disabled = false; }));
+};
 $('btn-join').onclick = () => {
   primeAudio();
   safe(Promise.resolve().then(() => client.join($('join-code').value.trim().toUpperCase(), myName(), profiles.credentials())));
@@ -310,6 +316,13 @@ function prevRole(r) {
 }
 
 function renderLobby(v) {
+  const quick = $('quick-status');
+  quick.hidden = !v.quickMatch;
+  if (v.quickMatch) {
+    const connected = v.players.filter((p) => !p.isBot && p.connected).length;
+    quick.innerHTML = `<span class="quick-status-icon" aria-hidden="true">⚡</span><div><strong>${v.quickStartsAt ? 'Départ imminent' : 'Recherche de joueurs'}</strong><span>${connected}/4 joueurs minimum · règles rapides · lancement automatique${v.quickStartsAt ? ' dans <b id="quick-countdown"></b>' : ''}</span></div>`;
+    if (v.quickStartsAt) $('quick-countdown').textContent = `${Math.max(0, Math.ceil((v.quickStartsAt - (Date.now() + client.clockOffset)) / 1000))} s`;
+  }
   // Partie précédente : ce qui s'est passé chaque nuit (ouvert à la demande).
   const logKey = (v.lastNightLog ?? []).join('\n');
   if ($('last-log').dataset.key !== logKey) {
@@ -317,7 +330,8 @@ function renderLobby(v) {
     $('last-log').innerHTML = v.lastNightLog?.length ? `<details class="night-log"><summary>🌙 Partie précédente : ce qui s’est passé chaque nuit</summary><ul>${v.lastNightLog.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></details>` : '';
   }
   const isHost = v.me.isHost;
-  document.querySelectorAll('.host-only').forEach((el) => (el.style.display = isHost ? '' : 'none'));
+  document.querySelectorAll('.host-only').forEach((el) => (el.style.display = isHost && !v.quickMatch ? '' : 'none'));
+  document.querySelector('.lobby-settings').hidden = !!v.quickMatch;
   document.querySelector('.host-hint').textContent = isHost
     ? 'Tu es l’Hôte : choisis les rôles. La distribution sera aléatoire.'
     : 'Seul l’Hôte peut modifier la composition.';
@@ -329,7 +343,7 @@ function renderLobby(v) {
     .map(
       (p) => `<li data-pid="${esc(p.id)}" class="${ui.talking.has(p.id) ? 'talking' : ''}"><span class="num">${nums.get(p.id)}</span><span class="head">${characterSVG(p.avatar)}</span><span class="grow">${p.isHost ? '⭐ ' : ''}${p.isBot ? '🤖 ' : ''}${esc(p.name)}${p.isMe ? ' <span class="muted">(toi)</span>' : ''}${p.connected ? '' : ' 📴'}${prevRole(v.lastRoles?.[p.id])}${p.audio.diag && !p.isBot && !(p.audio.mic && p.audio.speaker && p.audio.connected) ? `<small class="diag">${esc(p.audio.diag)}</small>` : ''}</span>
       ${p.isBot ? '' : audioIcons(p.audio)}
-      ${isHost && !p.isMe ? `<button class="btn small" data-kick="${esc(p.id)}">Exclure</button>` : ''}</li>`,
+      ${isHost && !v.quickMatch && !p.isMe ? `<button class="btn small" data-kick="${esc(p.id)}">Exclure</button>` : ''}</li>`,
     )
     .join(''));
   if (lobbyChanged) $('lobby-players').querySelectorAll('[data-kick]').forEach((b) => (b.onclick = () => safe(client.kick(b.dataset.kick))));
@@ -350,7 +364,7 @@ function renderLobby(v) {
 
   const s = v.settings;
   const roles = v.roleCatalog.filter((r) => r.distributable && r.id !== 'villager');
-  const dis = isHost ? '' : 'disabled';
+  const dis = isHost && !v.quickMatch ? '' : 'disabled';
   const roleRows = roles
     .map((r) => {
       const n = s.roles[r.id] ?? 0;
@@ -619,6 +633,11 @@ function renderTimer() {
   box.classList.toggle('low', s <= 5);
 }
 setInterval(renderTimer, 250);
+setInterval(() => {
+  const deadline = client.view?.status === 'lobby' ? client.view.quickStartsAt : null;
+  const countdown = $('quick-countdown');
+  if (deadline && countdown) countdown.textContent = `${Math.max(0, Math.ceil((deadline - (Date.now() + client.clockOffset)) / 1000))} s`;
+}, 250);
 // Fin de partie : compte à rebours avant le retour automatique de tout le monde au lobby.
 function renderGameOverCount() {
   const el = document.getElementById('go-count');

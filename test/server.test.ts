@@ -9,7 +9,7 @@ import type { PlayerView } from '../src/shared/types.ts';
 type Client = Socket & { lastView?: PlayerView };
 
 async function startServer(store = new MemoryGameStore()) {
-  const { http, manager, io } = createApp(store, { botDelay: [10, 30] });
+  const { http, manager, io } = createApp(store, { botDelay: [10, 30], quickStartDelayMs: 750 });
   await manager.restore();
   await new Promise<void>((r) => http.listen(0, r));
   const port = (http.address() as AddressInfo).port;
@@ -77,6 +77,35 @@ describe('Appli installable (écran d’accueil, magasins)', () => {
 });
 
 describe('Serveur temps réel', () => {
+  it('matchmaking public : regroupement, règles fixes et départ après quatre joueurs connectés', { timeout: 15_000 }, async () => {
+    const srv = await startServer();
+    try {
+      const players = await Promise.all(['Aline', 'Boris', 'Camille', 'Dina'].map((name) => client(srv.url).then(async (c) => {
+        sockets.push(c);
+        const result = await emit(c, 'game:quick', { name });
+        assert.equal(result.ok, true);
+        return { c, result };
+      })));
+      const code = players[0].result.code;
+      assert.ok(players.every((p) => p.result.code === code));
+      assert.equal(players[0].c.lastView?.quickMatch, true);
+      assert.equal(players[0].c.lastView?.settings.durationPreset, 'fast');
+      assert.equal(players[0].c.lastView?.settings.maxPlayers, 8);
+      assert.equal((await emit(players[0].c, 'lobby:addBot')).ok, false);
+      assert.equal((await emit(players[0].c, 'lobby:settings', { maxPlayers: 18 })).ok, false);
+      players[3].c.close();
+      await waitFor(() => players[0].c.lastView?.quickStartsAt == null);
+      await new Promise((r) => setTimeout(r, 850));
+      assert.equal(players[0].c.lastView?.status, 'lobby');
+      const replacement = await client(srv.url);
+      sockets.push(replacement);
+      const joined = await emit(replacement, 'game:quick', { name: 'Emma' });
+      assert.equal(joined.code, code);
+      await waitFor(() => replacement.lastView?.status === 'running');
+      assert.equal(srv.manager.getState(code)?.players.length, 4);
+    } finally { await srv.close(); }
+  });
+
   it('création, connexion, lancement, reconnexion et redémarrage serveur', { timeout: 20_000 }, async () => {
     const srv = await startServer();
     const host = await client(srv.url);

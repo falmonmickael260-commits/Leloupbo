@@ -245,6 +245,8 @@ export function returnToLobby(ctx: Ctx): void {
     reactions: null,
     lastFirstSpeaker: null,
     createdAt: s.createdAt,
+    quickMatch: s.quickMatch,
+    quickStartsAt: null,
     hostId: s.hostId,
     settings: s.settings,
     counter: s.counter,

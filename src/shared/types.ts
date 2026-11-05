@@ -268,6 +268,8 @@ export interface PlayerView {
   code: string;
   status: GameStatus;
   hostId: string;
+  quickMatch?: boolean;
+  quickStartsAt?: number | null;
   settings: GameSettings;
   /** Composition publique (cartes du jeu, y compris villageois de complément). */
   composition: Record<RoleId, number> | null;

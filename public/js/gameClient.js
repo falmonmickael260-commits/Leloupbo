@@ -157,6 +157,14 @@ export class GameClient extends EventTarget {
     return r;
   }
 
+  async quick(name, profile = null) {
+    const rgToken = getIncomingPlatformToken();
+    const payload = { name, ...(profile ? { profile } : {}), ...(rgToken ? { rgToken } : {}) };
+    const r = await this.request('game:quick', payload);
+    this.#save({ code: r.code, token: r.token, playerId: r.playerId });
+    return r;
+  }
+
   async resume() {
     if (!this.session) throw new GameError('NO_SESSION', 'Aucune session.');
     try {
