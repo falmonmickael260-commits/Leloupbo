@@ -9,7 +9,7 @@ import type { PlayerView } from '../src/shared/types.ts';
 type Client = Socket & { lastView?: PlayerView };
 
 async function startServer(store = new MemoryGameStore()) {
-  const { http, manager, io } = createApp(store, { botDelay: [10, 30], quickStartDelayMs: 750 });
+  const { http, manager, io } = createApp(store, { botDelay: [10, 30] });
   await manager.restore();
   await new Promise<void>((r) => http.listen(0, r));
   const port = (http.address() as AddressInfo).port;
@@ -77,10 +77,10 @@ describe('Appli installable (écran d’accueil, magasins)', () => {
 });
 
 describe('Serveur temps réel', () => {
-  it('matchmaking public : regroupement, règles fixes et départ après quatre joueurs connectés', { timeout: 15_000 }, async () => {
+  it('matchmaking public : attend huit joueurs connectés avant de lancer la partie', { timeout: 15_000 }, async () => {
     const srv = await startServer();
     try {
-      const players = await Promise.all(['Aline', 'Boris', 'Camille', 'Dina'].map((name) => client(srv.url).then(async (c) => {
+      const players = await Promise.all(['Aline', 'Boris', 'Camille', 'Dina', 'Emma', 'Farid', 'Gina'].map((name) => client(srv.url).then(async (c) => {
         sockets.push(c);
         const result = await emit(c, 'game:quick', { name });
         assert.equal(result.ok, true);
@@ -93,16 +93,14 @@ describe('Serveur temps réel', () => {
       assert.equal(players[0].c.lastView?.settings.maxPlayers, 8);
       assert.equal((await emit(players[0].c, 'lobby:addBot')).ok, false);
       assert.equal((await emit(players[0].c, 'lobby:settings', { maxPlayers: 18 })).ok, false);
-      players[3].c.close();
-      await waitFor(() => players[0].c.lastView?.quickStartsAt == null);
-      await new Promise((r) => setTimeout(r, 850));
+      await new Promise((r) => setTimeout(r, 100));
       assert.equal(players[0].c.lastView?.status, 'lobby');
-      const replacement = await client(srv.url);
-      sockets.push(replacement);
-      const joined = await emit(replacement, 'game:quick', { name: 'Emma' });
+      const eighth = await client(srv.url);
+      sockets.push(eighth);
+      const joined = await emit(eighth, 'game:quick', { name: 'Hugo' });
       assert.equal(joined.code, code);
-      await waitFor(() => replacement.lastView?.status === 'running');
-      assert.equal(srv.manager.getState(code)?.players.length, 4);
+      await waitFor(() => eighth.lastView?.status === 'running');
+      assert.equal(srv.manager.getState(code)?.players.length, 8);
     } finally { await srv.close(); }
   });
 

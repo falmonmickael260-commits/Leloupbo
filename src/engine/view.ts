@@ -113,7 +113,6 @@ export function buildView(ctx: Ctx, playerId: string): PlayerView {
     status: s.status,
     hostId: s.hostId,
     quickMatch: !!s.quickMatch,
-    quickStartsAt: s.quickStartsAt ?? null,
     settings: s.settings,
     composition: s.composition,
     roleCatalog: allRoles().map(roleInfo),

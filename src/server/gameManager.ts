@@ -43,9 +43,7 @@ const FINISHED_TTL_MS = 30 * 60_000;
 const EMPTY_LOBBY_TTL_MS = 10 * 60_000;
 const EMPTY_GAME_TTL_MS = 15 * 60_000;
 const MAX_SIGNAL_BYTES = 32_000;
-const QUICK_MIN_PLAYERS = 4;
 const QUICK_MAX_PLAYERS = 8;
-const QUICK_START_DELAY_MS = 15_000;
 const QUICK_DISCONNECTED_TTL_MS = 30_000;
 
 export const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -75,8 +73,6 @@ export interface ManagerOptions {
   /** Délai de réaction des bots (ms). */
   botDelay?: [number, number];
   housekeepingMs?: number;
-  /** Délai avant le départ d'un salon public assez rempli (utile aux tests). */
-  quickStartDelayMs?: number;
   /** Serveur audio LiveKit (par défaut : variables d'environnement LIVEKIT_*). */
   sfu?: SfuConfig | null;
   /** Contrôle périodique de LiveKit (désactivable dans les tests). */
@@ -90,7 +86,6 @@ export class GameManager {
   private readonly now: () => number;
   private readonly rng: Rng;
   private readonly botDelay: [number, number];
-  private readonly quickStartDelayMs: number;
   private housekeeping: NodeJS.Timeout | null = null;
   private stopped = false;
   droppedSignals = 0;
@@ -108,7 +103,6 @@ export class GameManager {
     this.now = opts.now ?? Date.now;
     this.rng = opts.rng ?? cryptoRng;
     this.botDelay = opts.botDelay ?? [900, 2500];
-    this.quickStartDelayMs = opts.quickStartDelayMs ?? QUICK_START_DELAY_MS;
     this.profiles = opts.profiles ?? memoryProfileStore();
     const sfuCfg = opts.sfu === undefined ? sfuConfigFromEnv() : opts.sfu;
     this.sfu = sfuCfg ? new LiveKitBridge(sfuCfg) : null;
@@ -255,7 +249,7 @@ export class GameManager {
   private afterChange(room: GameRoom): void {
     if (this.stopped) return;
     const now = this.now();
-    this.scheduleQuickMatch(room, now);
+    this.scheduleQuickMatch(room);
     this.recordResults(room);
     this.broadcast(room, now);
     this.schedule(room, now);
@@ -264,33 +258,22 @@ export class GameManager {
     this.store.save(room.engine.state).catch((e) => console.error('[store] échec sauvegarde', room.code, e));
   }
 
-  private scheduleQuickMatch(room: GameRoom, now: number): void {
+  private scheduleQuickMatch(room: GameRoom): void {
     if (room.quickTimer) clearTimeout(room.quickTimer);
     room.quickTimer = null;
     const state = room.engine.state;
     if (!state.quickMatch || state.status !== 'lobby') return;
     const connected = state.players.filter((p) => !p.isBot && p.connected).length;
-    if (connected < QUICK_MIN_PLAYERS) {
-      state.quickStartsAt = null;
-      return;
-    }
-    if (!state.quickStartsAt) state.quickStartsAt = now + this.quickStartDelayMs;
+    if (connected !== QUICK_MAX_PLAYERS || state.players.length !== QUICK_MAX_PLAYERS) return;
     room.quickTimer = setTimeout(() => {
       room.quickTimer = null;
       const current = room.engine.state;
       if (current.status !== 'lobby' || !current.quickMatch) return;
-      if (current.players.filter((p) => !p.isBot && p.connected).length < QUICK_MIN_PLAYERS) {
-        this.afterChange(room);
-        return;
-      }
-      // Une coupure pendant l'attente ne doit pas imposer un joueur absent à la partie.
-      for (const player of [...current.players]) {
-        if (!player.isBot && !player.connected) room.engine.leave(player.id, this.now());
-      }
+      if (current.players.length !== QUICK_MAX_PLAYERS || current.players.some((p) => p.isBot || !p.connected)) return;
       try { room.engine.start(current.hostId, this.now()); }
-      catch (e) { console.error('[matchmaking] lancement impossible', room.code, e); current.quickStartsAt = null; }
+      catch (e) { console.error('[matchmaking] lancement impossible', room.code, e); return; }
       this.afterChange(room);
-    }, Math.max(0, state.quickStartsAt - now));
+    }, 0);
   }
 
   /** Après une réaction 🍅/🌸 (rien d'autre n'a changé) : état envoyé + sauvegarde, c'est tout. */

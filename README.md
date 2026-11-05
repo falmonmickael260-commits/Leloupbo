@@ -38,10 +38,9 @@ Rafraîchir un onglet ou le fermer/rouvrir reconnecte automatiquement le joueur
 ### Partie rapide
 
 Depuis l’accueil, **Partie rapide** rejoint automatiquement un salon public ouvert ou
-en crée un. Le match démarre après 15 secondes dès que 4 joueurs connectés sont
-réunis (8 maximum). Les règles et les durées rapides sont fixées par le serveur ;
-il n’y a pas de bots dans ce mode. Un départ prévu est annulé si le groupe
-redescend sous 4 joueurs. Les salons privés et leurs réglages restent disponibles.
+en crée un. Le match démarre uniquement quand 8 joueurs sont connectés ; en dessous,
+le salon attend. Les règles et les durées rapides sont fixées par le serveur ;
+il n’y a pas de bots dans ce mode. Les salons privés et leurs réglages restent disponibles.
 
 ### Commandes utiles
 

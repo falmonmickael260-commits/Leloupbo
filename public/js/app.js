@@ -320,8 +320,7 @@ function renderLobby(v) {
   quick.hidden = !v.quickMatch;
   if (v.quickMatch) {
     const connected = v.players.filter((p) => !p.isBot && p.connected).length;
-    quick.innerHTML = `<span class="quick-status-icon" aria-hidden="true">⚡</span><div><strong>${v.quickStartsAt ? 'Départ imminent' : 'Recherche de joueurs'}</strong><span>${connected}/4 joueurs minimum · règles rapides · lancement automatique${v.quickStartsAt ? ' dans <b id="quick-countdown"></b>' : ''}</span></div>`;
-    if (v.quickStartsAt) $('quick-countdown').textContent = `${Math.max(0, Math.ceil((v.quickStartsAt - (Date.now() + client.clockOffset)) / 1000))} s`;
+    quick.innerHTML = `<span class="quick-status-icon" aria-hidden="true">⚡</span><div><strong>Recherche de joueurs</strong><span>${connected}/8 joueurs · départ automatique dès que la salle est complète</span></div>`;
   }
   // Partie précédente : ce qui s'est passé chaque nuit (ouvert à la demande).
   const logKey = (v.lastNightLog ?? []).join('\n');
@@ -633,11 +632,6 @@ function renderTimer() {
   box.classList.toggle('low', s <= 5);
 }
 setInterval(renderTimer, 250);
-setInterval(() => {
-  const deadline = client.view?.status === 'lobby' ? client.view.quickStartsAt : null;
-  const countdown = $('quick-countdown');
-  if (deadline && countdown) countdown.textContent = `${Math.max(0, Math.ceil((deadline - (Date.now() + client.clockOffset)) / 1000))} s`;
-}, 250);
 // Fin de partie : compte à rebours avant le retour automatique de tout le monde au lobby.
 function renderGameOverCount() {
   const el = document.getElementById('go-count');
