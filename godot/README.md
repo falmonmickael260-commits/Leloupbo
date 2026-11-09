@@ -67,4 +67,8 @@ Décors `village-christmas-{day,sunset,night}.png` et variantes Web identiques.
 Les anciens décors restent disponibles dans les sources. Les boules de neige
 utilisent la commande historique `tomato` : mêmes quantités, cibles, permissions
 et sauvegardes. Seuls l’illustration, les textes et le son changent. La neige
-est une couche CSS de 48 flocons, masquée en animations réduites et sur Clairière.
+est une couche CSS de 160 flocons, masquée en animations réduites et sur Clairière.
+
+L’éclairage nocturne utilise directement les détails du décor : fenêtres,
+lanternes, guirlandes et gravure. Aucun halo calculé à partir de la luminosité
+des pavés, aucun voile de brume lumineux ni nappe additive sous les joueurs.

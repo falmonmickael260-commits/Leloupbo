@@ -1,6 +1,6 @@
 import { reducedMotion } from '../juice.js';
 // Nouvelle URL pour recharger l’export corrigé, y compris après une reconnexion.
-const BACKDROP_URL = '/godot/village.html?theme=christmas-v1';
+const BACKDROP_URL = '/godot/village.html?theme=christmas-v2';
 
 export function backdropPhase(values) {
   const night=Math.max(0,Math.min(0.86,Number(values?.night)||0));
@@ -15,9 +15,9 @@ export class GodotBackdrop {
     board.stage.querySelector('.scenery').appendChild(this.sunset);
     this.snow=document.createElement('div');this.snow.className='christmas-snow';
     this.snow.setAttribute('aria-hidden','true');
-    for(let i=0;i<48;i++){
+    for(let i=0;i<160;i++){
       const flake=document.createElement('i');
-      flake.style.cssText=`--x:${(i*137.508)%100}%;--size:${2+i%4}px;--duration:${13+i%11}s;--delay:-${i*.71}s;--drift:${25+(i%5)*12}px;--alpha:${.35+(i%4)*.12}`;
+      flake.style.cssText=`--x:${(i*137.508)%100}%;--size:${3+i%5}px;--duration:${9+i%8}s;--delay:-${i*.71}s;--drift:${30+(i%5)*15}px;--alpha:${.60+(i%4)*.10}`;
       this.snow.appendChild(flake);
     }
     board.stage.querySelector('.scenery').appendChild(this.snow);

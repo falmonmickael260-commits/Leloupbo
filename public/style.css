@@ -1227,7 +1227,7 @@ body.role-selection #narrator { display: none !important; }
 /* Noël : neige légère, uniquement sur le décor, sans intercepter les commandes. */
 .scenery > .christmas-snow { display:none;z-index:2;position:absolute;left:0;top:160px;width:1536px;height:864px;overflow:hidden;pointer-events:none; }
 .remastered .scenery > .christmas-snow:not([hidden]) { display:block; }
-.christmas-snow i { position:absolute;left:var(--x);top:-12px;width:var(--size);height:var(--size);border-radius:50%;background:#f4fbff;opacity:var(--alpha);box-shadow:0 0 3px #d5efff70;animation:christmas-snowfall var(--duration) var(--delay) linear infinite; }
+.christmas-snow i { position:absolute;left:var(--x);top:-12px;width:var(--size);height:var(--size);border-radius:50%;background:radial-gradient(circle,#fff 0 38%,#eef8ffcf 56%,#e4f3ff00 74%);opacity:var(--alpha);animation:christmas-snowfall var(--duration) var(--delay) linear infinite; }
 @keyframes christmas-snowfall { from { transform:translate3d(0,-10px,0); } to { transform:translate3d(var(--drift),890px,0); } }
 .reduce-motion .christmas-snow { display:none !important; }
 @media (prefers-reduced-motion:reduce) { .christmas-snow { display:none !important; } }

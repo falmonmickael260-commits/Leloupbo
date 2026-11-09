@@ -211,7 +211,7 @@ func _apply_lighting() -> void:
 	plaza_seal.ignition = smoothstep(0.78,0.99,phase)
 	plaza_seal._sync_effect()
 	solar_material.set_shader_parameter("phase",phase)
-	fog_material.set_shader_parameter("strength",0.12+phase*0.22)
+	fog_material.set_shader_parameter("strength",0.0) # Aucun voile lumineux global sur la neige ou les pavés.
 	var sun_position := Vector2(1060,44).lerp(Vector2(920,245),phase)
 	for person in characters:
 		person.set_sunlight(phase,sun_position)

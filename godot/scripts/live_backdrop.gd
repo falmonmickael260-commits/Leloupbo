@@ -65,7 +65,7 @@ func _receive(args: Array) -> void:
   var scale_factor := float(player.get("k",1.0))
   item.scale = Vector2(0.954,1.055)*scale_factor
   item.projected_shadow.visible = bool(player.get("alive",true))
-  item.player_light_pool.visible = bool(player.get("alive",true))
+  item.player_light_pool.visible = false # Les joueurs ne sont pas des sources lumineuses.
   item.animated = not reduced
  for id in people.keys():
   if not seen.has(id):

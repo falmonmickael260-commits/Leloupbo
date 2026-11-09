@@ -69,6 +69,14 @@ func run() -> void:
 	check(is_equal_approx(scene.plaza_seal.clock, frozen_seal), "La pulsation de la griffe doit s'arrêter")
 	check(scene.plaza_seal.effect.get_shader_parameter("pulse_enabled") == false, "La lumière doit rester fixe en mouvements réduits")
 	check(scene.camera.offset == Vector2.ZERO, "La caméra doit être fixe en mouvements réduits")
+	check(is_zero_approx(float(scene.fog_material.get_shader_parameter("strength"))), "Aucun voile lumineux ne doit éclairer tout le sol")
+	var live = load("res://scenes/live_backdrop.tscn").instantiate()
+	root.add_child(live)
+	await process_frame
+	live._receive([JSON.stringify({"active":true,"mode":"running","phase":1.0,"players":[{"id":"p1","avatar":"v-forgeron","x":300,"y":600,"k":1.0,"alive":true}]})])
+	check(live.people.has("p1"), "Le décor doit suivre le siège public du joueur")
+	check(not live.people["p1"].player_light_pool.visible, "Le joueur ne doit pas émettre de lumière sur le sol")
+	live.queue_free()
 	print("GODOT_SMOKE: %d erreur(s)" % failures)
 	scene.queue_free()
 	await process_frame
