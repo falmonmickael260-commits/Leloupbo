@@ -1,4 +1,6 @@
 import { reducedMotion } from '../juice.js';
+// Nouvelle URL pour recharger l’export corrigé, y compris après une reconnexion.
+const BACKDROP_URL = '/godot/village.html?resolution=2';
 
 export function backdropPhase(values) {
   const night=Math.max(0,Math.min(0.86,Number(values?.night)||0));
@@ -29,7 +31,7 @@ export class GodotBackdrop {
     this.applyMode();this.push();
     if(this.enabled&&!this.starting&&this.board.lastView?.status==='running'){
       this.starting=true;
-      this.canvas.src='/godot/village.html';
+      this.canvas.src=BACKDROP_URL;
     }
   }
 
@@ -48,7 +50,7 @@ export class GodotBackdrop {
     this.push();
   }
   push() {
-    if(this.enabled&&!this.starting&&this.board.lastView?.status==='running'){this.starting=true;this.canvas.src='/godot/village.html';}
+    if(this.enabled&&!this.starting&&this.board.lastView?.status==='running'){this.starting=true;this.canvas.src=BACKDROP_URL;}
     if(!this.ready)return;
     const players=[...this.board.layout].map(([id,pos])=>{
       const player=this.board.lastView?.players.find(p=>p.id===id);

@@ -48,8 +48,15 @@ Les tests automatisés couvrent notamment les régressions de capture micro,
 les changements asynchrones de permissions, la récupération SFU après un
 refus initial, la trajectoire des réactions et le calcul du cycle visuel.
 
-Le chargement du moteur dans le navigateur a été observé. Le test automatisé
-de lobby avec huit joueurs a toutefois expiré avec le nouveau décor :
-la validation complète des performances et des interactions reste à terminer.
+Le test navigateur vérifie la création du salon, huit joueurs et le démarrage
+d’une partie avec Godot actif, sans erreur JavaScript. La version intègre
+également les invitations et le portefeuille de la branche précédemment déployée.
 Les appareils mobiles physiques et un serveur LiveKit réel restent à vérifier.
 Cette branche de travail ne constitue pas une validation de mise en production.
+
+## Résolution du décor Web
+
+Le canevas doit suivre les dimensions de son cadre (`canvas_resize_policy=2`).
+La valeur 0 conserve la taille HTML par défaut de 300 × 150 pixels, ensuite
+étirée à 1536 × 864 : elle provoque une forte pixellisation au démarrage de
+Godot. Vérifier les dimensions internes du canevas à DPR 1 et 2 après export.
