@@ -440,8 +440,8 @@ export class Board extends EventTarget {
   potionEffect(playerId, kind) { this.effects.potion(this.center(playerId), kind); }
 
   /**
-   * Réaction sociale : une 🍅 (en vrille, éclaboussure à l'arrivée) ou une 🌸 (vol doux,
-   * pluie de pétales) part du lanceur vers celui qui parle, avec « 🍅 Sarah » au-dessus de lui.
+   * Réaction sociale : une ❄️ (en vrille, poudre à l'arrivée) ou une 🌸 (vol doux,
+   * pluie de pétales) part du lanceur vers celui qui parle, avec « ❄️ Sarah » au-dessus de lui.
    * Purement décoratif, quelques éléments animés par le navigateur (léger sur téléphone).
    */
   throwReaction(fromId, toId, kind, label) {

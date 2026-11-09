@@ -1,7 +1,8 @@
 import { reducedMotion } from '../juice.js';
 
 let projectileSequence=0;
-const TOMATO = `<svg viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="tomato-red"><stop stop-color="#ff9a64"/><stop offset=".48" stop-color="#ed4931"/><stop offset="1" stop-color="#9f171c"/></radialGradient></defs><path d="M22 47C12 75 35 90 51 86C77 91 94 69 78 45C65 25 33 25 22 47Z" fill="url(#tomato-red)" stroke="#711b22" stroke-width="3"/><path d="M50 39L33 28L42 42L26 46L46 49L51 60L57 47L77 45L61 40L68 29L53 36L56 19" fill="#48773d" stroke="#284c34" stroke-width="3" stroke-linejoin="round"/><ellipse cx="32" cy="56" rx="6" ry="10" fill="#ffd4ab" opacity=".55" transform="rotate(25 32 56)"/></svg>`;
+// Le protocole conserve « tomato » pour les parties et sauvegardes existantes.
+const SNOWBALL = `<svg viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="snow-white" cx=".32" cy=".25" r=".8"><stop stop-color="#ffffff"/><stop offset=".52" stop-color="#edf8ff"/><stop offset="1" stop-color="#9fc8e4"/></radialGradient></defs><path d="M18 41Q16 24 38 17Q59 10 75 25Q90 35 85 57Q85 77 64 84Q40 94 25 73Q13 61 18 41Z" fill="url(#snow-white)" stroke="#86b5d2" stroke-width="2"/><path d="M26 43Q30 28 44 25M31 61L34 63M66 36L69 38M49 70L53 71" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M63 70L68 66M69 52L73 50" stroke="#b1d4e9" stroke-width="3" stroke-linecap="round"/></svg>`;
 const FLOWER = `<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M49 43Q42 69 57 94" fill="none" stroke="#497c43" stroke-width="5"/><path d="M48 72Q16 68 30 56Q45 53 48 72M50 81Q77 77 75 64Q60 62 50 81" fill="#71994b" stroke="#3a693c" stroke-width="2"/><g fill="#f4a9bd" stroke="#bd6087" stroke-width="1.6"><ellipse cx="50" cy="23" rx="11" ry="20"/><ellipse cx="50" cy="23" rx="11" ry="20" transform="rotate(60 50 40)"/><ellipse cx="50" cy="23" rx="11" ry="20" transform="rotate(120 50 40)"/><ellipse cx="50" cy="23" rx="11" ry="20" transform="rotate(180 50 40)"/><ellipse cx="50" cy="23" rx="11" ry="20" transform="rotate(240 50 40)"/><ellipse cx="50" cy="23" rx="11" ry="20" transform="rotate(300 50 40)"/></g><circle cx="50" cy="40" r="11" fill="#f5ce6d" stroke="#ac7736" stroke-width="2"/></svg>`;
 
 /** Courbe pure : départ et arrivée exacts ; aucun effet sur la cible métier. */
@@ -56,7 +57,7 @@ export class ReactionEffects {
     const tomato=kind==='tomato';
     if(label)this.tag(end,kind,label,short);
     if(!short){
-      const item=this.node(`reaction-projectile ${kind}`,tomato?TOMATO.replaceAll('tomato-red',`tomato-red-${++projectileSequence}`):FLOWER);
+      const item=this.node(`reaction-projectile ${kind}`,tomato?SNOWBALL.replaceAll('snow-white',`snow-white-${++projectileSequence}`):FLOWER);
       const shadow=this.node('reaction-flight-shadow');
       const samples=reactionFlight(start,end,kind);
       const duration=tomato?680:1050;
@@ -69,7 +70,7 @@ export class ReactionEffects {
     }
     if(generation!==this.generation)return;
     this.impact(end,kind,short||reducedMotion());
-    this.sound(tomato?'splat':'chime');
+    this.sound(tomato?'snowpuff':'chime');
   }
   impact(point,kind,short) {
     const tomato=kind==='tomato';
@@ -92,7 +93,7 @@ export class ReactionEffects {
   }
   tag(point,kind,label,short) {
     const node=this.node(`react-tag ${kind}`);
-    node.textContent=`${kind==='tomato'?'🍅':'🌸'} ${label}`;
+    node.textContent=`${kind==='tomato'?'❄️':'🌸'} ${label}`;
     node.style.left=`${point.x}px`;node.style.top=`${point.y-190}px`;
     const bounds=this.layer.getBoundingClientRect();
     const scale=bounds.width/(this.layer.offsetWidth||1)||1;

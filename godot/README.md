@@ -60,3 +60,11 @@ Le canevas doit suivre les dimensions de son cadre (`canvas_resize_policy=2`).
 La valeur 0 conserve la taille HTML par défaut de 300 × 150 pixels, ensuite
 étirée à 1536 × 864 : elle provoque une forte pixellisation au démarrage de
 Godot. Vérifier les dimensions internes du canevas à DPR 1 et 2 après export.
+
+## Thème Noël
+
+Décors `village-christmas-{day,sunset,night}.png` et variantes Web identiques.
+Les anciens décors restent disponibles dans les sources. Les boules de neige
+utilisent la commande historique `tomato` : mêmes quantités, cibles, permissions
+et sauvegardes. Seuls l’illustration, les textes et le son changent. La neige
+est une couche CSS de 48 flocons, masquée en animations réduites et sur Clairière.

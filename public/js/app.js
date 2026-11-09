@@ -669,6 +669,7 @@ board.addEventListener('sfx', (e) => {
   else if (e.detail === 'ghost' && st === 'running' && nightSoundsOn()) sfx.ghostMoan(.035);
   else if (e.detail === 'rack' && st && st !== 'lobby') sfx.shotgunRack();
   else if (e.detail === 'splat') sfx.splat();
+  else if (e.detail === 'snowpuff') sfx.snowpuff();
   else if (e.detail === 'chime') sfx.chime();
   else if (e.detail === 'dawn' && st === 'running' && !(Date.now() < (ui.noBirdsUntil ?? 0))) sfx.dawn();
 });
@@ -1479,9 +1480,9 @@ function render() {
   $('btn-leave-game').textContent = v.status === 'finished' ? 'Quitter' : 'Quitter la partie (abandon)';
 }
 
-// ================================================================== RÉACTIONS 🍅 / 🌸
+// ================================================================== RÉACTIONS ❄️ / 🌸
 // Purement sociales : le serveur compte (7 + 7 par tour de vote), vérifie et diffuse ;
-// ici on n'affiche que ses chiffres et on anime le fil public « 🍅 Sarah → Micka ».
+// ici on n'affiche que ses chiffres et on anime le fil public « ❄️ Sarah → Micka ».
 function renderReactions(v) {
   const bar = $('react-bar');
   const r = v.reactions;
@@ -1508,7 +1509,7 @@ function renderReactions(v) {
   }
 }
 
-/** Phrase à l'écran pour tout le monde : « 🍅 Sarah a jeté une tomate sur Micka ». */
+/** Phrase à l'écran pour tout le monde : « ❄️ Sarah a jeté une boule de neige sur Micka ». */
 function reactionLine(v, e) {
   const box = $('react-feed');
   const tomato = e.kind === 'tomato';
@@ -1518,7 +1519,7 @@ function reactionLine(v, e) {
   line.className = `react-line ${e.kind}`;
   // Pour l'orateur visé, le sens de la réaction est dit en clair.
   const meaning = e.to === v.me.id ? (tomato ? ' : il pense que tu mens !' : ' : il croit ce que tu dis !') : '';
-  line.innerHTML = `<span class="ico">${tomato ? '🍅' : '🌸'}</span><span>${from} jeté ${tomato ? 'une tomate' : 'une fleur'} sur <b>${who(e.to)}</b>${meaning}</span>`;
+  line.innerHTML = `<span class="ico">${tomato ? '❄️' : '🌸'}</span><span>${from} jeté ${tomato ? 'une boule de neige' : 'une fleur'} sur <b>${who(e.to)}</b>${meaning}</span>`;
   line.classList.toggle('mine', e.to === v.me.id);
   box.appendChild(line);
   while (box.children.length > 3) box.firstElementChild.remove(); // 3 lignes au maximum

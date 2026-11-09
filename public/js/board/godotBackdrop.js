@@ -1,6 +1,6 @@
 import { reducedMotion } from '../juice.js';
 // Nouvelle URL pour recharger l’export corrigé, y compris après une reconnexion.
-const BACKDROP_URL = '/godot/village.html?resolution=2';
+const BACKDROP_URL = '/godot/village.html?theme=christmas-v1';
 
 export function backdropPhase(values) {
   const night=Math.max(0,Math.min(0.86,Number(values?.night)||0));
@@ -11,8 +11,16 @@ export class GodotBackdrop {
   constructor(board) {
     this.board=board;this.phase=0;this.enabled=false;
     this.sunset=document.createElement('img');this.sunset.className='remaster-sunset';
-    this.sunset.src='/assets/decor/remaster-sunset.png';this.sunset.alt='';this.sunset.draggable=false;
+    this.sunset.src='/assets/decor/remaster-christmas-sunset.png';this.sunset.alt='';this.sunset.draggable=false;
     board.stage.querySelector('.scenery').appendChild(this.sunset);
+    this.snow=document.createElement('div');this.snow.className='christmas-snow';
+    this.snow.setAttribute('aria-hidden','true');
+    for(let i=0;i<48;i++){
+      const flake=document.createElement('i');
+      flake.style.cssText=`--x:${(i*137.508)%100}%;--size:${2+i%4}px;--duration:${13+i%11}s;--delay:-${i*.71}s;--drift:${25+(i%5)*12}px;--alpha:${.35+(i%4)*.12}`;
+      this.snow.appendChild(flake);
+    }
+    board.stage.querySelector('.scenery').appendChild(this.snow);
     this.canvas=document.createElement('iframe');this.canvas.id='meute-village-canvas';this.canvas.className='godot-backdrop';
     this.canvas.setAttribute('aria-hidden','true');this.canvas.setAttribute('title','Décor du village');
     this.canvas.setAttribute('sandbox','allow-scripts allow-same-origin');
@@ -51,6 +59,7 @@ export class GodotBackdrop {
   }
   push() {
     if(this.enabled&&!this.starting&&this.board.lastView?.status==='running'){this.starting=true;this.canvas.src=BACKDROP_URL;}
+    this.snow.hidden=!this.enabled||reducedMotion();
     if(!this.ready)return;
     const players=[...this.board.layout].map(([id,pos])=>{
       const player=this.board.lastView?.players.find(p=>p.id===id);

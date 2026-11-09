@@ -867,3 +867,22 @@ export function outcome(won, volume = .12) {
     o.connect(env).connect(master); o.start(t); o.stop(t + 1);
   });
 }
+
+/** Neige : impact bref et feutré, sans bruit mouillé. */
+export function snowpuff(volume = 0.18) {
+  const c = ready();
+  if (!c) return;
+  const t = c.currentTime;
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer(c, 0.16);
+  const filter = c.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(2600, t);
+  filter.frequency.exponentialRampToValueAtTime(450, t + 0.14);
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(0.001, t);
+  gain.gain.linearRampToValueAtTime(volume, t + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+  src.connect(filter).connect(gain).connect(master);
+  src.start(t); src.stop(t + 0.16);
+}

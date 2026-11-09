@@ -32,9 +32,9 @@ var plaza_seal: Node
 func _ready() -> void:
 	world = Node2D.new()
 	add_child(world)
-	daytime_background = _image("res://assets/decor/village-autumn-day.png")
-	sunset_background = _image("res://assets/decor/village-autumn-sunset.png")
-	background = _image("res://assets/decor/village-autumn-night.png")
+	daytime_background = _image("res://assets/decor/village-christmas-day.png")
+	sunset_background = _image("res://assets/decor/village-christmas-sunset.png")
+	background = _image("res://assets/decor/village-christmas-night.png")
 	plaza_seal = PlazaSeal.new()
 	world.add_child(plaza_seal)
 	plaza_seal.attach_to(background)
