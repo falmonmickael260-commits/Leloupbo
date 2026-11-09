@@ -149,6 +149,7 @@ export class DayNight {
   }
 
   apply(v) {
+    this.onValues?.(v);
     const e = this.el;
     this.applySky(v);
     const r = (x) => (Math.round(x * 25) / 25).toFixed(2); // opacités par paliers (invisibles)

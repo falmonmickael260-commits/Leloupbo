@@ -5,3 +5,6 @@ data/
 .env
 .env.local
 .env*.local
+
+# Notes et fichiers de travail locaux
+work/

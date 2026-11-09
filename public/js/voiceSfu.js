@@ -159,10 +159,23 @@ export class VoiceSFU extends EventTarget {
 
   /** Une seule reprise de capture, y compris lors de retours simultanés du téléphone. */
   async recoverMicrophone(deviceId = 'default') {
-    if (!this.active || this.recovering || !this.micTrack) return;
+    if (!this.active || this.recovering) return;
     this.recovering = true;
     try {
-      await this.micTrack.restartTrack({ deviceId });
+      if (this.micTrack) {
+        await this.micTrack.restartTrack({ deviceId });
+      } else {
+        // Nouvel essai explicite après refus initial : l'écoute seule reste utilisable.
+        const LK = await loadLiveKit();
+        const next = await LK.createLocalAudioTrack({ deviceId, echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 });
+        if (!this.active) { next.stop(); return; }
+        this.micTrack = next;
+        if (!IS_IOS && !this.meterCtx) try {
+          this.meterCtx = new (window.AudioContext || window.webkitAudioContext)();
+          this.meter = this.meterCtx.createAnalyser();
+          this.meter.fftSize = 256;
+        } catch { this.meter = null; }
+      }
       if (!this.active) { this.micTrack?.stop(); return; }
       if (this.meterCtx && this.meter) {
         this.meterSource?.disconnect();
@@ -422,6 +435,7 @@ export class VoiceSFU extends EventTarget {
     this.room?.disconnect();
     this.micTrack?.stop();
     this.micTrack = null;
+    this.hasMic = false;
     this.meterCtx?.close().catch(() => {});
     this.meterCtx = null;
     this.meter = null;

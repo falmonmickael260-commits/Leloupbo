@@ -199,3 +199,73 @@ describe('Navigateur voix — régressions avec transports simulés', () => {
     v.stop(); assert.equal(localTrack.mediaStreamTrack.readyState, 'ended');
   });
 });
+
+it('mesh conserve le micro actif si le nouveau périphérique échoue', async () => {
+  capture = async () => stream();
+  const v = new VoiceMesh(new Client()); await v.start({ peers: ['b'] }); await settle();
+  const old = v.stream.getAudioTracks()[0];
+  capture = async () => { throw Object.assign(new Error('missing device'), { name: 'NotFoundError' }); };
+  try {
+    await assert.rejects(v.setInputDevice('missing'), /missing device/);
+    assert.equal(old.readyState, 'live');
+    assert.equal(v.state().hasMic, true);
+    assert.equal(v.state().sending, true);
+  } finally { v.stop(); }
+});
+
+it('mesh retire une émission devenue interdite pendant replaceTrack', async () => {
+  capture = async () => stream();
+  const c = new Client(); const v = new VoiceMesh(c);
+  c.view.voice = { canSpeak: false, speakTo: [], hearFrom: [] };
+  await v.start({ peers: ['b'] }); await settle();
+  const sender = v.peers.get('b').pc.getTransceivers()[0].sender;
+  const waiting: { track: any; resolve: () => void }[] = [];
+  sender.replaceTrack = (next: any) => new Promise<void>(resolve => waiting.push({ track: next, resolve: () => { sender.track=next; resolve(); } }));
+  try {
+    c.view.voice = { canSpeak: true, speakTo: ['b'], hearFrom: ['b'] };
+    c.dispatchEvent(new CustomEvent('view')); await settle();
+    assert.equal(waiting.length, 1);
+    c.view.voice = { canSpeak: true, speakTo: [], hearFrom: [] };
+    c.dispatchEvent(new CustomEvent('view'));
+    waiting.shift()!.resolve(); await settle();
+    while(waiting.length) { waiting.shift()!.resolve(); await settle(); }
+    assert.equal(sender.track, null);
+  } finally { v.stop(); }
+});
+
+it('SFU permet de redemander le micro après un refus initial et nettoie son état à la sortie', async () => {
+  const sdk = (globalThis as any).window.LivekitClient;
+  const initial = sdk.createLocalAudioTrack;
+  sdk.createLocalAudioTrack = async () => { throw Object.assign(new Error('denied'), { name: 'NotAllowedError' }); };
+  const v = new VoiceSFU(new Client()); await v.start({}); await settle();
+  assert.equal(v.state().hasMic, false);
+  localTrack = { mediaStreamTrack: track(), isMuted: false,
+    async mute() { this.isMuted=true; }, async unmute() { this.isMuted=false; },
+    async restartTrack() {}, stop() { this.mediaStreamTrack.stop(); },
+  };
+  sdk.createLocalAudioTrack = async () => localTrack;
+  try {
+    await v.recoverMicrophone(); await settle();
+    assert.equal(v.state().hasMic, true);
+    assert.equal(v.state().sending, true);
+    v.stop();
+    assert.equal(v.state().hasMic, false);
+  } finally { sdk.createLocalAudioTrack=initial; v.stop(); }
+});
+
+it('mesh observe aussi les pistes distantes reçues avant la création de la jauge', async () => {
+  const previousPC=(globalThis as any).RTCPeerConnection;
+  const previousContext=(globalThis as any).AudioContext;
+  (globalThis as any).RTCPeerConnection=class extends PC {
+    constructor() { super(); queueMicrotask(()=>this.ontrack?.({track:track()})); }
+  };
+  (globalThis as any).AudioContext=class {
+    createMediaStreamSource() { return {connect(){},disconnect(){}}; }
+    createAnalyser() { return {fftSize:256,getByteTimeDomainData(buffer:Uint8Array){buffer.fill(128);}}; }
+    async close() {}
+  };
+  capture=async()=>stream();
+  const v=new VoiceMesh(new Client());
+  try { await v.start({peers:['b']}); assert.ok(v.analysers.has('b')); }
+  finally { v.stop(); (globalThis as any).RTCPeerConnection=previousPC; (globalThis as any).AudioContext=previousContext; }
+});

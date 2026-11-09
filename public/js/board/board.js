@@ -9,6 +9,8 @@ import { characterSVG } from '../art/characters.js';
 import { SpectralVillage } from './specters.js';
 import { VillageEffects, deathPresentation } from './effects.js';
 import { DayNight } from './daynight.js';
+import { ReactionEffects } from './reactions.js';
+import { GodotBackdrop } from './godotBackdrop.js';
 
 export const BOARD_W = 1536;
 export const BOARD_H = 1024;
@@ -53,9 +55,13 @@ export class Board extends EventTarget {
     this.pionLayer = root.querySelector('.pions');
     this.fx = root.querySelector('.fx');
     this.effects = new VillageEffects(this.stage, this.fx);
+    this.reactionEffects = new ReactionEffects(this.fx, (id) => this.center(id), (detail) => this.dispatchEvent(new CustomEvent('sfx', { detail })));
     document.addEventListener('visibilitychange', () => this.stage.classList.toggle('scene-paused', document.hidden));
     this.stars();
     this.daynight = new DayNight(this.stage);
+    this.backdrop = new GodotBackdrop(this);
+    this.daynight.onValues = (values) => this.backdrop.light(values);
+    this.backdrop.light(this.daynight.values);
     this.specters = new SpectralVillage(this.stage);
     this.specters.onAppear = () => this.dispatchEvent(new CustomEvent('sfx', { detail: 'ghost' }));
     this.decor = null;
@@ -89,6 +95,7 @@ export class Board extends EventTarget {
     let decor = forced || name || DEFAULT_DECOR;
     if (decor === this.decor) return;
     this.decor = decor;
+    this.backdrop.setDecor(decor);
     this.loadLights(decor);
   }
 
@@ -102,7 +109,7 @@ export class Board extends EventTarget {
     const village = this.stage.querySelector('.village');
     const lightsImg = this.stage.querySelector('.lights');
     try {
-      const url = decor === 'village' || !/^[a-z0-9-]+$/i.test(decor) ? '/assets/lights.json' : `/assets/decor/${decor}.json`;
+      const url = decor === 'blackops' || decor === 'blackops-mobile' ? '/assets/decor/blackops-remaster.json' : decor === 'village' || !/^[a-z0-9-]+$/i.test(decor) ? '/assets/lights.json' : `/assets/decor/${decor}.json`;
       let data = await (await fetch(url)).json();
       if (token !== this.loadToken) return; // une autre map a été demandée entre-temps
       // Téléphone tenu en hauteur : version du décor dessinée en hauteur, si la map en a une.
@@ -292,8 +299,8 @@ export class Board extends EventTarget {
     const previous = this.lastView;
     this.lastUI = ui;
     this.lastView = v;
-    if (!v) { this.effects.clear(); return; }
-    if (previous?.code !== v.code || v.status === 'lobby' && previous?.status !== 'lobby') this.effects.clear();
+    if (!v) { this.effects.clear(); this.reactionEffects.clear(); this.backdrop.push(); return; }
+    if (previous?.code !== v.code || v.status === 'lobby' && previous?.status !== 'lobby') { this.effects.clear(); this.reactionEffects.clear(); }
     this.setDecor(v.settings?.map);
     const key = `${v.players.map((p) => `${p.id}:${p.seat}`).join(',')}|${v.me.id}`;
     if (key !== this.layoutKey) {
@@ -414,6 +421,7 @@ export class Board extends EventTarget {
         this.pions.delete(id);
       }
     }
+    this.backdrop.push();
   }
 
   center(id) {
@@ -437,60 +445,7 @@ export class Board extends EventTarget {
    * Purement décoratif, quelques éléments animés par le navigateur (léger sur téléphone).
    */
   throwReaction(fromId, toId, kind, label) {
-    const a = this.center(fromId);
-    const b = this.center(toId);
-    if (!b) return;
-    const tomato = kind === 'tomato';
-    const start = a ?? { x: b.x, y: b.y - 260 };
-    const end = { x: b.x + (Math.random() * 40 - 20), y: b.y - 10 };
-    const item = document.createElement('div');
-    item.className = `react-item ${kind}`;
-    item.textContent = tomato ? '🍅' : '🌸';
-    this.fx.appendChild(item);
-    // Trajectoire en cloche (courbe), la tomate tourne vite, la fleur se balance.
-    const lift = Math.max(120, Math.hypot(end.x - start.x, end.y - start.y) * 0.35);
-    const frames = [];
-    for (let i = 0; i <= 10; i++) {
-      const t = i / 10;
-      const x = start.x + (end.x - start.x) * t;
-      const y = start.y + (end.y - start.y) * t - lift * 4 * t * (1 - t);
-      const rot = tomato ? 540 * t : 18 * Math.sin(t * Math.PI * 3);
-      const sc = tomato ? 0.7 + 0.5 * t : 0.6 + 0.6 * Math.sin((t * Math.PI) / 2);
-      frames.push({ transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${rot.toFixed(0)}deg) scale(${sc.toFixed(2)})` });
-    }
-    const fly = item.animate(frames, { duration: tomato ? 520 : 900, easing: tomato ? 'cubic-bezier(.4,0,.8,.6)' : 'cubic-bezier(.3,.1,.3,1)', fill: 'forwards' });
-    fly.finished
-      .then(() => {
-        item.remove();
-        const hit = document.createElement('div');
-        hit.className = `react-hit ${kind}`;
-        hit.style.transform = `translate(${end.x}px, ${end.y}px)`;
-        hit.innerHTML = tomato
-          ? '<i></i><i></i><i></i><i></i><i></i><i></i><b></b>'
-          : '<i>🌸</i><i>🌸</i><i>🌸</i><i>🌸</i><i>🌸</i><b></b>';
-        this.fx.appendChild(hit);
-        setTimeout(() => hit.remove(), 1100);
-        this.dispatchEvent(new CustomEvent('sfx', { detail: tomato ? 'splat' : 'chime' }));
-      })
-      .catch(() => item.remove());
-    // Étiquette publique « 🍅 Sarah » au-dessus du joueur qui parle.
-    if (label) {
-      const tag = document.createElement('div');
-      tag.className = `react-tag ${kind}`;
-      tag.style.left = `${b.x}px`;
-      tag.style.top = `${b.y - 190}px`;
-      tag.textContent = `${tomato ? '🍅' : '🌸'} ${label}`;
-      this.fx.appendChild(tag);
-      // Joueur au bord de l'écran : l'étiquette est décalée pour rester entièrement visible.
-      // (calcul sur la taille réelle, sans l'animation d'apparition, à l'échelle du plateau)
-      const fr = this.fx.getBoundingClientRect();
-      const k = fr.width / (this.fx.offsetWidth || 1) || 1;
-      const half = (tag.offsetWidth * k) / 2;
-      const cx = fr.left + b.x * k;
-      const over = Math.max(0, cx + half - (window.innerWidth - 8)) - Math.max(0, 8 - (cx - half));
-      if (over) tag.style.left = `${b.x - over / k}px`;
-      setTimeout(() => tag.remove(), 2200);
-    }
+    return this.reactionEffects.throw(fromId, toId, kind, label);
   }
 
   /** Révélation des votes : une flèche de chaque votant vers sa cible + nombre de voix. */

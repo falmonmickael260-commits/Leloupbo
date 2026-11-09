@@ -1182,3 +1182,27 @@ input[type='checkbox'] { accent-color: #e2b450; }
   .action p { font-size: 12px; }
   .narration { font-size: 20px !important; }
 }
+
+/* Réactions : silhouettes dessinées, trajectoires et impacts, sans déplacer le plateau. */
+.reaction-projectile { position:absolute;left:0;top:0;width:76px;height:76px;margin:-38px;pointer-events:none;z-index:1700;will-change:transform;filter:drop-shadow(0 5px 4px #0006); }
+.reaction-projectile svg { display:block;width:100%;height:100%; }
+.reaction-flight-shadow { position:absolute;left:-21px;top:-5px;width:42px;height:10px;border-radius:50%;background:#120805;filter:blur(3px);pointer-events:none;z-index:1698; }
+.reaction-stain { position:absolute;width:98px;height:76px;border-radius:48% 55% 42% 58%;pointer-events:none;z-index:1700; }
+.reaction-stain.tomato { background:radial-gradient(ellipse,#b62825b8 0 22%,#df4b3599 32%,#a6191d55 55%,transparent 72%); }
+.reaction-stain.flower { background:radial-gradient(ellipse,#f9d9d77a, #eaa7bd35 45%,transparent 72%); }
+.reaction-particle { position:absolute;pointer-events:none;z-index:1701; }
+.reaction-particle.tomato { width:12px;height:18px;border-radius:65% 35% 60% 30%;background:linear-gradient(145deg,#fa8a56,#c92d2a 65%);box-shadow:inset 1px 1px #ffb881; }
+.reaction-particle.flower { width:17px;height:25px;border-radius:65% 40% 60% 35%;background:radial-gradient(ellipse at 35% 25%,#ffe9ee,#eda9c3 60%,#c780a1);box-shadow:inset 1px 1px #fff4; }
+
+/* Le nouveau décor est uniquement une couche visuelle ; les pions et commandes restent en HTML. */
+.scenery > .godot-backdrop, .scenery > .remaster-sunset { pointer-events:none;position:absolute;inset:auto;left:0;top:160px;width:1536px;height:864px; }
+.godot-backdrop { visibility:hidden;outline:none; }
+.remaster-sunset { display:none; }
+.remastered .scenery > .village, .remastered .scenery > .lights { inset:auto;left:0;top:160px;width:1536px;height:864px;filter:none;object-fit:fill; }
+.remastered .scenery > .remaster-sunset { display:block;opacity:var(--remaster-sunset,0); }
+.remastered .scenery > .lights { opacity:var(--remaster-night,0) !important;mix-blend-mode:normal; }
+.remastered .scenery > .town-sign, .remastered .scenery > .tint, .remastered .scenery > .night, .remastered .scenery > .moonlight, .remastered .sky > .sun, .remastered .sky > .moon, .remastered .sky > .stars { display:none; }
+.remastered.godot-ready .scenery > :not(.godot-backdrop):not(.sky) { visibility:hidden; }
+.remastered .pion:not(.dead) .figure .character { filter:brightness(calc(1.05 + var(--night,0)*.35)) saturate(1.02) drop-shadow(0 3px 2px #0007); }
+.godot-backdrop { border:0;display:block; }
+.halloween .godot-backdrop { filter:hue-rotate(-16deg) saturate(1.12); }

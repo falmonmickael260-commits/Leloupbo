@@ -1,0 +1,20 @@
+; Prototype visuel indépendant. Le serveur TypeScript reste inchangé.
+config_version=5
+
+[application]
+config/name="La Meute Noire — prototype Godot"
+run/main_scene="res://scenes/village.tscn"
+run/main_scene.web="res://scenes/live_backdrop.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+
+[display]
+window/size/viewport_width=1500
+window/size/viewport_height=844
+window/size/window_width_override=1200
+window/size/window_height_override=675
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.025, 0.03, 0.06, 1)

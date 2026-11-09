@@ -141,6 +141,7 @@ export class VoiceMesh extends EventTarget {
     }
     this.analysers = new Map();
     if (this.stream && this.myId) this.#watch(this.myId, this.stream);
+    for (const [id, peer] of this.peers) if (peer.audio.srcObject) this.#watch(id, peer.audio.srcObject);
     const buf = new Uint8Array(256);
     this.meter = setInterval(() => {
       const talking = new Set();
@@ -162,7 +163,10 @@ export class VoiceMesh extends EventTarget {
   #watch(id, stream) {
     if (!this.ctx || !stream.getAudioTracks().length) return;
     try {
+      this.sources ??= new Map();
+      this.sources.get(id)?.disconnect?.();
       const src = this.ctx.createMediaStreamSource(stream);
+      this.sources.set(id, src);
       const an = this.ctx.createAnalyser();
       an.fftSize = 256;
       src.connect(an);
@@ -189,6 +193,7 @@ export class VoiceMesh extends EventTarget {
     clearTimeout(this.rejoinTimer);
     this.ctx?.close().catch(() => {});
     this.ctx = null;
+    this.sources?.clear();
     this.analysers = new Map();
     this.talking = new Set();
     this.dispatchEvent(new CustomEvent('talking', { detail: this.talking }));
@@ -201,7 +206,7 @@ export class VoiceMesh extends EventTarget {
   async setInputDevice(deviceId = 'default') {
     if (!this.active || this.recovering) return;
     this.recovering = true;
-    this.stream?.getTracks().forEach((t) => t.stop());
+    const previous = this.stream;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: {
         deviceId: deviceId === 'default' ? 'default' : { exact: deviceId },
@@ -212,6 +217,7 @@ export class VoiceMesh extends EventTarget {
       this.micError = null;
       this.#watch(this.myId, stream);
       this.applyPermissions();
+      previous?.getTracks().forEach((t) => t.stop());
     } catch (e) {
       this.micError = e?.name || 'Error';
       throw e;
@@ -227,11 +233,42 @@ export class VoiceMesh extends EventTarget {
     for (const [id, peer] of this.peers) {
       const send = voice?.canSpeak && !this.selfMuted && voice.speakTo.includes(id) && track ? track : null;
       const sender = peer.pc.getTransceivers()[0]?.sender;
-      if (sender && sender.track !== send) sender.replaceTrack(send).then(() => this.#capBitrate(sender)).catch(() => {});
+      peer.desiredTrack = send;
+      if (sender) this.#syncSender(peer);
       peer.audio.muted = !voice?.hearFrom.includes(id);
       peer.audio.volume = this.outputVolume ?? 1;
     }
+    this.#updateCaptureGate();
     this.#emit();
+  }
+
+  #updateCaptureGate() {
+    const track = this.stream?.getAudioTracks()[0];
+    if (!track) return;
+    const voice = !this.client.stale && this.client.status === 'connected' ? this.client.view?.voice : null;
+    const safe = [...this.peers.values()].every((peer) => peer.desiredTrack || (!peer.syncing && !peer.pc.getTransceivers()[0]?.sender.track));
+    track.enabled = !!(this.active && voice?.canSpeak && !this.selfMuted && safe);
+  }
+
+  #syncSender(peer) {
+    const sender = peer.pc.getTransceivers()[0]?.sender;
+    if (!sender || peer.syncing || sender.track === peer.desiredTrack) return;
+    peer.syncing = true;
+    (async () => {
+      while (this.active && this.peers.get(peer.id) === peer && sender.track !== peer.desiredTrack) {
+        await sender.replaceTrack(peer.desiredTrack);
+        peer.trackFailures = 0;
+        await this.#capBitrate(sender);
+      }
+    })().catch(() => {
+      peer.trackFailures = (peer.trackFailures ?? 0) + 1;
+      clearTimeout(peer.trackRetry);
+      if (this.active && this.peers.get(peer.id) === peer) peer.trackRetry = setTimeout(() => this.#syncSender(peer), Math.min(5000, 250 * 2 ** peer.trackFailures));
+    }).finally(() => {
+      peer.syncing = false;
+      this.#updateCaptureGate();
+      this.#emit();
+    });
   }
 
   /** Plafond de débit côté émetteur (en plus des paramètres Opus négociés). */
@@ -276,8 +313,8 @@ export class VoiceMesh extends EventTarget {
       connectionState: !this.active ? 'disconnected' : this.peers.size === connected ? 'connected' : 'connecting',
       micError: this.micError ?? null,
       micLive: !!this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted),
-      transmitting: !!(this.active && this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted) && voice?.canSpeak && !this.selfMuted),
-      sending: !!(this.active && this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted) && voice?.canSpeak && !this.selfMuted && [...this.peers.values()].some((p) => p.pc.connectionState === 'connected' && p.pc.getTransceivers()[0]?.sender.track)),
+      transmitting: !!(this.active && this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted && t.enabled !== false) && voice?.canSpeak && !this.selfMuted),
+      sending: !!(this.active && this.stream?.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted && t.enabled !== false) && voice?.canSpeak && !this.selfMuted && [...this.peers.values()].some((p) => p.pc.connectionState === 'connected' && p.pc.getTransceivers()[0]?.sender.track)),
       speakerOk: !this.audioBlocked,
       peers: this.peers.size,
       connected,
@@ -320,7 +357,7 @@ export class VoiceMesh extends EventTarget {
     audio.autoplay = true;
     audio.setAttribute('playsinline', '');
     audio.muted = true;
-    const peer = { pc, audio, initiator, polite: String(this.myId) > String(id), makingOffer: false, ignoreOffer: false, failures: 0, timer: 0, candidates: [] };
+    const peer = { id, pc, audio, desiredTrack: null, syncing: false, initiator, polite: String(this.myId) > String(id), makingOffer: false, ignoreOffer: false, failures: 0, timer: 0, candidates: [] };
     this.peers.set(id, peer);
 
     if (initiator) pc.addTransceiver('audio', { direction: 'sendrecv' });
@@ -401,10 +438,13 @@ export class VoiceMesh extends EventTarget {
     const peer = this.peers.get(id);
     if (!peer) return;
     clearTimeout(peer.timer);
+    clearTimeout(peer.trackRetry);
     peer.pc.close();
     peer.audio.srcObject = null;
     this.peers.delete(id);
     this.analysers?.delete(id);
+    this.sources?.get(id)?.disconnect?.();
+    this.sources?.delete(id);
     this.#emit();
   }
 }
