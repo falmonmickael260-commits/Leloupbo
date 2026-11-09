@@ -253,6 +253,10 @@ export interface MeView {
   infected: boolean;
   /** Ex æquo pendant le revote : il ne vote pas (info publique, annoncée au village). */
   runoffCandidate: boolean;
+  /** Compte Revanche Games reconnu : seuls ces joueurs peuvent acheter une préférence de rôle. */
+  platformConnected: boolean;
+  /** Rôle réservé pour cette partie (boutique), si déjà acheté — jamais visible des autres joueurs. */
+  reservedRole: string | null;
 }
 
 export interface VoteView {

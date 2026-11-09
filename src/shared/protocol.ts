@@ -17,7 +17,7 @@ export interface SessionInfo {
 export interface ClientToServerEvents {
   'game:create': (p: { name: string; profile?: { id: string; key: string }; rgToken?: string }, ack: (r: Ack<SessionInfo>) => void) => void;
   'game:join': (p: { code: string; name: string; profile?: { id: string; key: string }; rgToken?: string }, ack: (r: Ack<SessionInfo>) => void) => void;
-  'session:resume': (p: { code: string; token: string }, ack: (r: Ack<{ playerId: string }>) => void) => void;
+  'session:resume': (p: { code: string; token: string; rgToken?: string }, ack: (r: Ack<{ playerId: string }>) => void) => void;
   'lobby:settings': (p: Partial<GameSettings>, ack: (r: Ack) => void) => void;
   'lobby:addBot': (p: Record<string, never>, ack: (r: Ack) => void) => void;
   'lobby:avatar': (p: { avatar: string }, ack: (r: Ack) => void) => void;
@@ -38,7 +38,7 @@ export interface ClientToServerEvents {
   'voice:signal': (p: { to: string; data: unknown }) => void;
   /** Solde de pièces Revanche Games du joueur — `null` si non connecté à la plateforme. */
   'role:balance': (p: Record<string, never>, ack: (r: Ack<{ balance: number | null }>) => void) => void;
-  /** Achète une préférence de rôle pour la partie à venir dans ce salon (voir roleShop.ts). */
+  /** Demande un rôle pendant les dix secondes de distribution (voir roleShop.ts). */
   'role:buy': (p: { role: string }, ack: (r: Ack<{ balance: number; role: string }>) => void) => void;
 }
 

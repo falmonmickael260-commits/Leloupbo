@@ -19,7 +19,7 @@ export function canRead(state: GameState, playerId: string, channel: ChatChannel
     case 'village':
       return true;
     case 'wolves':
-      return state.status !== 'lobby' && p.alive && isWolfPack(p);
+      return state.status !== 'lobby' && state.phase.id !== 'ROLE_DISTRIBUTION' && p.alive && isWolfPack(p);
     case 'dead':
       return state.status === 'running' && !p.alive;
   }

@@ -4,3 +4,8 @@ data
 test
 *.log
 scripts/art/decor-src
+
+# Les secrets locaux ne doivent jamais entrer dans une image de production.
+.env*
+.railway
+.vercel

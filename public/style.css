@@ -1,5 +1,4 @@
-/* ==========================================================================
-   Le Village des Blackops — direction artistique « bande dessinée » 2D
+/* ===================================================================   Le Village des Blackops — direction artistique « bande dessinée » 2D
    Plateau = décor fixe ; interface = encadrés BD discrets autour du plateau.
    ========================================================================== */
 /* Polices auto-hébergées (licence SIL OFL) */
@@ -57,8 +56,7 @@ code { background: rgba(0, 0, 0, 0.08); padding: 1px 5px; border-radius: 4px; }
 @property --sky-top { syntax: '<color>'; inherits: false; initial-value: #1b2450; }
 @property --sky-mid { syntax: '<color>'; inherits: false; initial-value: #1b2450; }
 
-/* ==========================================================================
-   PLATEAU
+/* ===================================================================   PLATEAU
    ========================================================================== */
 .board { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #3a2a1c, #120c08 75%); }
 .stage { position: absolute; left: 0; top: 0; width: 1536px; height: 1024px; transform-origin: 0 0; --s: 1; --night: 0; }
@@ -177,8 +175,7 @@ code { background: rgba(0, 0, 0, 0.08); padding: 1px 5px; border-radius: 4px; }
 .narration.vote { background: #ffe0d6; }
 .narration.victory { background: var(--gold); font-size: clamp(28px, 4vw, 52px); }
 
-/* ==========================================================================
-   ÉCRANS (accueil, lobby)
+/* ===================================================================   ÉCRANS (accueil, lobby)
    ========================================================================== */
 .screen { position: fixed; inset: 0; display: none; z-index: 10; }
 .screen.active { display: block; }
@@ -202,6 +199,14 @@ code { background: rgba(0, 0, 0, 0.08); padding: 1px 5px; border-radius: 4px; }
 .avatar.on { background: linear-gradient(#ffe08a, #ffd552); transform: translateY(-3px); box-shadow: 4px 4px 0 var(--ink); }
 .avatar.on::after { content: '✔'; position: absolute; top: -10px; right: -10px; width: 28px; height: 28px; border-radius: 50%; background: var(--green); color: #fff; border: 3px solid var(--ink); font-weight: 900; line-height: 22px; }
 .avatar.taken { opacity: 0.55; }
+.role-shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.role-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; border: 3px solid var(--ink); border-radius: 12px; background: linear-gradient(#2a2130, #1b1420); color: #f3e9ff; padding: 10px 8px; box-shadow: 2px 2px 0 var(--ink); text-align: center; cursor: pointer; font-weight: 800; }
+.role-card .role-emoji { font-size: 28px; line-height: 1; }
+.role-card .role-name { font-size: 12px; }
+.role-card .role-price { font: 400 16px var(--font-title); color: var(--gold); letter-spacing: 1px; }
+.role-card:disabled, .role-card[disabled] { opacity: 0.45; cursor: not-allowed; }
+.role-card.bought { background: linear-gradient(#ffe08a, #ffd552); color: var(--ink); transform: translateY(-3px); box-shadow: 4px 4px 0 var(--ink); }
+.role-card.bought::after { content: '✔'; position: absolute; top: -10px; right: -10px; width: 26px; height: 26px; border-radius: 50%; background: var(--green); color: #fff; border: 3px solid var(--ink); font-weight: 900; line-height: 20px; }
 #settings .settings-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; font-weight: 800; }
 #settings .settings-row select { width: auto; max-width: 60%; margin: 0; padding: 4px 6px; border-width: 2.5px; }
 #settings hr { border: 0; border-top: 2px dashed rgba(27, 19, 14, 0.25); margin: 10px 0; }
@@ -209,8 +214,7 @@ code { background: rgba(0, 0, 0, 0.08); padding: 1px 5px; border-radius: 4px; }
 .counter span { min-width: 20px; text-align: center; font: 400 22px var(--font-title); }
 input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2); }
 
-/* ==========================================================================
-   HUD DE PARTIE
+/* ===================================================================   HUD DE PARTIE
    ========================================================================== */
 .hud { pointer-events: none; }
 .hud > * { pointer-events: auto; }
@@ -322,8 +326,7 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--red); color: #fff; border: 3px solid var(--ink); box-shadow: var(--shadow-sm); border-radius: 12px; padding: 10px 16px; font-weight: 900; display: none; z-index: 60; max-width: 90vw; }
 .toast.show { display: block; }
 
-/* ==========================================================================
-   RESPONSIVE
+/* ===================================================================   RESPONSIVE
    ========================================================================== */
 @media (max-width: 1100px) {
   .lobby { grid-template-columns: 1fr 1fr; }
@@ -564,8 +567,7 @@ input[type='checkbox'] { width: 20px; height: 20px; accent-color: var(--gold-2);
 body.at-home .board .stage { filter: blur(3px) brightness(0.62) saturate(1.1); transition: filter 0.6s; }
 body.at-home .board::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 32%, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.25) 55%, rgba(0, 0, 0, 0.6)); }
 
-/* ==========================================================================
-   THÈME « NOIR ET OR » (même esprit que l'accueil) — appliqué à toute l'interface
+/* ===================================================================   THÈME « NOIR ET OR » (même esprit que l'accueil) — appliqué à toute l'interface
    ========================================================================== */
 :root {
   --lux-bg: linear-gradient(180deg, rgba(24, 22, 28, 0.96), rgba(9, 8, 11, 0.97));
@@ -960,8 +962,7 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .halloween .moon::before { background: radial-gradient(circle, rgba(255, 214, 150, 0.8), rgba(255, 140, 60, 0.25) 45%, transparent 70%); }
 .halloween .moon::after { background: radial-gradient(circle at 34% 38%, #e9c98a 0 9%, transparent 10%), radial-gradient(circle at 62% 64%, #e9c98a 0 7%, transparent 8%), radial-gradient(circle at 66% 30%, #e9c98a 0 5%, transparent 6%), radial-gradient(circle at 40% 40%, #fff6dc, #ffd98f 70%); }
 
-/* ================= Performance (téléphones) =================
-   Les animations n'utilisent plus que transform / opacity (gérés par la carte graphique,
+/* ================= Performance (téléphones) ==========   Les animations n'utilisent plus que transform / opacity (gérés par la carte graphique,
    sans redessiner l'écran à chaque image), sur de PETITS éléments uniquement. */
 .pion .wave i { height: 20px; transform-origin: 50% 100%; animation-name: wave-fast; will-change: transform; }
 @keyframes wave-fast { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
@@ -1206,3 +1207,19 @@ input[type='checkbox'] { accent-color: #e2b450; }
 .remastered .pion:not(.dead) .figure .character { filter:brightness(calc(1.05 + var(--night,0)*.35)) saturate(1.02) drop-shadow(0 3px 2px #0007); }
 .godot-backdrop { border:0;display:block; }
 .halloween .godot-backdrop { filter:hue-rotate(-16deg) saturate(1.12); }
+/* Portefeuille visible dans le salon et pendant la partie. */
+.wallet-summary { margin: 12px 0; padding: 12px; border: 1px solid var(--gold); border-radius: 12px; background: rgba(0,0,0,.2); }
+.wallet-summary strong { display: block; margin-top: 6px; color: var(--gold); font-size: 22px; }
+.game-wallet { position: absolute; right: 12px; top: 82px; z-index: 35; max-width: calc(100vw - 24px); }
+#screen-game #role-shop-panel { position: absolute; top: 132px; left: 50%; transform: translateX(-50%); z-index: 40; width: min(620px, calc(100vw - 24px)); box-sizing: border-box; max-height: calc(100dvh - 156px); overflow-y: auto; pointer-events: auto; }
+#role-shop-panel[hidden] { display: none; }
+#role-shop-panel .role-shop-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+#role-shop-panel .role-shop-grid .btn { white-space: normal; min-height: 48px; }
+@media (max-width: 600px) {
+  .game-wallet { right: 8px; top: 76px; font-size: 12px; }
+  #screen-game #role-shop-panel { top: 118px; max-height: calc(100dvh - 138px); padding: 12px; }
+}
+/* Le choix des rôles reste accessible, même si une ancienne carte était ouverte. */
+body.role-selection #card-layer,
+body.role-selection #card-zoom,
+body.role-selection #narrator { display: none !important; }

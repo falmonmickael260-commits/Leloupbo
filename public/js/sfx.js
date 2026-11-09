@@ -12,11 +12,12 @@ let ctx = null;
 let master = null;
 let reverb = null;
 let ambientReverb = null;
+let resumeFlight = null;
 
 function audio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return null;
-  ctx ??= window.__blackopsAudio ??= new Ctx();
+  ctx ??= window.__blackopsAudio ??= new Ctx({ latencyHint: 'balanced' });
   if (!master) {
     master = audioBuses(ctx).effects;
     reverb = ctx.createConvolver();
@@ -58,15 +59,21 @@ function noiseBuffer(c, seconds, brown = false) {
 /** Débloque le son (à appeler dans un geste : toucher, clic, touche). */
 export function unlock() {
   const c = audio();
-  if (c && c.state !== 'running') c.resume?.().catch(() => {});
+  if (c) wake(c);
   preloadRecorded();
 }
 
+function wake(c) {
+  if (c.state === 'running' || c.state === 'closed' || resumeFlight) return;
+  try {
+    resumeFlight = Promise.resolve(c.resume?.()).catch(() => {}).finally(() => { resumeFlight = null; });
+  } catch { resumeFlight = null; }
+}
 function ready() {
   const c = audio();
   if (!c) return null;
-  if (c.state !== 'running') c.resume?.().catch(() => {});
-  return c.state === 'closed' ? null : c;
+  if (c.state !== 'running') { wake(c); return null; }
+  return c;
 }
 
 /** Un hurlement : montée, longue tenue avec léger vibrato, descente. */
@@ -379,15 +386,18 @@ export function preloadRecorded() {
   const supported = new Set(['fusil', 'recharge', 'jour', 'meute', 'coeur', 'cloche']);
   preloadFlight = fetch('/api/sfx')
     .then((r) => { if (!r.ok) throw new Error('Chargement audio indisponible'); return r.json(); })
-    .then((names) => Promise.all(names.filter((name) => supported.has(name) && !recorded.get(name)).map(async (name) => {
-      try {
-        const r = await fetch(`/assets/sfx/${name}.mp3`);
-        if (!r.ok) return;
-        const data = await r.arrayBuffer();
-        const buffer = await new Promise((resolve, reject) => c.decodeAudioData(data, resolve, reject));
-        recorded.set(name, buffer);
-      } catch { /* Un échec individuel doit rester réessayable au prochain geste. */ }
-    })))
+    .then(async (names) => {
+      // Décodage séquentiel : évite six gros décodages pendant l'ouverture du micro mobile.
+      for (const name of names.filter((name) => supported.has(name) && !recorded.get(name))) {
+        try {
+          const r = await fetch(`/assets/sfx/${name}.mp3`);
+          if (!r.ok) continue;
+          const data = await r.arrayBuffer();
+          const buffer = await new Promise((resolve, reject) => c.decodeAudioData(data, resolve, reject));
+          recorded.set(name, buffer);
+        } catch { /* Cet enregistrement pourra être retenté au prochain geste. */ }
+      }
+    })
     .catch(() => {})
     .finally(() => { preloadFlight = null; nextPreload = Date.now() + 3000; });
   return preloadFlight;

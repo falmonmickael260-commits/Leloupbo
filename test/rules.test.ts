@@ -649,7 +649,7 @@ describe('Conditions de victoire', () => {
 });
 
 describe('Fin de partie, étiquettes et loups automatiques', () => {
-  it('victoire → écran des rôles (20 s) → tout le monde revient au lobby (même code, mêmes joueurs, même Hôte)', () => {
+  it('victoire → écran des rôles (10 s) → tout le monde revient au lobby (même code, mêmes joueurs, même Hôte)', () => {
     const g = setup(['werewolf', 'villager', 'villager', 'villager', 'villager']);
     g.until('WEREWOLF_PHASE');
     g.engine.leave(g.ids[0], g.now); // le seul loup s'en va : victoire du village
@@ -658,7 +658,7 @@ describe('Fin de partie, étiquettes et loups automatiques', () => {
     g.ids.shift();
     assert.equal(s.status, 'finished');
     assert.equal(s.phase.endsAt! - s.phase.startedAt, GAME_OVER_RETURN_MS);
-    assert.equal(GAME_OVER_RETURN_MS, 20_000);
+    assert.equal(GAME_OVER_RETURN_MS, 10_000);
     const hostId = s.hostId;
     g.advance(GAME_OVER_RETURN_MS - 100);
     assert.equal(s.status, 'finished', 'écran de victoire encore affiché');
@@ -1022,7 +1022,8 @@ describe('Super Loup Noir', () => {
     assert.equal(e.state.players.filter((p) => p.role === 'werewolf' || p.role === 'super_black_wolf').length, 3);
     const sbw = e.state.players.find((p) => p.role === 'super_black_wolf')!;
     assert.deepEqual(sbw.roleData, { lastInfectNight: null });
-    assert.ok(e.view(sbw.id, T0).privateLog.some((m) => m.text.startsWith('🎴 Votre rôle : 🖤 Super Loup Noir.')));
+    e.tick(T0 + 10_000); // Révélation à la fermeture du choix de rôle.
+    assert.ok(e.view(sbw.id, T0 + 10_000).privateLog.some((m) => m.text.startsWith('🎴 Votre rôle : 🖤 Super Loup Noir.')));
   });
 
   it('le Voleur qui prend la carte devient Super Loup Noir et peut infecter dès la nuit 1', () => {

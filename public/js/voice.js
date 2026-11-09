@@ -206,13 +206,13 @@ export class VoiceMesh extends EventTarget {
   async setInputDevice(deviceId = 'default') {
     if (!this.active || this.recovering) return;
     this.recovering = true;
-    const previous = this.stream;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: {
         deviceId: deviceId === 'default' ? 'default' : { exact: deviceId },
         echoCancellation: true, noiseSuppression: true, autoGainControl: true,
       } });
       if (!this.active) { stream.getTracks().forEach((t) => t.stop()); return; }
+      const previous = this.stream;
       this.stream = stream;
       this.micError = null;
       this.#watch(this.myId, stream);

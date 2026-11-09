@@ -49,10 +49,11 @@ function phaseView(ctx: Ctx, playerId: string): PhaseView {
 function meView(ctx: Ctx, playerId: string): MeView {
   const s = ctx.state;
   const p = getPlayer(s, playerId)!;
-  const def = getRole(p.role);
+  const selecting = s.phase.id === 'ROLE_DISTRIBUTION';
+  const def = selecting ? undefined : getRole(p.role);
   const lover = getPlayer(s, p.loverId);
   const pack =
-    s.status !== 'lobby' && isWolfPack(p)
+    !selecting && s.status !== 'lobby' && isWolfPack(p)
       ? s.players.filter((x) => isWolfPack(x)).map((x) => ({ id: x.id, name: x.name, alive: x.alive }))
       : null;
   return {
@@ -68,6 +69,8 @@ function meView(ctx: Ctx, playerId: string): MeView {
     roleState: def?.selfInfo?.(ctx, p) ?? null,
     infected: !!p.infected,
     runoffCandidate: isRunoffCandidate(s, p.id),
+    platformConnected: !!p.platformUserId,
+    reservedRole: p.roleReservation?.roleKey ?? null,
   };
 }
 

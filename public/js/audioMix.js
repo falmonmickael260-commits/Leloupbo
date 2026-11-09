@@ -30,6 +30,8 @@ export function audioBuses(c) {
     const limiter = c.createDynamicsCompressor();
     limiter.threshold.value = -12; limiter.ratio.value = 8; limiter.connect(c.destination);
     effectsBus = c.createGain(); ambienceBus = c.createGain();
+    // Les GainNode démarrent à 1 par défaut : partir du silence évite le pic initial.
+    effectsBus.gain.value = 0; ambienceBus.gain.value = 0;
     effectsBus.connect(limiter); ambienceBus.connect(limiter);
     apply();
   }
@@ -40,7 +42,12 @@ function apply() {
   const settings = audioSettings();
   for (const [node, level] of [[effectsBus, settings.effects * (speaking ? 0.22 : 1)], [ambienceBus, settings.ambience * (speaking ? 0.08 : 1)]]) {
     const gain = node.gain;
-    gain.cancelScheduledValues(context.currentTime);
+    if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(context.currentTime);
+    else {
+      const held = gain.value;
+      gain.cancelScheduledValues(context.currentTime);
+      gain.setValueAtTime?.(held, context.currentTime);
+    }
     gain.setTargetAtTime(level, context.currentTime, speaking ? 0.06 : 0.4);
   }
 }

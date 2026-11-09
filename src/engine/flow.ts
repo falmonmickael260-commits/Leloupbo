@@ -12,7 +12,7 @@
  */
 import type { WinResult } from '../shared/types.ts';
 import { isNightPhase, kill, resolveNightEffects } from './deaths.ts';
-import { returnToLobby } from './lobby.ts';
+import { completeRoleDistribution, returnToLobby } from './lobby.ts';
 import { enterPhase } from './phase.ts';
 import { shuffle } from './rng.ts';
 import { getNightStep, getRole, nightSteps, type NightStep } from './roles/index.ts';
@@ -273,7 +273,7 @@ function resolveVote(ctx: Ctx): void {
 // ---------------------------------------------------------------- Fin
 
 /** Durée de l'écran de victoire (rôles de chacun) avant le retour automatique au lobby. */
-export const GAME_OVER_RETURN_MS = 20_000;
+export const GAME_OVER_RETURN_MS = 10_000;
 
 export function endGame(ctx: Ctx, win: WinResult): void {
   const s = ctx.state;
@@ -295,6 +295,7 @@ export function finishPhase(ctx: Ctx): void {
   const ph = s.phase;
   switch (ph.id) {
     case 'ROLE_DISTRIBUTION':
+      completeRoleDistribution(ctx);
       return startNight(ctx);
     case 'NIGHT_START':
       return nextNightStep(ctx, -Infinity);

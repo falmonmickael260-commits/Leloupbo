@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { GameEngine } from '../src/engine/engine.ts';
 import { GameError } from '../src/engine/errors.ts';
-import { REACTIONS_PER_ROUND } from '../src/engine/reactions.ts';
+import { reactionsPerGame } from '../src/engine/reactions.ts';
 import { setup } from './helpers.ts';
 
 const rejects = (fn: () => void, code: string) =>
@@ -20,14 +21,25 @@ function atSpeech() {
 }
 
 describe('Réactions 🍅/🌸', () => {
-  it('7 tomates et 7 fleurs par tour, comptées par le serveur ; visibles de tous', () => {
+  it('quantité adaptée aux salons de 4, 8 et 18 participants, inchangée après une élimination', () => {
+    for (const count of [4, 8, 18]) {
+      const g = setup(['werewolf', ...Array.from({ length: count - 1 }, () => 'villager')]);
+      assert.equal(g.view(1).reactions.tomato, count);
+      assert.equal(g.view(1).reactions.flower, count);
+      g.engine.state.players[0].alive = false;
+      assert.equal(g.view(1).reactions.tomato, count);
+      assert.equal(g.view(1).reactions.flower, count);
+    }
+  });
+
+  it('autant de tomates et de fleurs que de participants, comptées par le serveur ; visibles de tous', () => {
     const { g, speaker, other, react } = atSpeech();
-    assert.equal(REACTIONS_PER_ROUND, 7);
+    assert.equal(reactionsPerGame(g.engine.state), 6);
     assert.deepEqual(g.view(other).reactions.targets, [speaker]);
-    assert.equal(g.view(other).reactions.tomato, 7);
-    assert.equal(g.view(other).reactions.flower, 7);
+    assert.equal(g.view(other).reactions.tomato, 6);
+    assert.equal(g.view(other).reactions.flower, 6);
     for (const kind of ['tomato', 'flower']) {
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 6; i++) {
         react(other, kind);
         g.advance(800);
       }
@@ -38,7 +50,7 @@ describe('Réactions 🍅/🌸', () => {
     assert.equal(v.flower, 0);
     // Tout le monde voit qui a lancé quoi sur qui.
     const feed = g.view((other + 1) % 6).reactions.feed;
-    assert.equal(feed.length, 14);
+    assert.equal(feed.length, 12);
     assert.deepEqual(feed[0], { ...feed[0], kind: 'tomato', from: g.ids[other], to: speaker });
   });
 
@@ -65,17 +77,39 @@ describe('Réactions 🍅/🌸', () => {
     rejects(() => react(other, 'flower'), 'WRONG_PHASE');
   });
 
-  it('remis à 7 + 7 au tour de vote suivant', () => {
+  it('aucun rechargement pendant la partie ; compteurs conservés au changement de journée et au rechargement serveur', () => {
     const { g, other, react } = atSpeech();
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 6; i++) {
       react(other, 'tomato');
       g.advance(800);
     }
-    assert.equal(g.view(other).reactions.tomato, 0);
+    react(other, 'flower');
     g.until('WEREWOLF_PHASE');
     g.until('PLAYER_SPEECH');
-    const v = g.view(other).reactions;
-    assert.equal(v.tomato, 7);
-    assert.equal(v.flower, 7);
+    assert.equal(g.view(other).reactions.tomato, 0);
+    assert.equal(g.view(other).reactions.flower, 5);
+    const speaker = g.engine.state.phase.data.speakerId as string;
+    const target = speaker === g.ids[other] ? null : speaker;
+    if (target) rejects(() => g.engine.react(g.ids[other], 'tomato', target, g.now), 'NO_REACTION_LEFT');
+    const restored = new GameEngine(JSON.parse(JSON.stringify(g.engine.state)));
+    assert.equal(restored.view(g.ids[other], g.now).reactions.tomato, 0);
+    assert.equal(restored.view(g.ids[other], g.now).reactions.flower, 5);
+  });
+
+  it('une nouvelle partie dans le même salon renouvelle les deux quantités', () => {
+    const { g, other, react } = atSpeech();
+    react(other, 'tomato');
+    g.advance(800);
+    react(other, 'flower');
+    assert.equal(g.view(other).reactions.tomato, 5);
+    assert.equal(g.view(other).reactions.flower, 5);
+    g.engine.state.status = 'finished';
+    g.engine.reset(g.engine.state.hostId, g.now);
+    assert.equal(g.engine.state.reactions, null);
+    assert.equal(g.view(other).reactions.tomato, 6);
+    assert.equal(g.view(other).reactions.flower, 6);
+    g.engine.start(g.engine.state.hostId, g.now);
+    assert.equal(g.view(other).reactions.tomato, 6);
+    assert.equal(g.view(other).reactions.flower, 6);
   });
 });

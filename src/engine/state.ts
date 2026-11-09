@@ -96,7 +96,14 @@ export interface BallotBox {
   ballots: Record<string, string>;
 }
 
+/** Tâches financières persistées avec la partie, invisibles aux clients. */
+export type PlatformJob =
+  | { id: string; kind: 'roles'; roomCode: string; reservationIds: string[]; grantedUserIds: string[] }
+  | { id: string; kind: 'cancel'; reservationId: string }
+  | { id: string; kind: 'result'; roomCode: string; finishedAt: number; players: import('../server/results.ts').PlatformResultRow[] };
+
 export interface GameState {
+  platformJobs?: PlatformJob[];
   version: number;
   code: string;
   createdAt: number;
@@ -140,7 +147,7 @@ export interface GameState {
   lastNightLog?: string[];
   /** Rôles de la partie précédente, montrés dans le lobby à côté de chaque joueur (publics : révélés à la fin). */
   lastRoles?: Record<string, LastRole> | null;
-  /** Réactions sociales (🍅/🌸) : compteurs par joueur pour la journée + fil récent. Cosmétique. */
+  /** Réactions sociales (🍅/🌸) : compteurs par joueur pour la partie + fil récent. Cosmétique. */
   reactions?: ReactionState | null;
 }
 

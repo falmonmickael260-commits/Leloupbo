@@ -2,13 +2,14 @@
  * Boutique de rôles : achat d'une préférence de rôle avec les pièces Revanche
  * Games, pour un joueur connecté à la plateforme (`platformUserId` présent).
  *
- * Toute la logique sensible (débit, remboursement, unicité par salon) vit
+ * Toute la logique sensible (réservation, débit après attribution, unicité) vit
  * côté plateforme centrale (`reserve_role`, `resolve_role_reservations`,
  * `cancel_role_reservations` — voir revanche-games-web). Ce fichier n'est
  * qu'une façade réseau, dans le même esprit que platform.ts : lues à
  * l'intérieur des fonctions, jamais au chargement du module (même piège que
  * documenté dans platform.ts).
  */
+import { platformRpc } from './platformRpc.ts';
 import type { RoleId } from '../shared/types.ts';
 
 export const GAME_SLUG = 'la-meute';
@@ -21,6 +22,7 @@ export const ROLE_SHOP_PRICES: Partial<Record<RoleId, number>> = {
   seer: 150,
   black_wolf: 200,
   white_wolf: 100,
+  hunter: 100,
 };
 
 function platformConfig() {
@@ -42,7 +44,7 @@ export async function getWalletBalance(userId: string): Promise<number | null> {
   try {
     const response = await fetch(
       `${config.url}/rest/v1/wallet_accounts?user_id=eq.${encodeURIComponent(userId)}&select=balance_coins`,
-      { headers: { apikey: config.key, Authorization: `Bearer ${config.key}` } },
+      { signal: AbortSignal.timeout(8000), headers: { apikey: config.key, Authorization: `Bearer ${config.key}` } },
     );
     if (!response.ok) return null;
     const rows = (await response.json()) as { balance_coins: number }[];
@@ -52,11 +54,13 @@ export async function getWalletBalance(userId: string): Promise<number | null> {
   }
 }
 
-/** Débite le prix et crée la réservation. Lève RoleShopError avec un message affichable en cas d'échec. */
+/** Vérifie le solde et crée une demande sans débit. Lève RoleShopError avec un message affichable en cas d'échec. */
 export async function reserveRole(params: {
   roomCode: string;
   userId: string;
   roleKey: RoleId;
+  reservationId: string;
+  selectionEndsAt: number;
 }): Promise<{ reservationId: string; newBalance: number }> {
   const config = platformConfig();
   if (!config) throw new RoleShopError('La boutique de rôles est momentanément indisponible.');
@@ -68,6 +72,7 @@ export async function reserveRole(params: {
   try {
     response = await fetch(`${config.url}/rest/v1/rpc/reserve_role`, {
       method: 'POST',
+      signal: AbortSignal.timeout(8000),
       headers: {
         apikey: config.key,
         Authorization: `Bearer ${config.key}`,
@@ -79,6 +84,8 @@ export async function reserveRole(params: {
         p_user_id: params.userId,
         p_role_key: params.roleKey,
         p_price_coins: price,
+        p_reservation_id: params.reservationId,
+        p_selection_ends_at: new Date(params.selectionEndsAt).toISOString(),
       }),
     });
   } catch {
@@ -95,63 +102,25 @@ export async function reserveRole(params: {
 
   const rows = (await response.json()) as { reservation_id: string; new_balance: number }[];
   const row = rows[0];
-  if (!row) throw new RoleShopError('Réponse inattendue de la plateforme.');
+  if (!row || row.reservation_id !== params.reservationId || typeof row.new_balance !== 'number')
+    throw new RoleShopError('Réponse inattendue de la plateforme.');
   return { reservationId: row.reservation_id, newBalance: row.new_balance };
 }
 
 /**
  * Appelée une fois, juste après la distribution des rôles : qui a obtenu le
- * rôle acheté (facturé pour de bon) et qui ne l'a pas obtenu (remboursé).
- * Best-effort, comme reportMatchResult : une panne de la plateforme centrale
- * ne doit jamais interrompre la partie en cours.
+ * rôle demandé (à débiter) et qui ne l'a pas obtenu (sans débit).
+ * Les identifiants de réservation limitent la résolution à cette manche.
+ * Les erreurs sont conservées dans la file persistée et réessayées.
  */
-export function resolveRoleReservations(roomCode: string, grantedUserIds: string[]): void {
-  const config = platformConfig();
-  if (!config) return;
-
-  void (async () => {
-    try {
-      const response = await fetch(`${config.url}/rest/v1/rpc/resolve_role_reservations`, {
-        method: 'POST',
-        headers: {
-          apikey: config.key,
-          Authorization: `Bearer ${config.key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ p_game_slug: GAME_SLUG, p_room_code: roomCode, p_granted_user_ids: grantedUserIds }),
-      });
-      if (!response.ok) {
-        const body = await response.text().catch(() => '');
-        console.error('[boutique-roles] resolve_role_reservations échec', response.status, body);
-      }
-    } catch (error) {
-      console.error('[boutique-roles] resolve_role_reservations erreur', error);
-    }
-  })();
+export async function resolveRoleReservations(roomCode: string, grantedUserIds: string[], reservationIds: string[]): Promise<void> {
+  await platformRpc('resolve_role_reservations', {
+    p_game_slug: GAME_SLUG, p_room_code: roomCode,
+    p_granted_user_ids: grantedUserIds, p_reservation_ids: reservationIds,
+  });
 }
 
-/** Salon fermé/expiré sans avoir démarré : rembourse ce qui restait en attente. Best-effort. */
-export function cancelRoleReservations(roomCode: string): void {
-  const config = platformConfig();
-  if (!config) return;
-
-  void (async () => {
-    try {
-      const response = await fetch(`${config.url}/rest/v1/rpc/cancel_role_reservations`, {
-        method: 'POST',
-        headers: {
-          apikey: config.key,
-          Authorization: `Bearer ${config.key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ p_game_slug: GAME_SLUG, p_room_code: roomCode }),
-      });
-      if (!response.ok) {
-        const body = await response.text().catch(() => '');
-        console.error('[boutique-roles] cancel_role_reservations échec', response.status, body);
-      }
-    } catch (error) {
-      console.error('[boutique-roles] cancel_role_reservations erreur', error);
-    }
-  })();
+/** Demande identifiée : annulation idempotente, même si elle arrive avant la réservation. */
+export async function cancelRoleReservation(reservationId: string): Promise<void> {
+  await platformRpc('cancel_role_reservation', { p_reservation_id: reservationId });
 }

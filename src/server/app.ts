@@ -12,6 +12,8 @@ import type { GameStore } from './store.ts';
 import { missingSfuVars } from './voiceSfu.ts';
 import { profileRouter } from '../platform/http.ts';
 import { CLIENT_BUILD, PUBLIC_DIR } from './build.ts';
+import { connectorResponse, contextResponse } from '../../platform-connector/server.mjs';
+import { platformConnector } from './platformConnector.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export { PUBLIC_DIR };
@@ -97,6 +99,12 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
     serveClient: true,
   });
   const manager = new GameManager(io, store, opts);
+  app.post(['/api/platform/connector', '/api/platform/context'], express.text({ type: '*/*', limit: '8kb' }), async (req, res) => {
+    const response = await (req.path.endsWith('/context') ? contextResponse : connectorResponse)(new Request('http://localhost/api/platform/connector', {
+      method: 'POST', headers: { 'x-rg-signature': req.header('x-rg-signature') || '' }, body: req.body,
+    }), 'la-meute', platformConnector(manager, store));
+    res.status(response.status).set(Object.fromEntries(response.headers)).send(await response.text());
+  });
   const profiles = profileRouter(manager.profiles);
   return { http, manager, io };
 }
