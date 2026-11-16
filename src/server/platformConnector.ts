@@ -18,7 +18,7 @@ export function platformConnector(manager: GameManager, store: GameStore): Adapt
         player.platformUserId = expected; void store.save(room.engine.state);
       }
       const s = room.engine.state;
-      return { code: s.code, instance: `${s.code}:${s.createdAt}`, capacity: s.settings.maxPlayers, count: s.players.length, status: s.status === 'lobby' ? 'open' : 'started', ownerUid: player.platformUserId };
+      return { code: s.code, instance: `${s.code}:${s.createdAt}`, capacity: s.settings.maxPlayers, count: s.players.length, status: s.status === 'lobby' ? 'open' : 'started', ownerUid: player.platformUserId, isHost: player.id === s.hostId && player.connected };
     },
     async admit(c) {
       const room = manager.rooms.get(c.room);
