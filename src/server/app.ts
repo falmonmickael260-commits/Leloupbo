@@ -1,3 +1,4 @@
+import { observerResponse } from '../../admin-observer/server.mjs';
 import compression from 'compression';
 import express from 'express';
 import { createServer, type Server as HttpServer } from 'node:http';
@@ -99,6 +100,18 @@ export function createApp(store: GameStore, opts: ManagerOptions = {}): { http: 
     serveClient: true,
   });
   const manager = new GameManager(io, store, opts);
+  app.post('/api/platform/observer', express.text({type:'*/*',limit:'2kb'}),async(req,res)=>{
+    const response=await observerResponse(new Request('http://localhost/api/platform/observer',{
+      method:'POST',headers:{'x-rg-signature':req.header('x-rg-signature')||''},body:req.body,
+    }),'la-meute',(code,instance)=>{
+      const room=manager.rooms.get(code),s=room?.engine.state;
+      if(!s||`${s.code}:${s.createdAt}`!==instance)return null;
+      return {code:s.code,status:s.status,phase:{id:s.phase.id,startedAt:s.phase.startedAt,endsAt:s.phase.endsAt},
+        day:s.dayNumber,night:s.nightNumber,winner:s.winner,
+        players:s.players.map(p=>({id:p.id,name:p.name,alive:p.alive,connected:p.connected,isBot:p.isBot}))};
+    });
+    res.status(response.status).set(Object.fromEntries(response.headers)).send(await response.text());
+  });
   app.post(['/api/platform/connector', '/api/platform/context'], express.text({ type: '*/*', limit: '8kb' }), async (req, res) => {
     const response = await (req.path.endsWith('/context') ? contextResponse : connectorResponse)(new Request('http://localhost/api/platform/connector', {
       method: 'POST', headers: { 'x-rg-signature': req.header('x-rg-signature') || '' }, body: req.body,
